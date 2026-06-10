@@ -18,21 +18,21 @@ function App() {
         <a href="https://vite.dev" target="_blank">
           <img
             src="/vite.svg"
-            className="h-24 p-6 transition duration-[750ms] will-change-[filter] hover:drop-shadow-[0_0_2em_#747bff]"
+            className="h-24 p-6 transition duration-750 will-change-[filter] hover:drop-shadow-[0_0_2em_#747bff]"
             alt="Vite logo"
           />
         </a>
         <a href="https://tauri.app" target="_blank">
           <img
             src="/tauri.svg"
-            className="h-24 p-6 transition duration-[750ms] will-change-[filter] hover:drop-shadow-[0_0_2em_#24c8db]"
+            className="h-24 p-6 transition duration-750 will-change-[filter] hover:drop-shadow-[0_0_2em_#24c8db]"
             alt="Tauri logo"
           />
         </a>
         <a href="https://react.dev" target="_blank">
           <img
             src={reactLogo}
-            className="h-24 p-6 transition duration-[750ms] will-change-[filter] hover:drop-shadow-[0_0_2em_#61dafb]"
+            className="h-24 p-6 transition duration-750 will-change-[filter] hover:drop-shadow-[0_0_2em_#61dafb]"
             alt="React logo"
           />
         </a>

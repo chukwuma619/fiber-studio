@@ -1,7 +1,7 @@
 [package]
 name = "fiber-studio"
 version = "0.1.0"
-description = "A Tauri App"
+description = "Fiber Studio is a native app for running the official Fiber Network node (fnn) on your machine"
 authors = ["you"]
 edition = "2021"
 
