@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    @apply font-sans text-base leading-6 font-normal text-neutral-950 bg-neutral-100 antialiased;
+    @apply dark:text-neutral-100 dark:bg-neutral-800;
+  }
+
+  a {
+    @apply font-medium text-indigo-500 no-underline hover:text-indigo-600 dark:hover:text-cyan-400;
+  }
+}
