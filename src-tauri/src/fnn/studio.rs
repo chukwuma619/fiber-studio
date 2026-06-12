@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -43,8 +43,6 @@ pub enum StudioError {
     Io(#[from] std::io::Error),
     #[error("failed to parse studio metadata: {0}")]
     Parse(#[from] serde_json::Error),
-    #[error("studio metadata not found at {0}")]
-    NotFound(PathBuf),
 }
 
 pub fn write_studio_metadata(data_dir: &Path, metadata: &StudioMetadata) -> Result<(), StudioError> {
@@ -52,13 +50,4 @@ pub fn write_studio_metadata(data_dir: &Path, metadata: &StudioMetadata) -> Resu
     let json = serde_json::to_string_pretty(metadata)?;
     fs::write(path, json)?;
     Ok(())
-}
-
-pub fn read_studio_metadata(data_dir: &Path) -> Result<StudioMetadata, StudioError> {
-    let path = data_dir.join(STUDIO_METADATA_FILE);
-    if !path.exists() {
-        return Err(StudioError::NotFound(path));
-    }
-    let raw = fs::read_to_string(path)?;
-    Ok(serde_json::from_str(&raw)?)
 }

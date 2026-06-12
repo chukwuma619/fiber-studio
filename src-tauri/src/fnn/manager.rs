@@ -37,8 +37,6 @@ impl Default for NodeRuntimeStatus {
 
 #[derive(Debug, Error)]
 pub enum ManagerError {
-    #[error("data directory is not configured")]
-    MissingDataDirectory,
     #[error("fnn is already running")]
     AlreadyRunning,
     #[error(

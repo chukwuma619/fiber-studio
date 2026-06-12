@@ -13,8 +13,6 @@ use super::studio::{write_studio_metadata, StudioMetadata};
 pub enum ProvisionError {
     #[error("data directory is empty")]
     EmptyDataDirectory,
-    #[error("wallet password is required")]
-    MissingPassword,
     #[error("imported private key is required")]
     MissingImportedKey,
     #[error("key file not found: {0}")]
