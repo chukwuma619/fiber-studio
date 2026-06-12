@@ -24,7 +24,9 @@ export type SetupConfig = {
   keyFilePath: string
   /** Setup-time only — never written to localStorage. */
   importedPrivateKey: string
+  /** Setup-time only — stored in OS keychain, not localStorage. */
   password: string
+  fnnVersion?: string
 }
 
 export const SETUP_STEPS: SetupStep[] = [

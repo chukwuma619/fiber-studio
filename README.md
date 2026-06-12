@@ -36,14 +36,18 @@ Install [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for you
 git clone https://github.com/chukwuma619/fiber-studio.git
 cd fiber-studio
 bun install
+bun run fetch-fnn    # download bundled fnn sidecar for your platform (required once)
 bun run tauri dev
 ```
+
+Fiber Studio bundles the official [fnn](https://github.com/nervosnetwork/fiber) binary (currently v0.8.1) as a Tauri sidecar. The `fetch-fnn` script downloads it from GitHub Releases into `src-tauri/binaries/` (gitignored). Run it before `tauri dev` or `tauri build`.
 
 Other scripts:
 
 ```bash
 bun run dev          # frontend only (Vite)
 bun run build        # production frontend build
+bun run fetch-fnn    # download fnn sidecar for current platform
 bun run tauri build  # production installers → src-tauri/target/release/bundle/
 ```
 

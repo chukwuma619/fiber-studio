@@ -25,3 +25,6 @@ dist-ssr
 
 
 prototype/
+
+# Bundled fnn sidecar binaries (fetch via `bun run fetch-fnn`)
+src-tauri/binaries/

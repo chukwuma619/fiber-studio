@@ -6,14 +6,18 @@ import {
 const SETUP_KEY = "fiber-studio-setup-complete"
 const SETUP_CONFIG_KEY = "fiber-studio-setup-config"
 
-type PersistedSetupConfig = Omit<SetupConfig, "importedPrivateKey">
+type PersistedSetupConfig = Omit<SetupConfig, "importedPrivateKey" | "password">
 
 export function getSetupComplete(): boolean {
   return localStorage.getItem(SETUP_KEY) === "true"
 }
 
 export function saveSetupConfig(config: SetupConfig): void {
-  const { importedPrivateKey: _key, ...persisted } = config
+  const {
+    importedPrivateKey: _importedKey,
+    password: _password,
+    ...persisted
+  } = config
   localStorage.setItem(
     SETUP_CONFIG_KEY,
     JSON.stringify(persisted satisfies PersistedSetupConfig),

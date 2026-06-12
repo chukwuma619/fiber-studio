@@ -7,6 +7,7 @@ type SetupLayoutProps = {
   currentStep: SetupStep
   isFirstStep: boolean
   isLastStep: boolean
+  isStarting?: boolean
   onBack: () => void
   onNext: () => void
   onComplete: () => void
@@ -17,6 +18,7 @@ export function SetupLayout({
   currentStep,
   isFirstStep,
   isLastStep,
+  isStarting = false,
   onBack,
   onNext,
   onComplete,
@@ -64,7 +66,7 @@ export function SetupLayout({
           <Button
             outline
             onClick={onBack}
-            disabled={isFirstStep}
+            disabled={isFirstStep || isStarting}
             className="min-w-24"
           >
             Back
@@ -75,11 +77,19 @@ export function SetupLayout({
           </p>
 
           {isLastStep ? (
-            <Button onClick={onComplete} className="min-w-32">
-              Start node
+            <Button
+              onClick={onComplete}
+              disabled={isStarting}
+              className="min-w-32"
+            >
+              {isStarting ? "Starting node…" : "Start node"}
             </Button>
           ) : (
-            <Button onClick={onNext} className="min-w-24">
+            <Button
+              onClick={onNext}
+              disabled={isStarting}
+              className="min-w-24"
+            >
               Continue
             </Button>
           )}

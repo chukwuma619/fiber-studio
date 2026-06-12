@@ -5,6 +5,8 @@ import {
   resolveDataDirectory,
   resolveDefaultDataDirectory,
 } from "../../lib/data-directory"
+import { completeSetupAndStart } from "../../lib/fnn/invoke"
+import { FNN_VERSION } from "../../lib/fnn/types"
 import { getRelay } from "../../lib/public-relays"
 import { completeSetup } from "../../lib/setup/storage"
 import {
@@ -26,6 +28,7 @@ function renderStepContent(
   step: SetupStep,
   config: SetupConfig,
   updateConfig: (patch: Partial<SetupConfig>) => void,
+  startError: string | null,
 ) {
   switch (step) {
     case "welcome":
@@ -87,7 +90,7 @@ function renderStepContent(
         />
       )
     case "review":
-      return <ReviewStep config={config} />
+      return <ReviewStep config={config} startError={startError} />
     default: {
       const _exhaustive: never = step
       return _exhaustive
@@ -99,6 +102,8 @@ export function SetupWizard() {
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome")
   const [config, setConfig] = useState<SetupConfig>(createDefaultSetupConfig)
+  const [isStarting, setIsStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -128,21 +133,43 @@ export function SetupWizard() {
   }
 
   function goBack() {
-    if (!isFirstStep) {
+    if (!isFirstStep && !isStarting) {
       setCurrentStep(SETUP_STEPS[stepIndex - 1])
     }
   }
 
   function goNext() {
-    if (!isLastStep) {
+    if (!isLastStep && !isStarting) {
       setCurrentStep(SETUP_STEPS[stepIndex + 1])
     }
   }
 
   async function handleComplete() {
-    const dataDirectory = await resolveDataDirectory(config.dataDirectory)
-    completeSetup({ ...config, dataDirectory })
-    navigate({ to: "/" })
+    setStartError(null)
+    setIsStarting(true)
+
+    try {
+      const dataDirectory = await resolveDataDirectory(config.dataDirectory)
+      const setupConfig = { ...config, dataDirectory }
+
+      await completeSetupAndStart(setupConfig)
+
+      const { password: _password, importedPrivateKey: _key, ...persisted } =
+        setupConfig
+      completeSetup({
+        ...persisted,
+        fnnVersion: FNN_VERSION,
+        password: "",
+        importedPrivateKey: "",
+      })
+      navigate({ to: "/" })
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error)
+      setStartError(message)
+    } finally {
+      setIsStarting(false)
+    }
   }
 
   return (
@@ -150,11 +177,12 @@ export function SetupWizard() {
       currentStep={currentStep}
       isFirstStep={isFirstStep}
       isLastStep={isLastStep}
+      isStarting={isStarting}
       onBack={goBack}
       onNext={goNext}
       onComplete={handleComplete}
     >
-      {renderStepContent(currentStep, config, updateConfig)}
+      {renderStepContent(currentStep, config, updateConfig, startError)}
     </SetupLayout>
   )
 }

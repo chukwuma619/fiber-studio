@@ -30,7 +30,13 @@ type ReviewRow = {
   mono?: boolean
 }
 
-export function ReviewStep({ config }: { config: SetupConfig }) {
+export function ReviewStep({
+  config,
+  startError,
+}: {
+  config: SetupConfig
+  startError?: string | null
+}) {
   const relayLabel = relayLabelForPubkey(
     config.network,
     config.customPublicNodePubkey,
@@ -57,8 +63,15 @@ export function ReviewStep({ config }: { config: SetupConfig }) {
         ]
       : []),
     {
+      label: "Saved peer",
+      value: config.customPublicNodePubkey
+        ? `For dashboard · ${truncatePubkey(config.customPublicNodePubkey)}`
+        : "Not set",
+      mono: true,
+    },
+    {
       label: "Channel plan",
-      value: `Open public channel · ${PUBLIC_CHANNEL_FUNDING_CKB} CKB · public: true`,
+      value: `Open from dashboard · ${PUBLIC_CHANNEL_FUNDING_CKB} CKB · public`,
     },
     { label: "Data directory", value: config.dataDirectory, mono: true },
     {
@@ -105,9 +118,19 @@ export function ReviewStep({ config }: { config: SetupConfig }) {
       </DescriptionList>
 
       <Text className="text-xs">
-        Clicking Start node will launch fnn with these settings. You can adjust
-        them anytime in Settings.
+        Clicking Start node will provision your data directory, store your
+        password in the OS keychain, and launch the bundled fnn binary. Connect
+        to your saved peer and open a channel from the dashboard when you are
+        ready.
       </Text>
+
+      {startError ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+          <Text className="text-sm text-red-700 dark:text-red-300">
+            {startError}
+          </Text>
+        </div>
+      ) : null}
     </div>
   )
 }

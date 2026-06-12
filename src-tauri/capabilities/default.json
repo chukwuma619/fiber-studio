@@ -1,11 +1,41 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Main window: core Tauri APIs, OS detection, and opener for external links.",
+  "description": "Main window: core Tauri APIs, OS detection, opener, and fnn sidecar.",
   "windows": ["main"],
   "permissions": [
     "core:default",
     "opener:default",
-    "os:default"
+    "os:default",
+    {
+      "identifier": "shell:allow-execute",
+      "allow": [
+        {
+          "name": "binaries/fnn",
+          "sidecar": true,
+          "args": [
+            "-c",
+            { "validator": "\\S+" },
+            "-d",
+            { "validator": "\\S+" }
+          ]
+        }
+      ]
+    },
+    {
+      "identifier": "shell:allow-spawn",
+      "allow": [
+        {
+          "name": "binaries/fnn",
+          "sidecar": true,
+          "args": [
+            "-c",
+            { "validator": "\\S+" },
+            "-d",
+            { "validator": "\\S+" }
+          ]
+        }
+      ]
+    }
   ]
 }
