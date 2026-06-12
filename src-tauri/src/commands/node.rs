@@ -5,8 +5,6 @@ use tauri::State;
 
 use crate::commands::setup::start_fnn;
 use crate::fnn::keychain;
-use crate::fnn::manager::NodeRuntimeStatus;
-use crate::fnn::rpc;
 use crate::state::AppState;
 
 #[derive(Debug, Deserialize)]
@@ -18,27 +16,18 @@ pub struct StartNodePayload {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NodeStatusResponse {
-    pub status: NodeRuntimeStatus,
+    pub status: crate::fnn::manager::NodeRuntimeStatus,
     pub data_directory: Option<String>,
     pub recent_logs: Vec<String>,
 }
 
 #[tauri::command]
 pub async fn get_node_status(state: State<'_, AppState>) -> Result<NodeStatusResponse, String> {
-    let mut status = {
-        let manager = state.fnn.lock().await;
-        manager.status()
-    };
+    let mut manager = state.fnn.lock().await;
+    manager.sync_health().await;
 
-    if let NodeRuntimeStatus::Running { .. } = &status {
-        if rpc::fetch_node_info().await.is_err() {
-            status = NodeRuntimeStatus::Stopped;
-        }
-    }
-
-    let manager = state.fnn.lock().await;
     Ok(NodeStatusResponse {
-        status,
+        status: manager.status(),
         data_directory: manager
             .data_directory()
             .map(|path| path.display().to_string()),
@@ -69,7 +58,7 @@ pub async fn start_node(
 
     let manager = state.fnn.lock().await;
     Ok(NodeStatusResponse {
-        status: NodeRuntimeStatus::Running {
+        status: crate::fnn::manager::NodeRuntimeStatus::Running {
             version: node_info.version,
             pubkey: node_info.pubkey,
         },

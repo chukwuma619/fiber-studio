@@ -27,9 +27,10 @@ pub fn run() {
         .run(|app_handle, event| {
             if let tauri::RunEvent::Exit = event {
                 if let Some(state) = app_handle.try_state::<AppState>() {
-                    if let Ok(mut manager) = state.fnn.try_lock() {
+                    tauri::async_runtime::block_on(async {
+                        let mut manager = state.fnn.lock().await;
                         let _ = manager.stop();
-                    }
+                    });
                 }
             }
         });

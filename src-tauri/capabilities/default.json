@@ -15,9 +15,9 @@
           "sidecar": true,
           "args": [
             "-c",
-            { "validator": "\\S+" },
+            { "validator": ".+" },
             "-d",
-            { "validator": "\\S+" }
+            { "validator": ".+" }
           ]
         }
       ]
@@ -30,9 +30,9 @@
           "sidecar": true,
           "args": [
             "-c",
-            { "validator": "\\S+" },
+            { "validator": ".+" },
             "-d",
-            { "validator": "\\S+" }
+            { "validator": ".+" }
           ]
         }
       ]

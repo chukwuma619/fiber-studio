@@ -3,7 +3,8 @@
  *
  * Usage:
  *   bun run fetch-fnn           # current host only
- *   bun run fetch-fnn -- --all  # all supported platforms (CI)
+ *   bun run fetch-fnn -- --all                    # all supported platforms
+ *   bun run fetch-fnn -- --triple aarch64-apple-darwin  # one platform (CI)
  */
 
 import { execSync } from "node:child_process"
@@ -98,16 +99,27 @@ async function fetchPlatform(platform: PlatformTarget): Promise<void> {
   rmSync(workDir, { recursive: true, force: true })
 }
 
+function parseTripleArg(): string | null {
+  const flagIndex = process.argv.indexOf("--triple")
+  if (flagIndex === -1 || flagIndex + 1 >= process.argv.length) {
+    return null
+  }
+  return process.argv[flagIndex + 1]
+}
+
 async function main(): Promise<void> {
   const fetchAll = process.argv.includes("--all")
+  const explicitTriple = parseTripleArg()
   const targets = fetchAll
     ? PLATFORMS
-    : PLATFORMS.filter((platform) => platform.triple === hostTriple())
+    : explicitTriple
+      ? PLATFORMS.filter((platform) => platform.triple === explicitTriple)
+      : PLATFORMS.filter((platform) => platform.triple === hostTriple())
 
   if (targets.length === 0) {
-    const triple = hostTriple()
+    const triple = explicitTriple ?? hostTriple()
     throw new Error(
-      `Unsupported host triple: ${triple}. Supported: ${PLATFORMS.map((p) => p.triple).join(", ")}`,
+      `Unsupported triple "${triple}". Supported: ${PLATFORMS.map((p) => p.triple).join(", ")}`,
     )
   }
 
