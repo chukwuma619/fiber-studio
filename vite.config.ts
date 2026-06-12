@@ -5,6 +5,10 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // @ts-expect-error process is a nodejs global
 const host = process.env.TAURI_DEV_HOST;
+// @ts-expect-error process is a nodejs global
+const tauriPlatform = process.env.TAURI_ENV_PLATFORM;
+// @ts-expect-error process is a nodejs global
+const tauriDebug = process.env.TAURI_ENV_DEBUG;
 
 // https://vite.dev/config/
 export default defineConfig(async () => ({
@@ -37,5 +41,14 @@ export default defineConfig(async () => ({
       // 3. tell Vite to ignore watching `src-tauri`
       ignored: ["**/src-tauri/**"],
     },
+  },
+  
+   // Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
+   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+
+  build: {
+    target: tauriPlatform === "windows" ? "chrome105" : "safari13",
+    minify: tauriDebug ? false : ("esbuild" as const),
+    sourcemap: !!tauriDebug,
   },
 }));

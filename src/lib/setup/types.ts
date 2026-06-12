@@ -1,0 +1,64 @@
+import { getDefaultDataDirectoryDisplay } from "../data-directory"
+import { getRelay, type PublicConnectionMode } from "../public-relays"
+
+export type SetupStep =
+  | "welcome"
+  | "network"
+  | "public-network"
+  | "data-directory"
+  | "key-file"
+  | "password"
+  | "review"
+
+export type NetworkChoice = "mainnet" | "testnet"
+
+export type KeyFileMode = "import" | "existing"
+
+export type SetupConfig = {
+  network: NetworkChoice
+  publicConnectionMode: PublicConnectionMode
+  customPublicNodePubkey: string
+  customPublicNodeMultiaddr: string
+  dataDirectory: string
+  keyFileMode: KeyFileMode
+  keyFilePath: string
+  /** Setup-time only — never written to localStorage. */
+  importedPrivateKey: string
+  password: string
+}
+
+export const SETUP_STEPS: SetupStep[] = [
+  "welcome",
+  "network",
+  "public-network",
+  "data-directory",
+  "key-file",
+  "password",
+  "review",
+]
+
+export const STEP_TITLES: Record<SetupStep, string> = {
+  welcome: "Welcome",
+  network: "Network",
+  "public-network": "Connect to peer",
+  "data-directory": "Data directory",
+  "key-file": "Wallet key",
+  password: "Wallet password",
+  review: "Review & start",
+}
+
+export function createDefaultSetupConfig(): SetupConfig {
+  const node1 = getRelay("mainnet", "node1")
+
+  return {
+    network: "mainnet",
+    publicConnectionMode: "official-relays",
+    customPublicNodePubkey: node1.pubkey,
+    customPublicNodeMultiaddr: node1.multiaddr ?? "",
+    dataDirectory: getDefaultDataDirectoryDisplay(),
+    keyFileMode: "import",
+    keyFilePath: "",
+    importedPrivateKey: "",
+    password: "",
+  }
+}
