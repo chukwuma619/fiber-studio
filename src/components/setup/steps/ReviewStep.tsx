@@ -1,7 +1,5 @@
-import { joinDataPath } from "../../../lib/data-directory"
 import {
   getRelay,
-  PUBLIC_CHANNEL_FUNDING_CKB,
   truncatePubkey,
 } from "../../../lib/public-relays"
 import type { SetupConfig } from "../../../lib/setup/types"
@@ -42,53 +40,30 @@ export function ReviewStep({
     config.customPublicNodePubkey,
   )
 
+  const peerValue = config.customPublicNodePubkey
+    ? relayLabel
+      ? `Public ${relayLabel} · ${truncatePubkey(config.customPublicNodePubkey)}`
+      : truncatePubkey(config.customPublicNodePubkey)
+    : "Not set"
+
   const rows: ReviewRow[] = [
-    { label: "Network", value: config.network },
     {
-      label: "Connect peer",
-      value: config.customPublicNodePubkey
-        ? relayLabel
-          ? `${relayLabel} · ${truncatePubkey(config.customPublicNodePubkey)}`
-          : truncatePubkey(config.customPublicNodePubkey)
-        : "Not set",
-      mono: true,
-    },
-    ...(config.customPublicNodeMultiaddr
-      ? [
-          {
-            label: "Multiaddr",
-            value: config.customPublicNodeMultiaddr,
-            mono: true,
-          },
-        ]
-      : []),
-    {
-      label: "Saved peer",
-      value: config.customPublicNodePubkey
-        ? `For dashboard · ${truncatePubkey(config.customPublicNodePubkey)}`
-        : "Not set",
-      mono: true,
+      label: "Network",
+      value: config.network === "mainnet" ? "Mainnet" : "Testnet",
     },
     {
-      label: "Channel plan",
-      value: `Open from dashboard · ${PUBLIC_CHANNEL_FUNDING_CKB} CKB · public`,
+      label: "Peer",
+      value: peerValue,
+      mono: Boolean(config.customPublicNodePubkey),
     },
     { label: "Data directory", value: config.dataDirectory, mono: true },
     {
       label: "Wallet key",
-      value: config.importedPrivateKey
-        ? `Private key → ${joinDataPath(config.dataDirectory, "ckb", "key")}`
-        : "Not entered",
-      mono: true,
+      value: config.importedPrivateKey ? "Entered" : "Not entered",
     },
     {
-      label: "Key password",
-      value: config.password ? "••••••••" : "Not set",
-    },
-    {
-      label: "Environment",
-      value: "FIBER_SECRET_KEY_PASSWORD → keychain",
-      mono: true,
+      label: "Password",
+      value: config.password ? "Set" : "Not set",
     },
   ]
 
@@ -97,7 +72,7 @@ export function ReviewStep({
       <div>
         <Heading level={2}>Review & start</Heading>
         <Text className="mt-1">
-          Confirm your setup before starting the local fnn node.
+          Check your choices, then start your local node.
         </Text>
       </div>
 
@@ -114,11 +89,9 @@ export function ReviewStep({
         ))}
       </DescriptionList>
 
-      <Text className="text-xs">
-        Clicking Start node will provision your data directory, store your
-        password in the OS keychain, and launch the bundled fnn binary. Connect
-        to your saved peer and open a channel from the dashboard when you are
-        ready.
+      <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+        Fiber Studio will set up your data folder and launch fnn on this
+        computer.
       </Text>
 
       {startError ? (

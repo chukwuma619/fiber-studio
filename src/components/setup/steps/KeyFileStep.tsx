@@ -1,35 +1,18 @@
 import { validateCkbPrivateKey } from "../../../lib/ckb-key"
-import {
-  getDefaultDataDirectoryDisplay,
-  joinDataPath,
-} from "../../../lib/data-directory"
-import { Description, ErrorMessage, Field, Label } from "../../ui/fieldset"
+import { ErrorMessage, Field, Label } from "../../ui/fieldset"
 import { Heading } from "../../ui/heading"
 import { Input } from "../../ui/input"
 import { Text } from "../../ui/text"
 
 type KeyFileStepProps = {
   importedPrivateKey: string
-  dataDirectory: string
   onPrivateKeyChange: (key: string) => void
 }
 
-const IMPORT_STEPS = [
-  "Export your CKB private key from Neuron, JoyID, or ckb-cli.",
-  "Paste the 64-character hex key below. If your export has two lines, paste only the first line.",
-  "Fiber Studio saves it to your data folder. On the next step, choose a password to protect it on this computer.",
-] as const
-
 export function KeyFileStep({
   importedPrivateKey,
-  dataDirectory,
   onPrivateKeyChange,
 }: KeyFileStepProps) {
-  const destinationPath = joinDataPath(
-    dataDirectory || getDefaultDataDirectoryDisplay(),
-    "ckb",
-    "key",
-  )
   const keyError = validateCkbPrivateKey(importedPrivateKey)
 
   return (
@@ -43,21 +26,6 @@ export function KeyFileStep({
         </Text>
       </div>
 
-      <ol className="space-y-3 rounded-lg bg-zinc-950/2.5 px-4 py-4 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10">
-        {IMPORT_STEPS.map((step, index) => (
-          <li key={step} className="flex gap-3 text-sm">
-            <span
-              className="flex size-6 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white dark:bg-white dark:text-zinc-900"
-              aria-hidden
-            >
-              {index + 1}
-            </span>
-            <span className="leading-relaxed text-zinc-700 dark:text-zinc-300">
-              {step}
-            </span>
-          </li>
-        ))}
-      </ol>
 
       <Field>
         <Label>CKB private key (hex)</Label>
@@ -71,21 +39,10 @@ export function KeyFileStep({
           className="font-mono text-xs"
           data-invalid={keyError ? true : undefined}
         />
-        <Description>
-          Saved to {destinationPath} when you start the node.
-        </Description>
         {keyError ? <ErrorMessage>{keyError}</ErrorMessage> : null}
       </Field>
 
-      {importedPrivateKey && !keyError ? (
-        <div className="rounded-lg bg-blue-500/10 px-3 py-2.5 ring-1 ring-blue-500/20 dark:bg-blue-500/10 dark:ring-blue-500/20">
-          <p className="text-xs text-blue-800 dark:text-blue-300">
-            Key looks valid. It will be written to{" "}
-            <span className="font-mono">{destinationPath}</span> when you finish
-            setup.
-          </p>
-        </div>
-      ) : null}
+
 
       <div className="rounded-lg bg-white px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
         <p className="text-xs font-medium text-zinc-950 dark:text-white">

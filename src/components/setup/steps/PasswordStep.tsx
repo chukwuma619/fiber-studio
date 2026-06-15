@@ -1,4 +1,4 @@
-import { Description, Field, Label } from "../../ui/fieldset"
+import { Field, Label } from "../../ui/fieldset"
 import { Heading } from "../../ui/heading"
 import { Input } from "../../ui/input"
 import { Text } from "../../ui/text"
@@ -34,10 +34,10 @@ export function PasswordStep({ password, onChange }: PasswordStepProps) {
         <p className="text-xs font-medium text-sky-800 dark:text-sky-300">
           OS keychain storage
         </p>
-        <Description className="mt-1 text-sky-700 dark:text-sky-400">
+        <p className="mt-1 text-xs leading-relaxed text-sky-700 dark:text-sky-400">
           Fiber Studio will store this password in your OS keychain so fnn can
           start without prompting each time.
-        </Description>
+        </p>
       </div>
     </div>
   )

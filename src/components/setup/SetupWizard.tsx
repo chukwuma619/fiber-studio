@@ -66,7 +66,6 @@ function renderStepContent(
       return (
         <KeyFileStep
           importedPrivateKey={config.importedPrivateKey}
-          dataDirectory={config.dataDirectory}
           onPrivateKeyChange={(importedPrivateKey) =>
             updateConfig({ importedPrivateKey })
           }
