@@ -4,15 +4,20 @@ import { Heading } from "../../ui/heading"
 import { Text } from "../../ui/text"
 import { SelectionCard } from "../SelectionCard"
 
+/** Re-enable when mainnet support is fully tested and ready for production. */
+const MAINNET_ENABLED = false
+
 const OPTIONS: {
   value: NetworkChoice
   label: string
   description: string
+  disabled?: boolean
 }[] = [
   {
     value: "mainnet",
     label: "Mainnet",
     description: "Connect to the live Fiber network with real CKB.",
+    disabled: !MAINNET_ENABLED,
   },
   {
     value: "testnet",
@@ -40,15 +45,23 @@ export function NetworkStep({ network, onChange }: NetworkStepProps) {
       <div className="grid gap-3 sm:grid-cols-2">
         {OPTIONS.map((option) => {
           const selected = network === option.value
+          const disabled = option.disabled ?? false
           return (
             <SelectionCard
               key={option.value}
               selected={selected}
-              onClick={() => onChange(option.value)}
+              disabled={disabled}
+              onClick={() => {
+                if (!disabled) onChange(option.value)
+              }}
               title={option.label}
               description={option.description}
               badge={
-                selected ? <Badge color="blue">{option.value}</Badge> : undefined
+                disabled ? (
+                  <Badge color="zinc">Coming soon</Badge>
+                ) : selected ? (
+                  <Badge color="blue">{option.value}</Badge>
+                ) : undefined
               }
             />
           )

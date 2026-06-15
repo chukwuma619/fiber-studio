@@ -50,10 +50,10 @@ export const STEP_TITLES: Record<SetupStep, string> = {
 }
 
 export function createDefaultSetupConfig(): SetupConfig {
-  const node1 = getRelay("mainnet", "node1")
+  const node1 = getRelay("testnet", "node1")
 
   return {
-    network: "mainnet",
+    network: "testnet",
     publicConnectionMode: "official-relays",
     customPublicNodePubkey: node1.pubkey,
     customPublicNodeMultiaddr: node1.multiaddr ?? "",
