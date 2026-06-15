@@ -76,12 +76,9 @@ export function ReviewStep({
     { label: "Data directory", value: config.dataDirectory, mono: true },
     {
       label: "Wallet key",
-      value:
-        config.keyFileMode === "import"
-          ? config.importedPrivateKey
-            ? `Private key → ${joinDataPath(config.dataDirectory, "ckb", "key")}`
-            : "Not entered"
-          : joinDataPath(config.dataDirectory, config.keyFilePath),
+      value: config.importedPrivateKey
+        ? `Private key → ${joinDataPath(config.dataDirectory, "ckb", "key")}`
+        : "Not entered",
       mono: true,
     },
     {

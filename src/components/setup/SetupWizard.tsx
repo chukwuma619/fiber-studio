@@ -65,18 +65,8 @@ function renderStepContent(
     case "key-file":
       return (
         <KeyFileStep
-          keyFileMode={config.keyFileMode}
-          keyFilePath={config.keyFilePath}
           importedPrivateKey={config.importedPrivateKey}
           dataDirectory={config.dataDirectory}
-          onModeChange={(keyFileMode) =>
-            updateConfig({
-              keyFileMode,
-              keyFilePath: keyFileMode === "import" ? "" : "ckb/key",
-              importedPrivateKey: "",
-            })
-          }
-          onPathChange={(keyFilePath) => updateConfig({ keyFilePath })}
           onPrivateKeyChange={(importedPrivateKey) =>
             updateConfig({ importedPrivateKey })
           }

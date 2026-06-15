@@ -12,7 +12,7 @@ export type SetupStep =
 
 export type NetworkChoice = "mainnet" | "testnet"
 
-export type KeyFileMode = "import" | "existing"
+export type KeyFileMode = "import"
 
 export type SetupConfig = {
   network: NetworkChoice
