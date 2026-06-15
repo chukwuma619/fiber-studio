@@ -4,15 +4,12 @@ const MAINNET_TEMPLATE: &str = include_str!("../../resources/fnn-config/mainnet.
 const TESTNET_TEMPLATE: &str = include_str!("../../resources/fnn-config/testnet.yml");
 
 const MAINNET_CKB_RPC_URL: &str = "https://mainnet.ckbapp.dev/";
+const ANNOUNCED_NODE_NAME_LINE: &str = r#"  announced_node_name: "fiber-studio""#;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
     #[error("unsupported network: {0}")]
     UnsupportedNetwork(String),
-    #[error("failed to parse config template: {0}")]
-    Parse(#[from] serde_yaml::Error),
-    #[error("config template is missing expected fields")]
-    InvalidTemplate,
 }
 
 pub fn build_config_yaml(network: &str) -> Result<String, ConfigError> {
@@ -22,25 +19,17 @@ pub fn build_config_yaml(network: &str) -> Result<String, ConfigError> {
         other => return Err(ConfigError::UnsupportedNetwork(other.to_string())),
     };
 
-    let mut value: serde_yaml::Value = serde_yaml::from_str(template)?;
+    let mut yaml = template.replace(
+        r#"  # announced_node_name: "my-fiber-node""#,
+        ANNOUNCED_NODE_NAME_LINE,
+    );
 
     if network == "mainnet" {
-        let ckb = value
-            .get_mut("ckb")
-            .and_then(|entry| entry.as_mapping_mut())
-            .ok_or(ConfigError::InvalidTemplate)?;
-        ckb.insert(
-            serde_yaml::Value::String("rpc_url".into()),
-            serde_yaml::Value::String(MAINNET_CKB_RPC_URL.into()),
+        yaml = yaml.replace(
+            r#"  rpc_url: "http://127.0.0.1:8114/""#,
+            &format!(r#"  rpc_url: "{MAINNET_CKB_RPC_URL}""#),
         );
     }
 
-    if let Some(fiber) = value.get_mut("fiber").and_then(|entry| entry.as_mapping_mut()) {
-        fiber.insert(
-            serde_yaml::Value::String("announced_node_name".into()),
-            serde_yaml::Value::String("fiber-studio".into()),
-        );
-    }
-
-    Ok(serde_yaml::to_string(&value)?)
+    Ok(yaml)
 }

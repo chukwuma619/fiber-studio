@@ -13,7 +13,8 @@ use crate::state::AppState;
 use super::rpc::{self, NodeInfo};
 
 const MAX_LOG_LINES: usize = 500;
-const SIDECAR_NAME: &str = "binaries/fnn";
+/// Runtime sidecar name (last segment of `bundle.externalBin`, placed next to the app binary).
+const SIDECAR_NAME: &str = "fnn";
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "state")]
@@ -154,10 +155,11 @@ impl FnnManager {
         let config_arg = config_path.to_string_lossy().to_string();
         let data_arg = data_directory.to_string_lossy().to_string();
 
-        let mut command = match app.shell().sidecar(SIDECAR_NAME) {
-            Ok(command) => command,
-            Err(_) => app.shell().command("fnn"),
-        };
+        let mut command = app.shell().sidecar(SIDECAR_NAME).map_err(|error| {
+            ManagerError::Spawn(format!(
+                "fnn sidecar not found ({error}). Run `bun run fetch-fnn`, then restart Fiber Studio."
+            ))
+        })?;
 
         command = command
             .args(["-c", &config_arg, "-d", &data_arg])
