@@ -982,6 +982,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
+ "shared_child",
  "strip-ansi-escapes",
  "tauri",
  "tauri-build",

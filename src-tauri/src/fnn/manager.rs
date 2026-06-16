@@ -5,9 +5,8 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use serde::Serialize;
+use shared_child::SharedChild;
 use tauri::{AppHandle, Manager};
-use tauri_plugin_shell::process::CommandEvent;
-use tauri_plugin_shell::ShellExt;
 use thiserror::Error;
 
 use crate::state::AppState;
@@ -15,10 +14,9 @@ use crate::state::AppState;
 use super::log_store;
 use super::logs::normalize_log_line;
 use super::rpc::{self, NodeInfo};
+use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
-/// Runtime sidecar name (last segment of `bundle.externalBin`, placed next to the app binary).
-const SIDECAR_NAME: &str = "fnn";
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "state")]
@@ -58,7 +56,7 @@ pub struct FnnManager {
     logs: Arc<Mutex<VecDeque<String>>>,
     log_file_offset: Arc<Mutex<u64>>,
     log_tail_cancel: Option<Arc<AtomicBool>>,
-    child: Option<tauri_plugin_shell::process::CommandChild>,
+    child: Option<Arc<SharedChild>>,
 }
 
 impl Default for FnnManager {
@@ -169,6 +167,16 @@ impl FnnManager {
 
     pub fn mark_exited(&mut self, code: Option<i32>) {
         self.child = None;
+
+        if matches!(self.status, NodeRuntimeStatus::Stopped) {
+            return;
+        }
+
+        self.append_log(
+            &format!("fnn exited with code {code:?}"),
+            true,
+        );
+
         self.status = match code {
             Some(0) | None => NodeRuntimeStatus::Stopped,
             Some(exit_code) => NodeRuntimeStatus::Error {
@@ -202,75 +210,35 @@ impl FnnManager {
         self.data_directory = Some(data_directory.clone());
 
         let config_path = data_directory.join("config.yml");
-        let config_arg = config_path.to_string_lossy().to_string();
-        let data_arg = data_directory.to_string_lossy().to_string();
+        let log_path = log_store::log_file_path(&data_directory);
 
-        let mut command = app.shell().sidecar(SIDECAR_NAME).map_err(|error| {
-            ManagerError::Spawn(format!(
-                "fnn sidecar not found ({error}). Run `bun run fetch-fnn`, then restart Fiber Studio."
-            ))
-        })?;
-
-        command = command
-            .args(["-c", &config_arg, "-d", &data_arg])
-            .env("FIBER_SECRET_KEY_PASSWORD", password)
-            .env("RUST_LOG", "info")
-            .env("NO_COLOR", "1")
-            .env("CLICOLOR", "0");
-
-        let (mut rx, child) = command
-            .spawn()
-            .map_err(|error| ManagerError::Spawn(error.to_string()))?;
-
-        self.child = Some(child);
         self.restore_logs_from_disk();
         self.append_log("Spawning fnn sidecar…", true);
 
-        let logs = Arc::clone(&self.logs);
-        let log_path = log_store::log_file_path(&data_directory);
+        let child = spawn::spawn_with_log_file(
+            &config_path,
+            &data_directory,
+            &log_path,
+            password,
+        )
+        .map_err(ManagerError::Spawn)?;
+
+        let child = Arc::new(child);
+        self.child = Some(Arc::clone(&child));
+        self.start_log_tail();
+
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
-            while let Some(event) = rx.recv().await {
-                match event {
-                    CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
-                        let text = normalize_log_line(&String::from_utf8_lossy(&line));
-                        if text.is_empty() {
-                            continue;
-                        }
-                        let mut buffer = logs.lock().expect("log mutex poisoned");
-                        push_log_line(&mut buffer, text, Some(&log_path), true);
-                    }
-                    CommandEvent::Error(message) => {
-                        let mut buffer = logs.lock().expect("log mutex poisoned");
-                        push_log_line(
-                            &mut buffer,
-                            normalize_log_line(&format!("fnn error: {message}")),
-                            Some(&log_path),
-                            true,
-                        );
-                    }
-                    CommandEvent::Terminated(payload) => {
-                        {
-                            let mut buffer = logs.lock().expect("log mutex poisoned");
-                            push_log_line(
-                                &mut buffer,
-                                normalize_log_line(&format!(
-                                    "fnn exited with code {:?}",
-                                    payload.code
-                                )),
-                                Some(&log_path),
-                                true,
-                            );
-                        }
+            let exit_code = tauri::async_runtime::spawn_blocking(move || {
+                child.wait().ok().and_then(|status| status.code())
+            })
+            .await
+            .ok()
+            .flatten();
 
-                        if let Some(state) = app_handle.try_state::<AppState>() {
-                            let mut manager = state.fnn.lock().await;
-                            manager.mark_exited(payload.code);
-                        }
-                        break;
-                    }
-                    _ => {}
-                }
+            if let Some(state) = app_handle.try_state::<AppState>() {
+                let mut manager = state.fnn.lock().await;
+                manager.mark_exited(exit_code);
             }
         });
 
@@ -320,10 +288,6 @@ impl FnnManager {
     }
 
     fn start_log_tail(&mut self) {
-        if self.child.is_some() {
-            return;
-        }
-
         let Some(data_directory) = self.data_directory.clone() else {
             return;
         };
