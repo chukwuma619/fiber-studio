@@ -1,5 +1,5 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router"
-import { DashboardLayout } from "../components/layout/DashboardLayout"
+import { HomeLayout } from "../components/layout/HomeLayout"
 import { getSetupComplete } from "../lib/setup/storage"
 
 export const Route = createFileRoute("/_app")({
@@ -13,8 +13,8 @@ export const Route = createFileRoute("/_app")({
 
 function AppLayout() {
   return (
-    <DashboardLayout>
+    <HomeLayout>
       <Outlet />
-    </DashboardLayout>
+    </HomeLayout>
   )
 }

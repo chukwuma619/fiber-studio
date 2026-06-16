@@ -3,11 +3,11 @@ import { ComingSoonPage } from "../../components/layout/ComingSoonPage"
 import { getNavItemById } from "../../lib/nav"
 
 export const Route = createFileRoute("/_app/")({
-  component: DashboardPage,
+  component: HomePage,
 })
 
-function DashboardPage() {
-  const item = getNavItemById("dashboard")
+function HomePage() {
+  const item = getNavItemById("home")
 
   return <ComingSoonPage title={item.label} description={item.description} />
 }

@@ -5,11 +5,11 @@ import { AppNavbar } from "./AppNavbar"
 import { AppSidebar } from "./AppSidebar"
 import { NodeControlProvider } from "./NodeControlProvider"
 
-type DashboardLayoutProps = {
+type HomeLayoutProps = {
   children: ReactNode
 }
 
-export function DashboardLayout({ children }: DashboardLayoutProps) {
+export function HomeLayout({ children }: HomeLayoutProps) {
   return (
     <NodeControlProvider>
       <SidebarLayout

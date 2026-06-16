@@ -1,13 +1,13 @@
 import {
   ArrowLeftRight,
-  LayoutDashboard,
+  Home,
   Settings,
   Wallet,
   Globe,
   type LucideIcon,
 } from "lucide-react"
 export type NavItemId =
-  | "dashboard"
+  | "home"
   | "wallet"
   | "channels"
   | "network"
@@ -23,10 +23,10 @@ export type NavItem = {
 
 export const NAV_ITEMS: NavItem[] = [
   {
-    id: "dashboard",
-    label: "Dashboard",
+    id: "home",
+    label: "Home",
     href: "/",
-    icon: LayoutDashboard,
+    icon: Home,
     description: "Overview of your node, balances, and recent activity.",
   },
   {
