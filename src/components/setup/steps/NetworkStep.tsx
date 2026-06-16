@@ -60,7 +60,7 @@ export function NetworkStep({ network, onChange }: NetworkStepProps) {
                 disabled ? (
                   <Badge color="zinc">Coming soon</Badge>
                 ) : selected ? (
-                  <Badge color="blue">{option.value}</Badge>
+                  <Badge color="zinc">{option.value}</Badge>
                 ) : undefined
               }
             />

@@ -95,7 +95,7 @@ export function ReviewStep({
       </Text>
 
       {startError ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950/30">
+        <div className="rounded-lg bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20 dark:bg-red-500/10 dark:ring-red-500/20">
           <Text className="text-sm text-red-700 dark:text-red-300">
             {startError}
           </Text>

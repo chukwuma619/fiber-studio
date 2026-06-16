@@ -30,11 +30,11 @@ export function PasswordStep({ password, onChange }: PasswordStepProps) {
         />
       </Field>
 
-      <div className="rounded-lg bg-sky-500/10 px-4 py-3 ring-1 ring-sky-500/20 dark:bg-sky-500/10 dark:ring-sky-500/20">
-        <p className="text-xs font-medium text-sky-800 dark:text-sky-300">
+      <div className="rounded-lg bg-zinc-950/2.5 px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10">
+        <p className="text-xs font-medium text-zinc-950 dark:text-white">
           OS keychain storage
         </p>
-        <p className="mt-1 text-xs leading-relaxed text-sky-700 dark:text-sky-400">
+        <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
           Fiber Studio will store this password in your OS keychain so fnn can
           start without prompting each time.
         </p>
