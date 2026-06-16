@@ -1,5 +1,6 @@
 pub mod config;
 pub mod keychain;
+pub mod logs;
 pub mod manager;
 pub mod provision;
 pub mod rpc;

@@ -70,6 +70,18 @@ pub async fn start_node(
 }
 
 #[tauri::command]
+pub async fn get_node_logs(
+    state: State<'_, AppState>,
+    limit: Option<usize>,
+) -> Result<Vec<String>, String> {
+    let manager = state.fnn.lock().await;
+    let limit = limit
+        .unwrap_or(crate::fnn::manager::MAX_LOG_LINES)
+        .min(crate::fnn::manager::MAX_LOG_LINES);
+    Ok(manager.recent_logs(limit))
+}
+
+#[tauri::command]
 pub async fn stop_node(state: State<'_, AppState>) -> Result<NodeStatusResponse, String> {
     let mut manager = state.fnn.lock().await;
     manager

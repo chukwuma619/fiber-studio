@@ -10,9 +10,10 @@ use thiserror::Error;
 
 use crate::state::AppState;
 
+use super::logs::normalize_log_line;
 use super::rpc::{self, NodeInfo};
 
-const MAX_LOG_LINES: usize = 500;
+pub const MAX_LOG_LINES: usize = 500;
 /// Runtime sidecar name (last segment of `bundle.externalBin`, placed next to the app binary).
 const SIDECAR_NAME: &str = "fnn";
 
@@ -81,7 +82,12 @@ impl FnnManager {
 
     pub fn recent_logs(&self, limit: usize) -> Vec<String> {
         let logs = self.logs.lock().expect("log mutex poisoned");
-        logs.iter().rev().take(limit).cloned().collect::<Vec<_>>()
+        let skip = logs.len().saturating_sub(limit);
+        logs.iter()
+            .skip(skip)
+            .map(|line| normalize_log_line(line))
+            .filter(|line| !line.is_empty())
+            .collect()
     }
 
     pub fn stop(&mut self) -> Result<(), ManagerError> {
@@ -164,7 +170,9 @@ impl FnnManager {
         command = command
             .args(["-c", &config_arg, "-d", &data_arg])
             .env("FIBER_SECRET_KEY_PASSWORD", password)
-            .env("RUST_LOG", "info");
+            .env("RUST_LOG", "info")
+            .env("NO_COLOR", "1")
+            .env("CLICOLOR", "0");
 
         let (mut rx, child) = command
             .spawn()
@@ -179,27 +187,27 @@ impl FnnManager {
             while let Some(event) = rx.recv().await {
                 match event {
                     CommandEvent::Stdout(line) | CommandEvent::Stderr(line) => {
-                        let text = String::from_utf8_lossy(&line).trim().to_string();
+                        let text = normalize_log_line(&String::from_utf8_lossy(&line));
                         if text.is_empty() {
                             continue;
                         }
                         let mut buffer = logs.lock().expect("log mutex poisoned");
-                        buffer.push_back(text);
-                        while buffer.len() > MAX_LOG_LINES {
-                            buffer.pop_front();
-                        }
+                        push_log_line(&mut buffer, text);
                     }
                     CommandEvent::Error(message) => {
                         let mut buffer = logs.lock().expect("log mutex poisoned");
-                        buffer.push_back(format!("fnn error: {message}"));
+                        push_log_line(&mut buffer, normalize_log_line(&format!("fnn error: {message}")));
                     }
                     CommandEvent::Terminated(payload) => {
                         {
                             let mut buffer = logs.lock().expect("log mutex poisoned");
-                            buffer.push_back(format!(
-                                "fnn exited with code {:?}",
-                                payload.code
-                            ));
+                            push_log_line(
+                                &mut buffer,
+                                normalize_log_line(&format!(
+                                    "fnn exited with code {:?}",
+                                    payload.code
+                                )),
+                            );
                         }
 
                         if let Some(state) = app_handle.try_state::<AppState>() {
@@ -223,13 +231,20 @@ impl FnnManager {
 
     fn append_log(&self, line: String) {
         let mut logs = self.logs.lock().expect("log mutex poisoned");
-        logs.push_back(line);
-        while logs.len() > MAX_LOG_LINES {
-            logs.pop_front();
-        }
+        push_log_line(&mut logs, normalize_log_line(&line));
     }
 
     pub fn set_error(&mut self, message: String) {
         self.status = NodeRuntimeStatus::Error { message };
+    }
+}
+
+fn push_log_line(buffer: &mut VecDeque<String>, line: String) {
+    if line.is_empty() {
+        return;
+    }
+    buffer.push_back(line);
+    while buffer.len() > MAX_LOG_LINES {
+        buffer.pop_front();
     }
 }

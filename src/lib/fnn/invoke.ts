@@ -32,6 +32,10 @@ export async function getNodeStatus(): Promise<NodeStatusResponse> {
   return invoke<NodeStatusResponse>("get_node_status")
 }
 
+export async function getNodeLogs(limit?: number): Promise<string[]> {
+  return invoke<string[]>("get_node_logs", { limit })
+}
+
 export async function startNode(
   payload: StartNodePayload,
 ): Promise<NodeStatusResponse> {

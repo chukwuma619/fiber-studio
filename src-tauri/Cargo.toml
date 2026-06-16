@@ -30,4 +30,5 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "linux-
 tokio = { version = "1", features = ["time", "sync"] }
 thiserror = "1"
 chrono = { version = "0.4", features = ["serde"] }
+strip-ansi-escapes = "0.2"
 

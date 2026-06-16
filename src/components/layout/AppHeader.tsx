@@ -14,7 +14,6 @@ export function AppHeader() {
   const [logsOpen, setLogsOpen] = useState(false)
   const {
     config,
-    nodeStatus,
     status,
     isLoading,
     isActing,
@@ -58,11 +57,7 @@ export function AppHeader() {
         </div>
       </div>
 
-      <NodeLogsDialog
-        open={logsOpen}
-        onClose={() => setLogsOpen(false)}
-        logs={nodeStatus?.recentLogs ?? []}
-      />
+      <NodeLogsDialog open={logsOpen} onClose={() => setLogsOpen(false)} />
     </>
   )
 }

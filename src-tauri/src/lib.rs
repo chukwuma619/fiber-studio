@@ -19,6 +19,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::setup::complete_setup,
             commands::node::get_node_status,
+            commands::node::get_node_logs,
             commands::node::start_node,
             commands::node::stop_node,
         ])
