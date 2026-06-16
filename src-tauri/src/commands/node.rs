@@ -22,9 +22,15 @@ pub struct NodeStatusResponse {
 }
 
 #[tauri::command]
-pub async fn get_node_status(state: State<'_, AppState>) -> Result<NodeStatusResponse, String> {
+pub async fn get_node_status(
+    state: State<'_, AppState>,
+    data_directory: Option<String>,
+) -> Result<NodeStatusResponse, String> {
     let mut manager = state.fnn.lock().await;
-    manager.sync_health().await;
+    let data_dir = data_directory
+        .filter(|path| !path.trim().is_empty())
+        .map(PathBuf::from);
+    manager.sync_health(data_dir).await;
 
     Ok(NodeStatusResponse {
         status: manager.status(),
@@ -86,6 +92,7 @@ pub async fn stop_node(state: State<'_, AppState>) -> Result<NodeStatusResponse,
     let mut manager = state.fnn.lock().await;
     manager
         .stop()
+        .await
         .map_err(|error| error.to_string())?;
 
     Ok(NodeStatusResponse {

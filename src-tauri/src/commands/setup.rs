@@ -84,12 +84,12 @@ pub async fn start_fnn(
         Err(ManagerError::Rpc(error)) => {
             let logs = manager.recent_logs(20).join("\n");
             manager.set_error(error.to_string());
-            manager.stop().ok();
+            manager.stop().await.ok();
             Err(format!("fnn did not become ready: {error}\n\nRecent logs:\n{logs}"))
         }
         Err(error) => {
             manager.set_error(error.to_string());
-            manager.stop().ok();
+            manager.stop().await.ok();
             Err(error.to_string())
         }
     }

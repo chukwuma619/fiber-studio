@@ -30,7 +30,7 @@ pub fn run() {
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     tauri::async_runtime::block_on(async {
                         let mut manager = state.fnn.lock().await;
-                        let _ = manager.stop();
+                        let _ = manager.stop_managed();
                     });
                 }
             }

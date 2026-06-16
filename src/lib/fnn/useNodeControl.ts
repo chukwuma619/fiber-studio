@@ -13,14 +13,14 @@ export function useNodeControl(pollIntervalMs = 5000) {
 
   const refreshStatus = useCallback(async () => {
     try {
-      const status = await getNodeStatus()
+      const status = await getNodeStatus(config?.dataDirectory)
       setNodeStatus(status)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [config?.dataDirectory])
 
   useEffect(() => {
     void refreshStatus()

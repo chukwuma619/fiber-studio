@@ -3,6 +3,7 @@ use std::time::{Duration, Instant};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
+pub const FNN_RPC_PORT: u16 = 8227;
 const FNN_RPC_URL: &str = "http://127.0.0.1:8227";
 const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(120);

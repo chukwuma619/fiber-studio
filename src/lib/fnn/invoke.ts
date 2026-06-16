@@ -28,8 +28,10 @@ export async function completeSetupAndStart(
   })
 }
 
-export async function getNodeStatus(): Promise<NodeStatusResponse> {
-  return invoke<NodeStatusResponse>("get_node_status")
+export async function getNodeStatus(
+  dataDirectory?: string,
+): Promise<NodeStatusResponse> {
+  return invoke<NodeStatusResponse>("get_node_status", { dataDirectory })
 }
 
 export async function getNodeLogs(limit?: number): Promise<string[]> {

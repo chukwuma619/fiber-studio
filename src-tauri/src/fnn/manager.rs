@@ -1,6 +1,8 @@
 use std::collections::VecDeque;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use serde::Serialize;
 use tauri::{AppHandle, Manager};
@@ -10,6 +12,7 @@ use thiserror::Error;
 
 use crate::state::AppState;
 
+use super::log_store;
 use super::logs::normalize_log_line;
 use super::rpc::{self, NodeInfo};
 
@@ -41,10 +44,6 @@ impl Default for NodeRuntimeStatus {
 pub enum ManagerError {
     #[error("fnn is already running")]
     AlreadyRunning,
-    #[error(
-        "Fiber RPC port 127.0.0.1:8227 is already in use. Another fnn process may still be running — quit it and try again."
-    )]
-    PortInUse,
     #[error("failed to spawn fnn: {0}")]
     Spawn(String),
     #[error("fnn RPC did not become ready: {0}")]
@@ -57,6 +56,8 @@ pub struct FnnManager {
     status: NodeRuntimeStatus,
     data_directory: Option<PathBuf>,
     logs: Arc<Mutex<VecDeque<String>>>,
+    log_file_offset: Arc<Mutex<u64>>,
+    log_tail_cancel: Option<Arc<AtomicBool>>,
     child: Option<tauri_plugin_shell::process::CommandChild>,
 }
 
@@ -66,6 +67,8 @@ impl Default for FnnManager {
             status: NodeRuntimeStatus::Stopped,
             data_directory: None,
             logs: Arc::new(Mutex::new(VecDeque::new())),
+            log_file_offset: Arc::new(Mutex::new(0)),
+            log_tail_cancel: None,
             child: None,
         }
     }
@@ -90,7 +93,9 @@ impl FnnManager {
             .collect()
     }
 
-    pub fn stop(&mut self) -> Result<(), ManagerError> {
+    pub fn stop_managed(&mut self) -> Result<(), ManagerError> {
+        self.stop_log_tail();
+
         if let Some(child) = self.child.take() {
             child
                 .kill()
@@ -100,30 +105,65 @@ impl FnnManager {
         Ok(())
     }
 
+    pub async fn stop(&mut self) -> Result<(), ManagerError> {
+        self.stop_log_tail();
+
+        if self.child.is_some() {
+            return self.stop_managed();
+        }
+
+        if rpc::fetch_node_info().await.is_ok() {
+            super::process::kill_process_on_port(rpc::FNN_RPC_PORT)
+                .map_err(ManagerError::Stop)?;
+            self.append_log("Stopped running fnn process.", true);
+        }
+
+        self.status = NodeRuntimeStatus::Stopped;
+        Ok(())
+    }
+
     /// Reconcile in-memory status with the managed child process and fnn RPC.
-    pub async fn sync_health(&mut self) {
+    pub async fn sync_health(&mut self, data_directory: Option<PathBuf>) {
         if matches!(self.status, NodeRuntimeStatus::Starting) {
             return;
         }
 
-        let rpc_ok = rpc::fetch_node_info().await.is_ok();
-
         if self.child.is_some() {
-            if rpc_ok {
-                if let Ok(info) = rpc::fetch_node_info().await {
+            match rpc::fetch_node_info().await {
+                Ok(info) => {
                     self.status = NodeRuntimeStatus::Running {
                         version: info.version,
                         pubkey: info.pubkey,
                     };
                 }
-            } else if matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-                let _ = self.stop();
+                Err(_) if matches!(self.status, NodeRuntimeStatus::Running { .. }) => {
+                    let _ = self.stop_managed();
+                }
+                Err(_) => {}
             }
             return;
         }
 
-        if matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-            self.status = NodeRuntimeStatus::Stopped;
+        match rpc::fetch_node_info().await {
+            Ok(info) => {
+                let was_stopped = !matches!(self.status, NodeRuntimeStatus::Running { .. });
+                self.status = NodeRuntimeStatus::Running {
+                    version: info.version,
+                    pubkey: info.pubkey,
+                };
+                if let Some(directory) = data_directory {
+                    self.data_directory = Some(directory);
+                }
+                if was_stopped {
+                    self.restore_logs_from_disk();
+                    self.start_log_tail();
+                    self.append_log("Connected to already-running fnn process.", true);
+                }
+            }
+            Err(_) if matches!(self.status, NodeRuntimeStatus::Running { .. }) => {
+                self.status = NodeRuntimeStatus::Stopped;
+            }
+            Err(_) => {}
         }
     }
 
@@ -143,17 +183,21 @@ impl FnnManager {
         data_directory: PathBuf,
         password: &str,
     ) -> Result<NodeInfo, ManagerError> {
-        self.sync_health().await;
+        self.sync_health(Some(data_directory.clone())).await;
 
         if self.child.is_some() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
             return Err(ManagerError::AlreadyRunning);
         }
 
-        if self.child.is_none() && rpc::fetch_node_info().await.is_ok() {
-            return Err(ManagerError::PortInUse);
+        if self.child.is_none() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+            self.data_directory = Some(data_directory.clone());
+            self.restore_logs_from_disk();
+            self.start_log_tail();
+            return rpc::fetch_node_info().await.map_err(ManagerError::Rpc);
         }
 
-        self.stop().ok();
+        self.stop_log_tail();
+        self.stop_managed().ok();
         self.status = NodeRuntimeStatus::Starting;
         self.data_directory = Some(data_directory.clone());
 
@@ -179,9 +223,11 @@ impl FnnManager {
             .map_err(|error| ManagerError::Spawn(error.to_string()))?;
 
         self.child = Some(child);
-        self.append_log("Spawning fnn sidecar…".to_string());
+        self.restore_logs_from_disk();
+        self.append_log("Spawning fnn sidecar…", true);
 
         let logs = Arc::clone(&self.logs);
+        let log_path = log_store::log_file_path(&data_directory);
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
             while let Some(event) = rx.recv().await {
@@ -192,11 +238,16 @@ impl FnnManager {
                             continue;
                         }
                         let mut buffer = logs.lock().expect("log mutex poisoned");
-                        push_log_line(&mut buffer, text);
+                        push_log_line(&mut buffer, text, Some(&log_path), true);
                     }
                     CommandEvent::Error(message) => {
                         let mut buffer = logs.lock().expect("log mutex poisoned");
-                        push_log_line(&mut buffer, normalize_log_line(&format!("fnn error: {message}")));
+                        push_log_line(
+                            &mut buffer,
+                            normalize_log_line(&format!("fnn error: {message}")),
+                            Some(&log_path),
+                            true,
+                        );
                     }
                     CommandEvent::Terminated(payload) => {
                         {
@@ -207,6 +258,8 @@ impl FnnManager {
                                     "fnn exited with code {:?}",
                                     payload.code
                                 )),
+                                Some(&log_path),
+                                true,
                             );
                         }
 
@@ -229,9 +282,98 @@ impl FnnManager {
         Ok(node_info)
     }
 
-    fn append_log(&self, line: String) {
+    fn append_log(&self, line: &str, persist: bool) {
+        let log_file = self
+            .data_directory
+            .as_ref()
+            .map(|directory| log_store::log_file_path(directory));
         let mut logs = self.logs.lock().expect("log mutex poisoned");
-        push_log_line(&mut logs, normalize_log_line(&line));
+        push_log_line(
+            &mut logs,
+            normalize_log_line(line),
+            log_file.as_deref(),
+            persist,
+        );
+    }
+
+    fn restore_logs_from_disk(&self) {
+        let Some(data_directory) = &self.data_directory else {
+            return;
+        };
+
+        let path = log_store::log_file_path(data_directory);
+        let Ok(lines) = log_store::read_tail_lines(&path, MAX_LOG_LINES) else {
+            return;
+        };
+
+        {
+            let mut buffer = self.logs.lock().expect("log mutex poisoned");
+            buffer.clear();
+            for line in lines {
+                push_log_line(&mut buffer, line, None, false);
+            }
+        }
+
+        if let Ok(offset) = log_store::file_len(&path) {
+            *self.log_file_offset.lock().expect("log offset mutex poisoned") = offset;
+        }
+    }
+
+    fn start_log_tail(&mut self) {
+        if self.child.is_some() {
+            return;
+        }
+
+        let Some(data_directory) = self.data_directory.clone() else {
+            return;
+        };
+
+        if self.log_tail_cancel.is_some() {
+            return;
+        }
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.log_tail_cancel = Some(Arc::clone(&cancel));
+
+        let logs = Arc::clone(&self.logs);
+        let offset = Arc::clone(&self.log_file_offset);
+
+        tauri::async_runtime::spawn(async move {
+            loop {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                tokio::time::sleep(Duration::from_secs(1)).await;
+
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                let path = log_store::log_file_path(&data_directory);
+                let Ok(new_lines) = log_store::read_new_lines(
+                    &path,
+                    &mut *offset.lock().expect("log offset mutex poisoned"),
+                ) else {
+                    continue;
+                };
+
+                if new_lines.is_empty() {
+                    continue;
+                }
+
+                let mut buffer = logs.lock().expect("log mutex poisoned");
+                for line in new_lines {
+                    push_log_line(&mut buffer, line, None, false);
+                }
+            }
+        });
+    }
+
+    fn stop_log_tail(&mut self) {
+        if let Some(cancel) = self.log_tail_cancel.take() {
+            cancel.store(true, Ordering::Relaxed);
+        }
     }
 
     pub fn set_error(&mut self, message: String) {
@@ -239,10 +381,22 @@ impl FnnManager {
     }
 }
 
-fn push_log_line(buffer: &mut VecDeque<String>, line: String) {
+fn push_log_line(
+    buffer: &mut VecDeque<String>,
+    line: String,
+    log_file: Option<&std::path::Path>,
+    persist: bool,
+) {
     if line.is_empty() {
         return;
     }
+
+    if persist {
+        if let Some(path) = log_file {
+            let _ = log_store::append_line(path, &line);
+        }
+    }
+
     buffer.push_back(line);
     while buffer.len() > MAX_LOG_LINES {
         buffer.pop_front();
