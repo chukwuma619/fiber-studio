@@ -23,6 +23,7 @@ pub struct NodeStatusResponse {
 
 #[tauri::command]
 pub async fn get_node_status(
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     data_directory: Option<String>,
 ) -> Result<NodeStatusResponse, String> {
@@ -31,6 +32,7 @@ pub async fn get_node_status(
         .filter(|path| !path.trim().is_empty())
         .map(PathBuf::from);
     manager.sync_health(data_dir).await;
+    manager.ensure_relay_connect_loop(&app);
 
     Ok(NodeStatusResponse {
         status: manager.status(),

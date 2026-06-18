@@ -3,6 +3,7 @@ pub mod keychain;
 pub mod log_store;
 pub mod logs;
 pub mod manager;
+pub mod peer_connect;
 pub mod process;
 pub mod provision;
 pub mod rpc;

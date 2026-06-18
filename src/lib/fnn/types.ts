@@ -32,3 +32,55 @@ export type CompleteSetupPayload = {
 export type StartNodePayload = {
   dataDirectory: string
 }
+
+export type HomeNodeInfo = {
+  version: string
+  pubkey: string
+  nodeName: string | null
+  channelCount: number
+  pendingChannelCount: number
+  peersCount: number
+}
+
+export type HomeChannel = {
+  channelId: string
+  pubkey: string
+  isPublic: boolean
+  state: string
+  localBalance: string
+  remoteBalance: string
+  localPercent: number
+}
+
+export type HomePeer = {
+  pubkey: string
+  address: string
+}
+
+export type HomePayment = {
+  paymentHash: string
+  status: string
+  createdAt: number
+  lastUpdatedAt: number
+  failedError: string | null
+  fee: string
+}
+
+export type RelayConnectionStatus =
+  | "not_configured"
+  | "connected"
+  | "connecting"
+  | "failed"
+
+export type HomeDashboardResponse = {
+  available: boolean
+  nodeInfo: HomeNodeInfo | null
+  channels: HomeChannel[]
+  peers: HomePeer[]
+  payments: HomePayment[]
+  totalLocalBalance: string
+  configuredRelayPubkey: string | null
+  configuredRelayMultiaddr: string | null
+  network: string | null
+  relayStatus: RelayConnectionStatus
+}

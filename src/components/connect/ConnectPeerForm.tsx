@@ -35,7 +35,7 @@ export function ConnectPeerForm({
     const relay = relays.find((node) => node.id === id)
     if (!relay) return
     onPubkeyChange(relay.pubkey)
-    onMultiaddrChange(relay.multiaddr ?? "")
+    onMultiaddrChange("")
   }
 
   function applyCustomExample() {

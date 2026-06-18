@@ -22,6 +22,7 @@ pub fn run() {
             commands::node::get_node_logs,
             commands::node::start_node,
             commands::node::stop_node,
+            commands::dashboard::get_home_dashboard,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

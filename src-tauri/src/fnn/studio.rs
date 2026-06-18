@@ -51,3 +51,24 @@ pub fn write_studio_metadata(data_dir: &Path, metadata: &StudioMetadata) -> Resu
     fs::write(path, json)?;
     Ok(())
 }
+
+pub fn read_studio_metadata(data_dir: &Path) -> Result<StudioMetadata, StudioError> {
+    let path = data_dir.join(STUDIO_METADATA_FILE);
+    let raw = fs::read_to_string(path)?;
+    let metadata = serde_json::from_str(&raw)?;
+    Ok(metadata)
+}
+
+pub fn persist_relay_multiaddr(
+    data_dir: &Path,
+    metadata: &StudioMetadata,
+    multiaddr: &str,
+) -> Result<(), StudioError> {
+    if metadata.custom_public_node_multiaddr.trim() == multiaddr.trim() {
+        return Ok(());
+    }
+
+    let mut updated = metadata.clone();
+    updated.custom_public_node_multiaddr = multiaddr.trim().to_string();
+    write_studio_metadata(data_dir, &updated)
+}

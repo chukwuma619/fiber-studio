@@ -56,7 +56,7 @@ export function createDefaultSetupConfig(): SetupConfig {
     network: "testnet",
     publicConnectionMode: "official-relays",
     customPublicNodePubkey: node1.pubkey,
-    customPublicNodeMultiaddr: node1.multiaddr ?? "",
+    customPublicNodeMultiaddr: "",
     dataDirectory: getDefaultDataDirectoryDisplay(),
     keyFileMode: "import",
     keyFilePath: "",

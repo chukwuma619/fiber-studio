@@ -13,10 +13,19 @@ use crate::state::AppState;
 
 use super::log_store;
 use super::logs::normalize_log_line;
+use super::peer_connect::{self, RelayConnectStatus};
 use super::rpc::{self, NodeInfo};
 use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
+const RELAY_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
+#[serde(rename_all = "camelCase")]
+pub struct RelayConnectionState {
+    pub status: String,
+    pub detail: Option<String>,
+}
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase", tag = "state")]
@@ -53,9 +62,11 @@ pub enum ManagerError {
 pub struct FnnManager {
     status: NodeRuntimeStatus,
     data_directory: Option<PathBuf>,
+    relay_state: RelayConnectionState,
     logs: Arc<Mutex<VecDeque<String>>>,
     log_file_offset: Arc<Mutex<u64>>,
     log_tail_cancel: Option<Arc<AtomicBool>>,
+    relay_connect_cancel: Option<Arc<AtomicBool>>,
     child: Option<Arc<SharedChild>>,
 }
 
@@ -64,9 +75,11 @@ impl Default for FnnManager {
         Self {
             status: NodeRuntimeStatus::Stopped,
             data_directory: None,
+            relay_state: RelayConnectionState::default(),
             logs: Arc::new(Mutex::new(VecDeque::new())),
             log_file_offset: Arc::new(Mutex::new(0)),
             log_tail_cancel: None,
+            relay_connect_cancel: None,
             child: None,
         }
     }
@@ -81,6 +94,10 @@ impl FnnManager {
         self.data_directory.as_ref()
     }
 
+    pub fn relay_state(&self) -> RelayConnectionState {
+        self.relay_state.clone()
+    }
+
     pub fn recent_logs(&self, limit: usize) -> Vec<String> {
         let logs = self.logs.lock().expect("log mutex poisoned");
         let skip = logs.len().saturating_sub(limit);
@@ -93,6 +110,7 @@ impl FnnManager {
 
     pub fn stop_managed(&mut self) -> Result<(), ManagerError> {
         self.stop_log_tail();
+        self.stop_relay_connect_loop();
 
         if let Some(child) = self.child.take() {
             child
@@ -100,11 +118,13 @@ impl FnnManager {
                 .map_err(|error| ManagerError::Stop(error.to_string()))?;
         }
         self.status = NodeRuntimeStatus::Stopped;
+        self.relay_state = RelayConnectionState::default();
         Ok(())
     }
 
     pub async fn stop(&mut self) -> Result<(), ManagerError> {
         self.stop_log_tail();
+        self.stop_relay_connect_loop();
 
         if self.child.is_some() {
             return self.stop_managed();
@@ -117,10 +137,9 @@ impl FnnManager {
         }
 
         self.status = NodeRuntimeStatus::Stopped;
+        self.relay_state = RelayConnectionState::default();
         Ok(())
     }
-
-    /// Reconcile in-memory status with the managed child process and fnn RPC.
     pub async fn sync_health(&mut self, data_directory: Option<PathBuf>) {
         if matches!(self.status, NodeRuntimeStatus::Starting) {
             return;
@@ -201,6 +220,7 @@ impl FnnManager {
             self.data_directory = Some(data_directory.clone());
             self.restore_logs_from_disk();
             self.start_log_tail();
+            self.spawn_relay_connect_loop(app);
             return rpc::fetch_node_info().await.map_err(ManagerError::Rpc);
         }
 
@@ -247,7 +267,84 @@ impl FnnManager {
             version: node_info.version.clone(),
             pubkey: node_info.pubkey.clone(),
         };
+
+        self.spawn_relay_connect_loop(app);
+
         Ok(node_info)
+    }
+
+    pub fn ensure_relay_connect_loop(&mut self, app: &AppHandle) {
+        if !matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+            return;
+        }
+
+        if self.data_directory.is_none() {
+            return;
+        }
+
+        if self.relay_connect_cancel.is_some() {
+            return;
+        }
+
+        self.spawn_relay_connect_loop(app);
+    }
+
+    fn spawn_relay_connect_loop(&mut self, app: &AppHandle) {
+        let Some(data_directory) = self.data_directory.clone() else {
+            return;
+        };
+
+        self.stop_relay_connect_loop();
+        self.relay_state = RelayConnectionState {
+            status: RelayConnectStatus::Connecting.status_label().to_string(),
+            detail: Some("Resolving relay from network graph…".into()),
+        };
+
+        let cancel = Arc::new(AtomicBool::new(false));
+        self.relay_connect_cancel = Some(Arc::clone(&cancel));
+
+        let app_handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            loop {
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+
+                let result = peer_connect::ensure_configured_peer_connected(&data_directory).await;
+
+                if let Some(state) = app_handle.try_state::<AppState>() {
+                    let mut manager = state.fnn.lock().await;
+                    manager.relay_state = relay_state_from_result(&result);
+                }
+
+                match result {
+                    Ok(RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected) => {
+                        break;
+                    }
+                    Ok(RelayConnectStatus::NotConfigured) => {
+                        break;
+                    }
+                    Ok(RelayConnectStatus::Connecting | RelayConnectStatus::Failed) => {}
+                    Err(error) => {
+                        if let Some(state) = app_handle.try_state::<AppState>() {
+                            let mut manager = state.fnn.lock().await;
+                            manager.relay_state = RelayConnectionState {
+                                status: RelayConnectStatus::Failed.status_label().to_string(),
+                                detail: Some(error.to_string()),
+                            };
+                        }
+                    }
+                }
+
+                tokio::time::sleep(RELAY_RETRY_INTERVAL).await;
+            }
+        });
+    }
+
+    fn stop_relay_connect_loop(&mut self) {
+        if let Some(cancel) = self.relay_connect_cancel.take() {
+            cancel.store(true, Ordering::Relaxed);
+        }
     }
 
     fn append_log(&self, line: &str, persist: bool) {
@@ -342,6 +439,35 @@ impl FnnManager {
 
     pub fn set_error(&mut self, message: String) {
         self.status = NodeRuntimeStatus::Error { message };
+    }
+}
+
+fn relay_state_from_result(
+    result: &Result<RelayConnectStatus, rpc::RpcError>,
+) -> RelayConnectionState {
+    match result {
+        Ok(RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected) => {
+            RelayConnectionState {
+                status: RelayConnectStatus::Connected.status_label().to_string(),
+                detail: None,
+            }
+        }
+        Ok(RelayConnectStatus::NotConfigured) => RelayConnectionState {
+            status: RelayConnectStatus::NotConfigured.status_label().to_string(),
+            detail: None,
+        },
+        Ok(RelayConnectStatus::Connecting) => RelayConnectionState {
+            status: RelayConnectStatus::Connecting.status_label().to_string(),
+            detail: Some("Waiting for relay handshake…".into()),
+        },
+        Ok(RelayConnectStatus::Failed) => RelayConnectionState {
+            status: RelayConnectStatus::Failed.status_label().to_string(),
+            detail: Some("Could not reach configured relay".into()),
+        },
+        Err(error) => RelayConnectionState {
+            status: RelayConnectStatus::Failed.status_label().to_string(),
+            detail: Some(error.to_string()),
+        },
     }
 }
 

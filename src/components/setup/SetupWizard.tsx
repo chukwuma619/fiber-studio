@@ -42,7 +42,7 @@ function renderStepContent(
             if (config.publicConnectionMode === "official-relays") {
               const node1 = getRelay(network, "node1")
               patch.customPublicNodePubkey = node1.pubkey
-              patch.customPublicNodeMultiaddr = node1.multiaddr ?? ""
+              patch.customPublicNodeMultiaddr = ""
             }
             updateConfig(patch)
           }}

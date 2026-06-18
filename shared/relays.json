@@ -1,0 +1,26 @@
+{
+  "testnet": [
+    {
+      "id": "node1",
+      "label": "Public node1",
+      "pubkey": "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71"
+    },
+    {
+      "id": "node2",
+      "label": "Public node2",
+      "pubkey": "0291a6576bd5a94bd74b27080a48340875338fff9f6d6361fe6b8db8d0d1912fcc"
+    }
+  ],
+  "mainnet": [
+    {
+      "id": "node1",
+      "label": "Public node1",
+      "pubkey": "03a8d7da8d0934363dbc17f52c872e8d833016415266eabb3527439c5dd17adc6b"
+    },
+    {
+      "id": "node2",
+      "label": "Public node2",
+      "pubkey": "033a69e5be369dab43aefa96fa729d83c571ccb066f312136c6ab2d354fcc028f9"
+    }
+  ]
+}

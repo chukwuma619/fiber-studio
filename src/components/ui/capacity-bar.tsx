@@ -1,0 +1,24 @@
+type CapacityBarProps = {
+  percent: number
+}
+
+export function CapacityBar({ percent }: CapacityBarProps) {
+  const tone =
+    percent < 15
+      ? "bg-amber-500 dark:bg-amber-400"
+      : "bg-teal-500 dark:bg-teal-400"
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="h-1.5 w-24 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
+        <div
+          className={`h-full rounded-full ${tone}`}
+          style={{ width: `${percent}%` }}
+        />
+      </div>
+      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+        {percent}%
+      </span>
+    </div>
+  )
+}

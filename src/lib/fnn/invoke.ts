@@ -3,6 +3,7 @@ import type { SetupConfig } from "../setup/types"
 import type {
   CompleteSetupPayload,
   CompleteSetupResult,
+  HomeDashboardResponse,
   NodeStatusResponse,
   StartNodePayload,
 } from "./types"
@@ -46,4 +47,8 @@ export async function startNode(
 
 export async function stopNode(): Promise<NodeStatusResponse> {
   return invoke<NodeStatusResponse>("stop_node")
+}
+
+export async function getHomeDashboard(): Promise<HomeDashboardResponse> {
+  return invoke<HomeDashboardResponse>("get_home_dashboard")
 }

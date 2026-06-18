@@ -1,3 +1,5 @@
+import relaysManifest from "../../shared/relays.json"
+
 export type FiberNetwork = "mainnet" | "testnet"
 
 export type PublicConnectionMode = "official-relays" | "custom-public-node"
@@ -8,43 +10,13 @@ export type PublicRelayNode = {
   id: PublicRelayId
   label: string
   pubkey: string
-  multiaddr?: string
 }
 
-export const PUBLIC_RELAYS: Record<FiberNetwork, PublicRelayNode[]> = {
-  mainnet: [
-    {
-      id: "node1",
-      label: "Public node1",
-      pubkey:
-        "03a8d7da8d0934363dbc17f52c872e8d833016415266eabb3527439c5dd17adc6b",
-    },
-    {
-      id: "node2",
-      label: "Public node2",
-      pubkey:
-        "033a69e5be369dab43aefa96fa729d83c571ccb066f312136c6ab2d354fcc028f9",
-    },
-  ],
-  testnet: [
-    {
-      id: "node1",
-      label: "Public node1",
-      pubkey:
-        "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71",
-      multiaddr:
-        "/ip4/18.162.235.225/tcp/8119/p2p/QmXen3eUHhywmutEzydCsW4hXBoeVmdET2FJvMX69XJ1Eo",
-    },
-    {
-      id: "node2",
-      label: "Public node2",
-      pubkey:
-        "0291a6576bd5a94bd74b27080a48340875338fff9f6d6361fe6b8db8d0d1912fcc",
-      multiaddr:
-        "/ip4/18.163.221.211/tcp/8119/p2p/QmbKyzq9qUmymW2Gi8Zq7kKVpPiNA1XUJ6uMvsUC4F3p89",
-    },
-  ],
-}
+type RelaysManifest = Record<FiberNetwork, PublicRelayNode[]>
+
+const MANIFEST = relaysManifest as RelaysManifest
+
+export const PUBLIC_RELAYS: Record<FiberNetwork, PublicRelayNode[]> = MANIFEST
 
 export const PUBLIC_CHANNEL_FUNDING_CKB = 499
 
@@ -70,4 +42,16 @@ export function getRelay(
     throw new Error(`Relay ${id} not found for ${network}`)
   }
   return relay
+}
+
+export function findRelayByPubkey(
+  network: FiberNetwork,
+  pubkey: string,
+): PublicRelayNode | null {
+  const normalized = pubkey.trim().toLowerCase()
+  return (
+    PUBLIC_RELAYS[network].find(
+      (node) => node.pubkey.toLowerCase() === normalized,
+    ) ?? null
+  )
 }
