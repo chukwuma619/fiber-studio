@@ -85,6 +85,15 @@ jobs:
       - name: Fetch fnn sidecar binary
         run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}
 
+      - name: Verify updater signing secret
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of src-tauri/.updater/fiber-studio.key as a repository secret. See README → Releases and updates."
+            exit 1
+          fi
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+
       - name: Build and publish release assets
         uses: tauri-apps/tauri-action@v0
         env:
