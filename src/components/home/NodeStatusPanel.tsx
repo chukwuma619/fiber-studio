@@ -96,7 +96,10 @@ export function NodeStatusPanel({
           {dataDirectory ? (
             <>
               <DescriptionTerm>Data directory</DescriptionTerm>
-              <DescriptionDetails className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
+              <DescriptionDetails
+                className="break-all font-mono text-xs text-zinc-600 dark:text-zinc-400"
+                title={dataDirectory}
+              >
                 {dataDirectory}
               </DescriptionDetails>
             </>
