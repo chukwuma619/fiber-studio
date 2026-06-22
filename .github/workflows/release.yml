@@ -86,6 +86,7 @@ jobs:
         run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}
 
       - name: Verify updater signing secret
+        shell: bash
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
             echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of src-tauri/.updater/fiber-studio.key as a repository secret. See README → Releases and updates."
