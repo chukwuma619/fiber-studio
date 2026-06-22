@@ -32,13 +32,8 @@ pub struct RelayConnectionState {
 pub enum NodeRuntimeStatus {
     Stopped,
     Starting,
-    Running {
-        version: String,
-        pubkey: String,
-    },
-    Error {
-        message: String,
-    },
+    Running { version: String, pubkey: String },
+    Error { message: String },
 }
 
 impl Default for NodeRuntimeStatus {
@@ -131,8 +126,7 @@ impl FnnManager {
         }
 
         if rpc::fetch_node_info().await.is_ok() {
-            super::process::kill_process_on_port(rpc::FNN_RPC_PORT)
-                .map_err(ManagerError::Stop)?;
+            super::process::kill_process_on_port(rpc::FNN_RPC_PORT).map_err(ManagerError::Stop)?;
             self.append_log("Stopped running fnn process.", true);
         }
 
@@ -191,10 +185,7 @@ impl FnnManager {
             return;
         }
 
-        self.append_log(
-            &format!("fnn exited with code {code:?}"),
-            true,
-        );
+        self.append_log(&format!("fnn exited with code {code:?}"), true);
 
         self.status = match code {
             Some(0) | None => NodeRuntimeStatus::Stopped,
@@ -235,13 +226,8 @@ impl FnnManager {
         self.restore_logs_from_disk();
         self.append_log("Spawning fnn sidecar…", true);
 
-        let child = spawn::spawn_with_log_file(
-            &config_path,
-            &data_directory,
-            &log_path,
-            password,
-        )
-        .map_err(ManagerError::Spawn)?;
+        let child = spawn::spawn_with_log_file(&config_path, &data_directory, &log_path, password)
+            .map_err(ManagerError::Spawn)?;
 
         let child = Arc::new(child);
         self.child = Some(Arc::clone(&child));
@@ -380,7 +366,10 @@ impl FnnManager {
         }
 
         if let Ok(offset) = log_store::file_len(&path) {
-            *self.log_file_offset.lock().expect("log offset mutex poisoned") = offset;
+            *self
+                .log_file_offset
+                .lock()
+                .expect("log offset mutex poisoned") = offset;
         }
     }
 

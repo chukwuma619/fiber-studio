@@ -1,6 +1,8 @@
 import { useRouterState } from "@tanstack/react-router"
+import { useAppUpdateContext } from "../../lib/updates/AppUpdateProvider"
 import { isNavItemActive, NAV_ITEMS } from "../../lib/nav"
 import { FiberMarkIcon, FiberStudioWordmark } from "../brand"
+import { Badge } from "../ui/badge"
 import {
   Sidebar,
   SidebarBody,
@@ -13,6 +15,7 @@ import {
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { hasPendingUpdate } = useAppUpdateContext()
 
   return (
     <Sidebar>
@@ -33,16 +36,21 @@ export function AppSidebar() {
               href={href}
               current={isNavItemActive(pathname, href)}
             >
-              <Icon data-slot="icon" aria-hidden  />
-              <SidebarLabel>{label}</SidebarLabel>
+              <Icon data-slot="icon" aria-hidden />
+              <SidebarLabel className="flex items-center gap-2">
+                <span>{label}</span>
+                {id === "settings" && hasPendingUpdate ? (
+                  <Badge color="blue" className="px-1.5 py-0 text-[10px]/4">
+                    Update
+                  </Badge>
+                ) : null}
+              </SidebarLabel>
             </SidebarItem>
           ))}
         </SidebarSection>
 
         <SidebarSpacer />
       </SidebarBody>
-
-
     </Sidebar>
   )
 }

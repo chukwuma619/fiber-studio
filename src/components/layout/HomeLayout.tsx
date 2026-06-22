@@ -1,4 +1,5 @@
 import type { ReactNode } from "react"
+import { AppUpdateProvider } from "../../lib/updates/AppUpdateProvider"
 import { SidebarLayout } from "../ui/sidebar-layout"
 import { AppHeader } from "./AppHeader"
 import { AppNavbar } from "./AppNavbar"
@@ -12,13 +13,15 @@ type HomeLayoutProps = {
 export function HomeLayout({ children }: HomeLayoutProps) {
   return (
     <NodeControlProvider>
-      <SidebarLayout
-        navbar={<AppNavbar />}
-        sidebar={<AppSidebar />}
-        header={<AppHeader />}
-      >
-        {children}
-      </SidebarLayout>
+      <AppUpdateProvider>
+        <SidebarLayout
+          navbar={<AppNavbar />}
+          sidebar={<AppSidebar />}
+          header={<AppHeader />}
+        >
+          {children}
+        </SidebarLayout>
+      </AppUpdateProvider>
     </NodeControlProvider>
   )
 }

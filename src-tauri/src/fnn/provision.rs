@@ -71,7 +71,9 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
             };
             let key_path = data_dir.join(&relative);
             if !key_path.is_file() {
-                return Err(ProvisionError::KeyFileNotFound(key_path.display().to_string()));
+                return Err(ProvisionError::KeyFileNotFound(
+                    key_path.display().to_string(),
+                ));
             }
         }
         other => {

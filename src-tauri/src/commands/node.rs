@@ -92,10 +92,7 @@ pub async fn get_node_logs(
 #[tauri::command]
 pub async fn stop_node(state: State<'_, AppState>) -> Result<NodeStatusResponse, String> {
     let mut manager = state.fnn.lock().await;
-    manager
-        .stop()
-        .await
-        .map_err(|error| error.to_string())?;
+    manager.stop().await.map_err(|error| error.to_string())?;
 
     Ok(NodeStatusResponse {
         status: manager.status(),

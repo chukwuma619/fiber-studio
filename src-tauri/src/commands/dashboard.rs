@@ -4,7 +4,7 @@ use tauri::{AppHandle, State};
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
 use crate::fnn::rpc::{
-    self, Channel, NodeInfo, PaymentSummary, PeerInfo, is_channel_ready, parse_hex_u128,
+    self, is_channel_ready, parse_hex_u128, Channel, NodeInfo, PaymentSummary, PeerInfo,
 };
 use crate::fnn::studio;
 use crate::state::AppState;
@@ -116,11 +116,8 @@ pub async fn get_home_dashboard(
     let total_local_balance = sum_local_balances(&channels);
     let home_channels = select_home_channels(channels);
 
-    let relay_status = relay_status_from_peers(
-        &peers,
-        studio_metadata.as_ref(),
-        &manager_relay_status,
-    );
+    let relay_status =
+        relay_status_from_peers(&peers, studio_metadata.as_ref(), &manager_relay_status);
 
     Ok(HomeDashboardResponse {
         available: true,
@@ -137,7 +134,9 @@ pub async fn get_home_dashboard(
             .as_ref()
             .map(|metadata| metadata.custom_public_node_multiaddr.clone())
             .filter(|address| !address.trim().is_empty()),
-        network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
+        network: studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.clone()),
         relay_status,
     })
 }

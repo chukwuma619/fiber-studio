@@ -61,7 +61,8 @@ pub async fn connect_from_metadata(
         return Ok(RelayConnectStatus::AlreadyConnected);
     }
 
-    let addresses = resolve_connect_addresses(pubkey, metadata.custom_public_node_multiaddr.trim()).await;
+    let addresses =
+        resolve_connect_addresses(pubkey, metadata.custom_public_node_multiaddr.trim()).await;
     if addresses.is_empty() {
         return try_pubkey_only_connect(data_dir, metadata, pubkey).await;
     }

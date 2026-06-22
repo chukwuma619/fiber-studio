@@ -45,7 +45,10 @@ pub enum StudioError {
     Parse(#[from] serde_json::Error),
 }
 
-pub fn write_studio_metadata(data_dir: &Path, metadata: &StudioMetadata) -> Result<(), StudioError> {
+pub fn write_studio_metadata(
+    data_dir: &Path,
+    metadata: &StudioMetadata,
+) -> Result<(), StudioError> {
     let path = data_dir.join(STUDIO_METADATA_FILE);
     let json = serde_json::to_string_pretty(metadata)?;
     fs::write(path, json)?;

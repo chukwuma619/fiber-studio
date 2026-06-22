@@ -28,3 +28,6 @@ prototype/
 
 # Bundled fnn sidecar binaries (fetch via `bun run fetch-fnn`)
 src-tauri/binaries/
+
+# Tauri updater signing private key (public key is in tauri.conf.json)
+src-tauri/.updater/

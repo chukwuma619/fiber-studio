@@ -228,11 +228,8 @@ pub async fn fetch_list_peers() -> Result<Vec<PeerInfo>, RpcError> {
 }
 
 pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
-    let result: GraphNodesResult = call_rpc(
-        "graph_nodes",
-        serde_json::json!([{ "limit": "0x100" }]),
-    )
-    .await?;
+    let result: GraphNodesResult =
+        call_rpc("graph_nodes", serde_json::json!([{ "limit": "0x100" }])).await?;
     Ok(result.nodes)
 }
 
@@ -368,26 +365,32 @@ mod tests {
         let payload: RpcResponse<NodeInfo> = serde_json::from_str(NODE_INFO_SUCCESS).unwrap();
         let info = payload.result.expect("result should be present");
         assert_eq!(info.version, "0.9.0-rc4");
-        assert_eq!(info.pubkey, "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71");
+        assert_eq!(
+            info.pubkey,
+            "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71"
+        );
         assert_eq!(info.channel_count, "0x7b");
         assert!(payload.error.is_none());
     }
 
     #[test]
     fn deserializes_json_rpc_errors() {
-        let payload: RpcResponse<NodeInfo> =
-            serde_json::from_str(METHOD_NOT_FOUND_ERROR).unwrap();
+        let payload: RpcResponse<NodeInfo> = serde_json::from_str(METHOD_NOT_FOUND_ERROR).unwrap();
         let error = payload.error.expect("error should be present");
         assert_eq!(error.code, -32601);
         assert_eq!(error.message, "Method not found");
         assert!(error.data.is_none());
 
-        let payload: RpcResponse<NodeInfo> =
-            serde_json::from_str(INVALID_PARAMS_ERROR).unwrap();
+        let payload: RpcResponse<NodeInfo> = serde_json::from_str(INVALID_PARAMS_ERROR).unwrap();
         let error = payload.error.expect("error should be present");
         assert_eq!(error.code, -32602);
         assert_eq!(error.message, "Invalid params");
-        assert_eq!(error.data, Some(serde_json::Value::String("failed to decode hex string".into())));
+        assert_eq!(
+            error.data,
+            Some(serde_json::Value::String(
+                "failed to decode hex string".into()
+            ))
+        );
     }
 
     #[test]
