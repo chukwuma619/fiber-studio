@@ -1,6 +1,6 @@
 import { useRouterState } from "@tanstack/react-router"
 import { isNavItemActive, NAV_ITEMS } from "../../lib/nav"
-import { Avatar } from "../ui/avatar"
+import { FiberMarkIcon, FiberStudioWordmark } from "../brand"
 import {
   Sidebar,
   SidebarBody,
@@ -17,12 +17,11 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-r">
-        <SidebarItem href="/" >
-          <Avatar
-            square
-            initials="F"
-          />
-          <SidebarLabel>Fiber Studio</SidebarLabel>
+        <SidebarItem href="/">
+          <FiberMarkIcon data-slot="avatar" />
+          <SidebarLabel>
+            <FiberStudioWordmark layout="inline" />
+          </SidebarLabel>
         </SidebarItem>
       </SidebarHeader>
 

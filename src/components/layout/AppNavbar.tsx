@@ -1,3 +1,4 @@
+import { FiberStudioWordmark } from "../brand"
 import { Badge } from "../ui/badge"
 import {
   Navbar,
@@ -17,7 +18,9 @@ export function AppNavbar() {
   return (
     <Navbar>
       <NavbarSection>
-        <NavbarLabel>Fiber Studio</NavbarLabel>
+        <NavbarLabel>
+          <FiberStudioWordmark layout="inline" />
+        </NavbarLabel>
       </NavbarSection>
       <NavbarSpacer />
       <NavbarSection>

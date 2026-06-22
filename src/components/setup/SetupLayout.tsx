@@ -1,5 +1,6 @@
 import type { ReactNode } from "react"
 import { STEP_TITLES, type SetupStep } from "../../lib/setup/types"
+import { FiberStudioLogo } from "../brand"
 import { Button } from "../ui/button"
 import { StepProgress } from "./StepProgress"
 
@@ -28,19 +29,7 @@ export function SetupLayout({
     <div className="flex h-dvh flex-col bg-zinc-100 dark:bg-zinc-950">
       <header className="border-b border-zinc-950/5 bg-white px-6 py-5 dark:border-white/10 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-6">
-          <div className="flex items-center gap-2.5">
-            <div className="flex size-9 items-center justify-center rounded-lg bg-zinc-900 text-sm font-bold text-white dark:bg-white dark:text-zinc-900">
-              F
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-zinc-950 dark:text-white">
-                Fiber Studio
-              </p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Setup wizard
-              </p>
-            </div>
-          </div>
+          <FiberStudioLogo subtitle="Setup wizard" />
           <div className="hidden w-48 sm:block">
             <StepProgress currentStep={currentStep} />
           </div>
