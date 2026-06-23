@@ -39,7 +39,25 @@ Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber
 | **Windows** | `*-setup.exe` (NSIS) or `.msi` | Run the setup wizard. |
 | **Linux** | `.AppImage`, `.deb`, or `.rpm` (x86_64 and ARM64) | AppImage: `chmod +x Fiber\ Studio_*.AppImage` then run. Debian/Ubuntu: `sudo apt install ./Fiber\ Studio_*.deb`. Fedora/RHEL: `sudo dnf install ./Fiber\ Studio-*.rpm`. |
 
-macOS Gatekeeper or Windows SmartScreen may warn on unsigned builds — right-click → Open (macOS) or More info → Run anyway (Windows).
+Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, or `.rpm`). Ignore `latest.json` and macOS `.app.tar.gz` files — those are for in-app updates, not manual install.
+
+### macOS: “Apple could not verify…” on first launch
+
+Fiber Studio is not Apple-notarized yet (planned for M3). After you download from GitHub, macOS Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. The app is safe to run; macOS just does not recognize the developer yet.
+
+**Do not click Move to Bin.**
+
+1. Open the `.dmg` and drag **Fiber Studio** to **Applications** as usual.
+2. Try opening the app once (double-click). Gatekeeper will block it — that is expected.
+3. Open **System Settings → Privacy & Security**.
+4. Scroll down. You should see a message about Fiber Studio being blocked, with **Open Anyway**.
+5. Click **Open Anyway**, then confirm **Open**.
+
+**Alternative (sometimes works on first launch):** In Finder, **right-click** Fiber Studio → **Open** → **Open** in the dialog.
+
+After the first successful launch, macOS remembers your choice and you can open the app normally.
+
+Windows SmartScreen may show a similar warning for unsigned builds — choose **More info → Run anyway**.
 
 In-app updates use a separate Tauri signing key (not Apple/Windows code signing). After install, use **Settings → Updates** or wait for the launch prompt.
 
