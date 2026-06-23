@@ -33,13 +33,15 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing):
 
-| OS | File | Install |
-|----|------|---------|
-| **macOS** | `.dmg` (Apple Silicon or Intel) | Open the DMG, drag Fiber Studio to Applications. |
-| **Windows** | `*-setup.exe` (NSIS) or `.msi` | Run the setup wizard. |
-| **Linux** | `.AppImage`, `.deb`, or `.rpm` (x86_64 and ARM64) | AppImage: `chmod +x Fiber\ Studio_*.AppImage` then run. Debian/Ubuntu: `sudo apt install ./Fiber\ Studio_*.deb`. Fedora/RHEL: `sudo dnf install ./Fiber\ Studio-*.rpm`. |
+| OS | Download this file | Install |
+|----|-------------------|---------|
+| **macOS (Apple Silicon, M1/M2/M3)** | `Fiber-Studio-*-macOS-Apple-Silicon-dmg.dmg` | Open the DMG, drag Fiber Studio to Applications. |
+| **macOS (Intel)** | `Fiber-Studio-*-macOS-Intel-dmg.dmg` | Open the DMG, drag Fiber Studio to Applications. |
+| **Windows** | `Fiber-Studio-*-Windows-x64-nsis-setup.exe` or `...-msi.msi` | Run the setup wizard. |
+| **Linux x64** | `Fiber-Studio-*-Linux-x64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) | AppImage: `chmod +x Fiber-Studio-*-appimage.AppImage` then run. Debian/Ubuntu: `sudo apt install ./Fiber-Studio-*-deb.deb`. Fedora/RHEL: `sudo dnf install ./Fiber-Studio-*-rpm.rpm`. |
+| **Linux ARM64** | `Fiber-Studio-*-Linux-ARM64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) | Same as Linux x64, using the ARM64 filenames. |
 
-Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, or `.rpm`). Ignore `latest.json` and macOS `.app.tar.gz` files — those are for in-app updates, not manual install.
+Download only the installer row for your platform (`-dmg`, `-nsis-setup.exe`, `-msi`, `-appimage`, `-deb`, or `-rpm`). Ignore `latest.json` and files like `*-app.app.tar.gz` — those are for in-app updates, not manual install.
 
 ### macOS: “Apple could not verify…” on first launch
 
