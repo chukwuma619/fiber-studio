@@ -11,7 +11,7 @@
 #   2. Commit and push to main.
 #   3. git tag v0.1.0 && git push origin v0.1.0
 #
-# tauri-action uploads installers, updater bundles, signatures, and latest.json.
+# tauri-action uploads installers, updater bundles, and latest.json.
 
 name: Release
 
@@ -117,6 +117,7 @@ jobs:
           # GitHub excludes prereleases from "latest", which breaks in-app update checks.
           prerelease: false
           uploadUpdaterJson: true
+          uploadUpdaterSignatures: false
           updaterJsonPreferNsis: true
           releaseBody: |
             ## Fiber Studio ${{ github.ref_name }}
