@@ -45,6 +45,10 @@ jobs:
             args: ""
             fnn_triple: x86_64-unknown-linux-gnu
             rust_target: ""
+          - platform: ubuntu-22.04-arm
+            args: ""
+            fnn_triple: aarch64-unknown-linux-gnu
+            rust_target: ""
           - platform: windows-latest
             args: ""
             fnn_triple: x86_64-pc-windows-msvc
@@ -63,7 +67,7 @@ jobs:
         run: rustup target add ${{ matrix.rust_target }}
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: startsWith(matrix.platform, 'ubuntu-22.04')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -74,12 +78,15 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            libfuse2 \
+            patchelf \
+            rpm \
+            file
 
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          prefix-key: v1-rust
+          prefix-key: v1-rust-${{ matrix.fnn_triple }}
 
       - run: bun install --frozen-lockfile
 
@@ -105,7 +112,11 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Fiber Studio ${{ github.ref_name }}
-          prerelease: ${{ github.ref_name != 'v1.0.0' }}
+          # Must stay false while the updater endpoint uses releases/latest/download/latest.json.
+          # GitHub excludes prereleases from "latest", which breaks in-app update checks.
+          prerelease: false
+          uploadUpdaterJson: true
+          updaterJsonPreferNsis: true
           releaseBody: |
             ## Fiber Studio ${{ github.ref_name }}
 
@@ -113,8 +124,8 @@ jobs:
 
             ### Install
             - **macOS:** download the `.dmg` for your chip (Apple Silicon or Intel), open it, drag Fiber Studio to Applications. If Gatekeeper warns, right-click → Open.
-            - **Windows:** download the `-setup.exe` NSIS installer. If SmartScreen warns, choose More info → Run anyway.
-            - **Linux:** download the `.AppImage`, then `chmod +x Fiber\ Studio_*.AppImage` and run it.
+            - **Windows:** download the `-setup.exe` (NSIS) or `.msi` installer. If SmartScreen warns, choose More info → Run anyway.
+            - **Linux (x86_64 or ARM64):** pick one format — `.AppImage` (`chmod +x` then run), `.deb` (`sudo apt install ./Fiber\ Studio_*.deb`), or `.rpm` (`sudo dnf install ./Fiber\ Studio-*.rpm`). Download the asset matching your CPU architecture.
 
             ### In-app updates
             Installed copies check GitHub Releases for updates automatically on launch. You can also use **Settings → Updates**.

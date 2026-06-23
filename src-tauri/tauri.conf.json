@@ -35,15 +35,41 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "appimage", "nsis"],
+    "targets": "all",
     "createUpdaterArtifacts": true,
+    "shortDescription": "Run the Fiber Network node (fnn) on your machine",
+    "publisher": "Fiber Studio",
+    "category": "Utility",
     "externalBin": ["binaries/fnn"],
     "icon": [
-     "icons/32x32.png",
+      "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-"
+    },
+    "linux": {
+      "deb": {
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libjavascriptcoregtk-4.1-0",
+          "libsoup-3.0-0",
+          "librsvg2-2",
+          "libssl3"
+        ]
+      },
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "librsvg2",
+          "openssl-libs"
+        ]
+      }
+    }
   }
 }

@@ -16,6 +16,7 @@ jobs:
       - run: bun run build
 
   build-tauri:
+    if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
     strategy:
       fail-fast: false
       matrix:
@@ -31,6 +32,10 @@ jobs:
           - platform: ubuntu-22.04
             args: ""
             fnn_triple: x86_64-unknown-linux-gnu
+            rust_target: ""
+          - platform: ubuntu-22.04-arm
+            args: ""
+            fnn_triple: aarch64-unknown-linux-gnu
             rust_target: ""
           - platform: windows-latest
             args: ""
@@ -54,10 +59,10 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          prefix-key: v1-rust
+          prefix-key: v1-rust-${{ matrix.fnn_triple }}
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-22.04'
+        if: startsWith(matrix.platform, 'ubuntu-22.04')
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -68,9 +73,12 @@ jobs:
             libwebkit2gtk-4.1-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            patchelf
+            libfuse2 \
+            patchelf \
+            rpm \
+            file
 
-      - run: bun install
+      - run: bun install --frozen-lockfile
 
       - name: Fetch fnn sidecar binary
         run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}

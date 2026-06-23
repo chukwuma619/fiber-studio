@@ -41,6 +41,11 @@ const PLATFORMS: PlatformTarget[] = [
     binaryName: "fnn",
   },
   {
+    triple: "aarch64-unknown-linux-gnu",
+    asset: `fnn_v${FNN_VERSION}-aarch64-linux-portable.tar.gz`,
+    binaryName: "fnn",
+  },
+  {
     triple: "x86_64-pc-windows-msvc",
     asset: `fnn_v${FNN_VERSION}-x86_64-windows.tar.gz`,
     binaryName: "fnn.exe",

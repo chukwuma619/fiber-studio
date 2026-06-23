@@ -31,13 +31,13 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 ## Download
 
-Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships three installer types (unsigned until M3 app signing):
+Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing):
 
 | OS | File | Install |
 |----|------|---------|
 | **macOS** | `.dmg` (Apple Silicon or Intel) | Open the DMG, drag Fiber Studio to Applications. |
-| **Windows** | `*-setup.exe` (NSIS) | Run the setup wizard. |
-| **Linux** | `.AppImage` | `chmod +x Fiber\ Studio_*.AppImage` then run it. |
+| **Windows** | `*-setup.exe` (NSIS) or `.msi` | Run the setup wizard. |
+| **Linux** | `.AppImage`, `.deb`, or `.rpm` (x86_64 and ARM64) | AppImage: `chmod +x Fiber\ Studio_*.AppImage` then run. Debian/Ubuntu: `sudo apt install ./Fiber\ Studio_*.deb`. Fedora/RHEL: `sudo dnf install ./Fiber\ Studio-*.rpm`. |
 
 macOS Gatekeeper or Windows SmartScreen may warn on unsigned builds — right-click → Open (macOS) or More info → Run anyway (Windows).
 
@@ -64,7 +64,7 @@ bun run tauri dev
 
 Fiber Studio bundles the official [fnn](https://github.com/nervosnetwork/fiber) binary (currently **v0.8.1**) as a Tauri sidecar. The `fetch-fnn` script downloads it from GitHub Releases into `src-tauri/binaries/` (gitignored). Run it before `tauri dev` or `tauri build`.
 
-Supported sidecar targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
+Supported sidecar targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
 
 ### Scripts
 
@@ -97,6 +97,10 @@ bun run fetch-fnn
 bun run tauri build
 ```
 
+Releases are unsigned (no Apple/Windows code signing yet). macOS CI builds use [ad-hoc signing](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing) (`signingIdentity: "-"`) so downloaded `.app` bundles are not treated as damaged on Apple Silicon.
+
+In-app updates use a separate Tauri updater key (`TAURI_SIGNING_PRIVATE_KEY`). The updater reads `latest.json` from GitHub Releases, so release tags must not be marked as GitHub prereleases — otherwise `releases/latest/download/latest.json` 404s and update checks fail.
+
 ## Project layout
 
 ```
@@ -125,7 +129,7 @@ fiber-studio/
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | **Build** (`.github/workflows/build.yml`) | Push / PR to `main` | Frontend typecheck + build; Tauri compile smoke test on all platforms |
-| **Release** (`.github/workflows/release.yml`) | Tag push `v*` | Builds `.dmg`, `.AppImage`, and NSIS `-setup.exe`; publishes GitHub Release + `latest.json` |
+| **Release** (`.github/workflows/release.yml`) | Tag push `v*` | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release + `latest.json` |
 
 ## Related projects
 
