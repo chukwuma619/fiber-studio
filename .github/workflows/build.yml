@@ -54,6 +54,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          prefix-key: v1-rust
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'

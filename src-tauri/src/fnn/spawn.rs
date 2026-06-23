@@ -1,15 +1,15 @@
+use std::env;
 use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
 use shared_child::SharedChild;
-use tauri::utils::platform;
 
 /// Runtime sidecar name (last segment of `bundle.externalBin`, placed next to the app binary).
 const SIDECAR_NAME: &str = "fnn";
 
 pub fn sidecar_path() -> Result<PathBuf, String> {
-    let exe_path = platform::current_exe().map_err(|error| error.to_string())?;
+    let exe_path = env::current_exe().map_err(|error| error.to_string())?;
     let exe_dir = exe_path
         .parent()
         .ok_or_else(|| "current executable has no parent directory".to_string())?;
