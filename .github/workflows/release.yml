@@ -41,7 +41,7 @@ jobs:
             args: --target x86_64-apple-darwin
             fnn_triple: x86_64-apple-darwin
             rust_target: x86_64-apple-darwin
-          - platform: ubuntu-latest
+          - platform: ubuntu-22.04
             args: ""
             fnn_triple: x86_64-unknown-linux-gnu
             rust_target: ""
@@ -63,7 +63,7 @@ jobs:
         run: rustup target add ${{ matrix.rust_target }}
 
       - name: Install Linux dependencies
-        if: matrix.platform == 'ubuntu-latest'
+        if: matrix.platform == 'ubuntu-22.04'
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -111,9 +111,9 @@ jobs:
             **Unsigned app installers with signed in-app updates.** Wallet, Channels, and Network flows continue in M2.
 
             ### Install
-            - **macOS:** pick the `.dmg` for your chip (Apple Silicon or Intel). Right-click → Open if Gatekeeper warns.
-            - **Windows:** use the `.exe` or `.msi`. SmartScreen may warn on unsigned builds.
-            - **Linux:** `.AppImage`, `.deb`, or `.rpm`.
+            - **macOS:** download the `.dmg` for your chip (Apple Silicon or Intel), open it, drag Fiber Studio to Applications. If Gatekeeper warns, right-click → Open.
+            - **Windows:** download the `-setup.exe` NSIS installer. If SmartScreen warns, choose More info → Run anyway.
+            - **Linux:** download the `.AppImage`, then `chmod +x Fiber\ Studio_*.AppImage` and run it.
 
             ### In-app updates
             Installed copies check GitHub Releases for updates automatically on launch. You can also use **Settings → Updates**.

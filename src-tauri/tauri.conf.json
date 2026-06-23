@@ -35,7 +35,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["dmg", "appimage", "nsis"],
     "createUpdaterArtifacts": true,
     "externalBin": ["binaries/fnn"],
     "icon": [

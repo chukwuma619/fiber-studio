@@ -31,11 +31,17 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 ## Download
 
-Pre-release builds are published on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases) for macOS (Apple Silicon and Intel), Windows, and Linux.
+Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships three installer types (unsigned until M3 app signing):
 
-Installers are **unsigned** during M1–M2 dev builds. macOS may require right-click → Open; Windows SmartScreen may warn. In-app updates use a separate Tauri signing key and work independently of Apple/Windows app signing.
+| OS | File | Install |
+|----|------|---------|
+| **macOS** | `.dmg` (Apple Silicon or Intel) | Open the DMG, drag Fiber Studio to Applications. |
+| **Windows** | `*-setup.exe` (NSIS) | Run the setup wizard. |
+| **Linux** | `.AppImage` | `chmod +x Fiber\ Studio_*.AppImage` then run it. |
 
-Once installed, the app checks for updates automatically and can also be updated from **Settings → Updates**.
+macOS Gatekeeper or Windows SmartScreen may warn on unsigned builds — right-click → Open (macOS) or More info → Run anyway (Windows).
+
+In-app updates use a separate Tauri signing key (not Apple/Windows code signing). After install, use **Settings → Updates** or wait for the launch prompt.
 
 ## Prerequisites
 
@@ -72,17 +78,6 @@ bun run tauri dev        # run the desktop app in development
 bun run tauri build      # production installers → src-tauri/target/release/bundle/
 bun run generate-icons   # regenerate app icons from app-icon.svg
 ```
-
-### Maintainer setup (once)
-
-```bash
-# Generate signing keys (private key is gitignored)
-CI=true bun tauri signer generate -w src-tauri/.updater/fiber-studio.key -f --password=""
-```
-
-1. Public key → already in `src-tauri/tauri.conf.json`
-2. Private key file contents → GitHub Actions secret `TAURI_SIGNING_PRIVATE_KEY`
-3. Back up `src-tauri/.updater/fiber-studio.key` — losing it blocks updates for existing installs
 
 ### Publishing a release
 
@@ -130,7 +125,7 @@ fiber-studio/
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
 | **Build** (`.github/workflows/build.yml`) | Push / PR to `main` | Frontend typecheck + build; Tauri compile smoke test on all platforms |
-| **Release** (`.github/workflows/release.yml`) | Tag push `v*` | Signed updater artifacts, installers, GitHub Release + `latest.json` |
+| **Release** (`.github/workflows/release.yml`) | Tag push `v*` | Builds `.dmg`, `.AppImage`, and NSIS `-setup.exe`; publishes GitHub Release + `latest.json` |
 
 ## Related projects
 
