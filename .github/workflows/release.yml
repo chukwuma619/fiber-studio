@@ -81,7 +81,8 @@ jobs:
             libfuse2 \
             patchelf \
             rpm \
-            file
+            file \
+            xdg-utils
 
       - uses: swatinem/rust-cache@v2
         with:

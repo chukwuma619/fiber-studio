@@ -76,7 +76,8 @@ jobs:
             libfuse2 \
             patchelf \
             rpm \
-            file
+            file \
+            xdg-utils
 
       - run: bun install --frozen-lockfile
 
