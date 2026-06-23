@@ -4,7 +4,7 @@ Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Ner
 
 Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/).
 
-> **Status:** Early development (v0.1.0). This repo is the ground-up v1 rebuild. The earlier prototype lives at [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop).
+> **Status:** Early development (v0.1.2). This repo is the ground-up v1 rebuild. The earlier prototype lives at [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop).
 
 ## What Fiber Studio is
 
