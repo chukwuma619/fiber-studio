@@ -10,7 +10,7 @@ import {
 } from "../../lib/fnn/format"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
-import type { HomeChannel, OpenChannelResult } from "../../lib/fnn/types"
+import type { HomeChannel } from "../../lib/fnn/types"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB, truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatCard } from "../home/StatCard"
@@ -71,7 +71,6 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
-  const [openSuccessMessage, setOpenSuccessMessage] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const channels = data?.channels ?? []
@@ -84,21 +83,8 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
 
   const openOpenDialog = useCallback(() => {
     channelActions.clearActionError()
-    setOpenSuccessMessage(null)
     setOpenDialogOpen(true)
   }, [channelActions])
-
-  const handleOpenSuccess = useCallback((result: OpenChannelResult) => {
-    if (result.channelId) {
-      setOpenSuccessMessage(
-        `Channel open started. Channel ID: ${result.channelId}`,
-      )
-      return
-    }
-    setOpenSuccessMessage(
-      "Channel open started. It will appear in the list once funding begins.",
-    )
-  }, [])
 
   const openDetailDialog = useCallback(
     (channelId: string) => {
@@ -322,7 +308,6 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         actionError={channelActions.actionError}
         onOpenChannel={channelActions.handleOpenChannel}
         onClearError={channelActions.clearActionError}
-        onSuccess={handleOpenSuccess}
       />
 
       <ChannelDetailDialog

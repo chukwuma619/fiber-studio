@@ -5,7 +5,7 @@ import {
   requiredWalletCkbForOpen,
 } from "../../lib/fnn/format"
 import { formatRelayStatusLabel } from "../../lib/fnn/relay"
-import type { OpenChannelPayload, OpenChannelResult, RelayConnectionStatus } from "../../lib/fnn/types"
+import type { OpenChannelPayload, RelayConnectionStatus } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -32,9 +32,8 @@ type OpenChannelDialogProps = {
   onChainWalletError: string | null
   isActing: boolean
   actionError: string | null
-  onOpenChannel: (payload: OpenChannelPayload) => Promise<OpenChannelResult>
+  onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
   onClearError: () => void
-  onSuccess: (result: OpenChannelResult) => void
 }
 
 function parseFundingCkb(value: string, minimumCkb: number): number | null {
@@ -94,7 +93,6 @@ export function OpenChannelDialog({
   actionError,
   onOpenChannel,
   onClearError,
-  onSuccess,
 }: OpenChannelDialogProps) {
   const peerPubkey = configuredPeerPubkey?.trim() ?? ""
 
@@ -182,8 +180,7 @@ export function OpenChannelDialog({
     setValidationError(null)
 
     try {
-      const result = await onOpenChannel({ fundingCkb })
-      onSuccess(result)
+      await onOpenChannel({ fundingCkb })
       onClose()
     } catch {
       // actionError is set by the hook

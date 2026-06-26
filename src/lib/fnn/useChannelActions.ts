@@ -3,7 +3,6 @@ import { abandonChannel, openChannel, shutdownChannel } from "./invoke"
 import type {
   AbandonChannelPayload,
   OpenChannelPayload,
-  OpenChannelResult,
   ShutdownChannelPayload,
 } from "./types"
 
@@ -12,13 +11,12 @@ export function useChannelActions(onSuccess?: () => void) {
   const [actionError, setActionError] = useState<string | null>(null)
 
   const handleOpenChannel = useCallback(
-    async (payload: OpenChannelPayload): Promise<OpenChannelResult> => {
+    async (payload: OpenChannelPayload) => {
       setIsActing(true)
       setActionError(null)
       try {
-        const result = await openChannel(payload)
+        await openChannel(payload)
         onSuccess?.()
-        return result
       } catch (error) {
         setActionError(error instanceof Error ? error.message : String(error))
         throw error
