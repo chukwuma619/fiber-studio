@@ -1,7 +1,7 @@
 use std::path::Path;
 use std::time::Duration;
 
-use super::rpc::{self, GraphNode, RpcError};
+use super::rpc::{self, GraphNode, PeerInfo, RpcError};
 use super::studio::{self, StudioMetadata};
 
 const CONNECT_POLL_INTERVAL: Duration = Duration::from_millis(500);
@@ -35,6 +35,30 @@ pub fn pubkeys_equal(left: &str, right: &str) -> bool {
 
 pub fn normalize_pubkey(pubkey: &str) -> String {
     pubkey.trim().trim_start_matches("0x").to_ascii_lowercase()
+}
+
+pub fn relay_status_for_configured_peer(
+    peers: &[PeerInfo],
+    configured_pubkey: &str,
+    fallback_status: &str,
+) -> String {
+    if configured_pubkey.trim().is_empty() {
+        return "not_configured".to_string();
+    }
+
+    if peers
+        .iter()
+        .any(|peer| pubkeys_equal(&peer.pubkey, configured_pubkey))
+    {
+        return "connected".to_string();
+    }
+
+    // Never trust cached manager state as "connected" — verify against list_peers.
+    match fallback_status {
+        "connecting" => "connecting".to_string(),
+        "failed" => "failed".to_string(),
+        _ => "failed".to_string(),
+    }
 }
 
 pub async fn ensure_peer_connected(
@@ -131,6 +155,10 @@ async fn try_pubkey_only_connect(
 async fn resolve_connect_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<String> {
     let mut addresses = Vec::new();
 
+    if !saved_multiaddr.is_empty() {
+        addresses.push(saved_multiaddr.to_string());
+    }
+
     for _ in 0..GRAPH_LOOKUP_RETRIES {
         match rpc::fetch_graph_nodes().await {
             Ok(nodes) => {
@@ -138,28 +166,25 @@ async fn resolve_connect_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<S
                     .iter()
                     .find(|node| pubkeys_equal(&node.pubkey, pubkey))
                 {
-                    addresses = rank_addresses(node);
+                    for address in rank_addresses(node) {
+                        if !addresses.iter().any(|existing| existing == &address) {
+                            addresses.push(address);
+                        }
+                    }
                     break;
                 }
             }
             Err(_) => {}
         }
 
-        if addresses.is_empty() {
+        if addresses.len() <= usize::from(!saved_multiaddr.is_empty()) {
             tokio::time::sleep(GRAPH_LOOKUP_DELAY).await;
+        } else {
+            break;
         }
     }
 
-    if !saved_multiaddr.is_empty() && !addresses.iter().any(|addr| addr == saved_multiaddr) {
-        let is_legacy_tcp = saved_multiaddr.contains("/tcp/8119/");
-        if !(is_legacy_tcp && !addresses.is_empty()) {
-            addresses.push(saved_multiaddr.to_string());
-            addresses = dedupe_addresses(addresses);
-            addresses = rank_addresses_from_strings(addresses);
-        }
-    }
-
-    addresses
+    rank_addresses_from_strings(addresses)
 }
 
 fn rank_addresses(node: &GraphNode) -> Vec<String> {
@@ -182,19 +207,19 @@ fn dedupe_addresses(addresses: Vec<String>) -> Vec<String> {
 }
 
 fn address_priority(address: &String) -> u8 {
-    if address.contains("/wss/") {
+    if address.contains("/tcp/8119/") {
         return 0;
     }
-    if address.contains("/ws/") {
+    if address.contains("/tcp/8228/") {
         return 1;
     }
-    if address.contains("/tcp/8228/") {
+    if address.contains("/ws/") {
         return 2;
     }
-    if address.contains("/tcp/8119/") {
-        return 4;
+    if address.contains("/wss/") {
+        return 3;
     }
-    3
+    4
 }
 
 async fn is_peer_connected(pubkey: &str) -> Result<bool, RpcError> {
@@ -240,13 +265,24 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ranks_wss_before_legacy_tcp() {
+    fn ranks_legacy_tcp_before_wss() {
         let ranked = rank_addresses_from_strings(vec![
             "/ip4/18.162.235.225/tcp/8119/p2p/QmXen3eUHhywmutEzydCsW4hXBoeVmdET2FJvMX69XJ1Eo".into(),
             "/dns4/bottle.fiber.channel/tcp/443/wss/p2p/QmXen3eUHhywmutEzydCsW4hXBoeVmdET2FJvMX69XJ1Eo".into(),
         ]);
 
-        assert!(ranked[0].contains("bottle.fiber.channel"));
+        assert!(ranked[0].contains("/tcp/8119/"));
+    }
+
+    #[test]
+    fn resolve_keeps_saved_multiaddr_first() {
+        let saved = "/ip4/18.162.235.225/tcp/8119/p2p/QmXen";
+        let ranked = rank_addresses_from_strings(vec![
+            "/dns4/bottle.fiber.channel/tcp/443/wss/p2p/QmXen".into(),
+            saved.into(),
+        ]);
+
+        assert!(ranked[0].contains("/tcp/8119/"));
     }
 
     #[test]
@@ -257,5 +293,16 @@ mod tests {
         ]);
 
         assert_eq!(ranked.len(), 1);
+    }
+
+    #[test]
+    fn relay_status_never_reports_connected_without_peer_in_list() {
+        let status = relay_status_for_configured_peer(
+            &[],
+            "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71",
+            "connected",
+        );
+
+        assert_eq!(status, "failed");
     }
 }

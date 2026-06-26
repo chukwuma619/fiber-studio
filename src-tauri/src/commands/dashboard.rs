@@ -103,8 +103,15 @@ pub async fn get_home_dashboard(
     let total_local_balance = channel::sum_local_balances(&channels);
     let home_channels = select_home_channels(channels);
 
-    let relay_status =
-        relay_status_from_peers(&peers, studio_metadata.as_ref(), &manager_relay_status);
+    let configured_pubkey = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.custom_public_node_pubkey.as_str())
+        .unwrap_or("");
+    let relay_status = peer_connect::relay_status_for_configured_peer(
+        &peers,
+        configured_pubkey,
+        &manager_relay_status,
+    );
 
     Ok(HomeDashboardResponse {
         available: true,
@@ -126,30 +133,6 @@ pub async fn get_home_dashboard(
             .map(|metadata| metadata.network.clone()),
         relay_status,
     })
-}
-
-fn relay_status_from_peers(
-    peers: &[PeerInfo],
-    metadata: Option<&studio::StudioMetadata>,
-    manager_relay_status: &str,
-) -> String {
-    let Some(metadata) = metadata else {
-        return "not_configured".to_string();
-    };
-
-    let configured_pubkey = metadata.custom_public_node_pubkey.trim();
-    if configured_pubkey.is_empty() {
-        return "not_configured".to_string();
-    }
-
-    if peers
-        .iter()
-        .any(|peer| peer_connect::pubkeys_equal(&peer.pubkey, configured_pubkey))
-    {
-        return "connected".to_string();
-    }
-
-    manager_relay_status.to_string()
 }
 
 fn to_home_node_info(info: NodeInfo) -> HomeNodeInfo {

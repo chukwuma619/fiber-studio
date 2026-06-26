@@ -75,12 +75,14 @@ export type ChannelsPageResponse = {
   onChainWalletError?: string | null
   network: string | null
   defaultFundingLockScript: CkbScript | null
+  configuredPeerPubkey: string | null
+  relayStatus: RelayConnectionStatus
+  minFundingCkb: number
+  hasChannelToConfiguredPeer: boolean
 }
 
 export type OpenChannelPayload = {
-  pubkey: string
   fundingCkb: number
-  isPublic: boolean
 }
 
 export type OpenChannelResult = {

@@ -5,12 +5,13 @@ import {
   channelStateBadgeColor,
   channelStateDisplayLabel,
   formatCkb,
+  isChannelPending,
   parseHexU128,
 } from "../../lib/fnn/format"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
-import type { HomeChannel } from "../../lib/fnn/types"
-import { truncatePubkey } from "../../lib/public-relays"
+import type { HomeChannel, OpenChannelResult } from "../../lib/fnn/types"
+import { CHANNEL_OPEN_MIN_FUNDING_CKB, truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatCard } from "../home/StatCard"
 import { Badge } from "../ui/badge"
@@ -64,15 +65,17 @@ function channelLiquidityCell(channel: HomeChannel) {
 }
 
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
-  const { config, running } = useNodeControlContext()
+  const { running } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
   const channelActions = useChannelActions(refresh)
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [openSuccessMessage, setOpenSuccessMessage] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const channels = data?.channels ?? []
+  const minFundingCkb = data?.minFundingCkb ?? CHANNEL_OPEN_MIN_FUNDING_CKB
 
   const selectedChannel = useMemo(
     () => channels.find((channel) => channel.channelId === selectedChannelId) ?? null,
@@ -81,8 +84,21 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
 
   const openOpenDialog = useCallback(() => {
     channelActions.clearActionError()
+    setOpenSuccessMessage(null)
     setOpenDialogOpen(true)
   }, [channelActions])
+
+  const handleOpenSuccess = useCallback((result: OpenChannelResult) => {
+    if (result.channelId) {
+      setOpenSuccessMessage(
+        `Channel open started. Channel ID: ${result.channelId}`,
+      )
+      return
+    }
+    setOpenSuccessMessage(
+      "Channel open started. It will appear in the list once funding begins.",
+    )
+  }, [])
 
   const openDetailDialog = useCallback(
     (channelId: string) => {
@@ -101,10 +117,16 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   }, [available, channels, initialChannelId])
 
   const activeCount = data?.activeChannelCount ?? 0
-  const pendingCount = data?.pendingChannelCount ?? 0
+  const openingChannels = useMemo(
+    () => channels.filter((channel) => isChannelPending(channel.state)),
+    [channels],
+  )
+  const hasOpeningChannels = openingChannels.length > 0
   const activeChannels = available ? String(activeCount) : "—"
   const channelSummarySubtext = available
-    ? `${activeCount} active · ${pendingCount} opening`
+    ? hasOpeningChannels
+      ? `${activeCount} active · ${openingChannels.length} opening`
+      : `${activeCount} active`
     : "Start node to view channels"
   const totalCapacity = available
     ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
@@ -152,7 +174,10 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
             />
             Refresh
           </Button>
-          <Button onClick={openOpenDialog} disabled={!running}>
+          <Button
+            onClick={openOpenDialog}
+            disabled={!running || (data?.hasChannelToConfiguredPeer ?? false)}
+          >
             Open channel
           </Button>
         </div>
@@ -211,7 +236,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         ) : channels.length === 0 ? (
           <HomeEmptyState
             title="No channels yet"
-            description="Open a public channel with at least 1,000 CKB to get started."
+            description={`Open a public channel with at least ${minFundingCkb.toLocaleString()} CKB to get started.`}
             actionLabel="Open channel"
             onAction={openOpenDialog}
           />
@@ -287,12 +312,17 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
       <OpenChannelDialog
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
-        config={config}
+        configuredPeerPubkey={data?.configuredPeerPubkey ?? null}
+        relayStatus={data?.relayStatus ?? "not_configured"}
+        minFundingCkb={minFundingCkb}
+        hasChannelToConfiguredPeer={data?.hasChannelToConfiguredPeer ?? false}
         availableWalletCkb={data?.onChainWalletCkb ?? null}
+        onChainWalletError={data?.onChainWalletError ?? null}
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}
         onOpenChannel={channelActions.handleOpenChannel}
         onClearError={channelActions.clearActionError}
+        onSuccess={handleOpenSuccess}
       />
 
       <ChannelDetailDialog

@@ -60,12 +60,16 @@ export function channelStateDisplayLabel(state: string): string {
   }
 }
 
-export function canAbandonChannel(state: string): boolean {
+export function isChannelPending(state: string): boolean {
   return (
     state !== "ChannelReady" &&
     state !== "ShuttingDown" &&
     state !== "Closed"
   )
+}
+
+export function canAbandonChannel(state: string): boolean {
+  return isChannelPending(state)
 }
 
 export function canCloseChannel(state: string): boolean {

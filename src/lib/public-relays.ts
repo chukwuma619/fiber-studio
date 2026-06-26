@@ -10,6 +10,7 @@ export type PublicRelayNode = {
   id: PublicRelayId
   label: string
   pubkey: string
+  multiaddr?: string
 }
 
 type RelaysManifest = Record<FiberNetwork, PublicRelayNode[]>

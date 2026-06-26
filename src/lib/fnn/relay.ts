@@ -50,6 +50,23 @@ export function isRelayConnected(
   return peers.some((peer) => pubkeysEqual(peer.pubkey, configuredPubkey))
 }
 
+export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
+  switch (status) {
+    case "failed":
+      return "Connection failed — ensure the peer is online"
+    case "connecting":
+      return "Connecting to peer…"
+    case "not_configured":
+      return "No peer configured in setup"
+    case "connected":
+      return "Connected to peer"
+    default: {
+      const _exhaustive: never = status
+      return _exhaustive
+    }
+  }
+}
+
 export function formatRelayStatus(
   dashboard: HomeDashboardResponse | null,
   config: SetupConfig | null,

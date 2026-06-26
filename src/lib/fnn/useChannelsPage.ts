@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { getChannelsPage } from "./invoke"
+import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../public-relays"
 import type { ChannelsPageResponse } from "./types"
 
 const EMPTY_RESPONSE: ChannelsPageResponse = {
@@ -13,13 +14,25 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   onChainWalletError: null,
   network: null,
   defaultFundingLockScript: null,
+  configuredPeerPubkey: null,
+  relayStatus: "not_configured",
+  minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
+  hasChannelToConfiguredPeer: false,
 }
 
-export function useChannelsPage(running: boolean, pollIntervalMs = 10_000) {
+const OPENING_POLL_INTERVAL_MS = 3_000
+const DEFAULT_POLL_INTERVAL_MS = 10_000
+
+export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
   const [data, setData] = useState<ChannelsPageResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const effectivePollIntervalMs =
+    (data?.pendingChannelCount ?? 0) > 0
+      ? OPENING_POLL_INTERVAL_MS
+      : pollIntervalMs
 
   const refresh = useCallback(async (manual = false) => {
     if (!running) {
@@ -52,18 +65,18 @@ export function useChannelsPage(running: boolean, pollIntervalMs = 10_000) {
   }, [refresh])
 
   useEffect(() => {
-    if (!running || pollIntervalMs <= 0) {
+    if (!running || effectivePollIntervalMs <= 0) {
       return
     }
 
     const interval = window.setInterval(() => {
       void refresh()
-    }, pollIntervalMs)
+    }, effectivePollIntervalMs)
 
     return () => {
       window.clearInterval(interval)
     }
-  }, [pollIntervalMs, refresh, running])
+  }, [effectivePollIntervalMs, refresh, running])
 
   const refreshNow = useCallback(() => refresh(true), [refresh])
 

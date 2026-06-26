@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use super::peer_connect;
 use super::rpc::{self, parse_hex_u128, Channel};
 
 pub const SHANNONS_PER_CKB: u128 = 100_000_000;
@@ -33,6 +34,23 @@ pub fn required_wallet_ckb_for_open(funding_ckb: u64) -> u64 {
     funding_ckb
         .saturating_add(CHANNEL_RESERVE_CKB)
         .saturating_add(CHANNEL_OPEN_FEE_BUFFER_CKB)
+}
+
+pub fn shannons_hex_to_ckb(hex: &str) -> Option<u64> {
+    parse_hex_u128(hex).map(|shannons| (shannons / SHANNONS_PER_CKB) as u64)
+}
+
+/// Effective minimum funding: studio floor (1000 CKB) or the node's protocol minimum, whichever is higher.
+pub fn min_funding_ckb_for_open(node_min_funding_shannons_hex: &str) -> u64 {
+    let node_min = shannons_hex_to_ckb(node_min_funding_shannons_hex).unwrap_or(0);
+    CHANNEL_OPEN_MIN_FUNDING_CKB.max(node_min)
+}
+
+pub fn has_active_or_pending_channel_to_peer(channels: &[Channel], pubkey: &str) -> bool {
+    channels.iter().any(|channel| {
+        peer_connect::pubkeys_equal(&channel.pubkey, pubkey)
+            && (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
+    })
 }
 
 pub fn to_home_channel(channel: Channel) -> HomeChannel {
@@ -125,6 +143,49 @@ mod tests {
     #[test]
     fn required_wallet_ckb_for_open_includes_reserve_and_fee_buffer() {
         assert_eq!(required_wallet_ckb_for_open(1000), 1109);
+    }
+
+    #[test]
+    fn min_funding_ckb_for_open_uses_studio_floor_when_node_min_is_lower() {
+        assert_eq!(min_funding_ckb_for_open("0x9502f9000"), 1000);
+    }
+
+    #[test]
+    fn min_funding_ckb_for_open_uses_node_min_when_higher_than_studio_floor() {
+        assert_eq!(min_funding_ckb_for_open("0xe8d4a51000"), 10000);
+    }
+
+    #[test]
+    fn has_active_or_pending_channel_to_peer_detects_ready_and_opening() {
+        let channels = vec![
+            Channel {
+                channel_id: "0x1".into(),
+                is_public: true,
+                pubkey: "02AA".into(),
+                state: serde_json::json!("ChannelReady"),
+                local_balance: "0x1".into(),
+                remote_balance: "0x2".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: true,
+                failure_detail: None,
+            },
+            Channel {
+                channel_id: "0x2".into(),
+                is_public: true,
+                pubkey: "02BB".into(),
+                state: serde_json::json!("Closed"),
+                local_balance: "0x0".into(),
+                remote_balance: "0x0".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: false,
+                failure_detail: None,
+            },
+        ];
+
+        assert!(has_active_or_pending_channel_to_peer(&channels, "02aa"));
+        assert!(!has_active_or_pending_channel_to_peer(&channels, "02bb"));
     }
 
     #[test]
