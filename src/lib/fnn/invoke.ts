@@ -8,9 +8,9 @@ import type {
   NodeStatusResponse,
   OpenChannelPayload,
   OpenChannelResult,
-  PeerOpenChannelPolicy,
   ShutdownChannelPayload,
   AbandonChannelPayload,
+  WalletBalanceResponse,
   StartNodePayload,
 } from "./types"
 
@@ -69,10 +69,8 @@ export async function openChannel(
   return invoke<OpenChannelResult>("open_channel", { payload })
 }
 
-export async function getPeerOpenChannelPolicy(
-  pubkey: string,
-): Promise<PeerOpenChannelPolicy> {
-  return invoke<PeerOpenChannelPolicy>("get_peer_open_channel_policy", { pubkey })
+export async function getWalletBalance(): Promise<WalletBalanceResponse> {
+  return invoke<WalletBalanceResponse>("get_wallet_balance")
 }
 
 export async function shutdownChannel(

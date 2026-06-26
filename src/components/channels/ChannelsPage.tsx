@@ -1,3 +1,4 @@
+import { RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import {
@@ -64,7 +65,7 @@ function channelLiquidityCell(channel: HomeChannel) {
 
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const { config, running } = useNodeControlContext()
-  const { data, isLoading, error, refresh } = useChannelsPage(running)
+  const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
   const channelActions = useChannelActions(refresh)
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false)
@@ -99,14 +100,36 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
     }
   }, [available, channels, initialChannelId])
 
-  const activeChannels = available ? String(data?.activeChannelCount ?? 0) : "—"
-  const pendingChannels = available ? String(data?.pendingChannelCount ?? 0) : "—"
+  const activeCount = data?.activeChannelCount ?? 0
+  const pendingCount = data?.pendingChannelCount ?? 0
+  const activeChannels = available ? String(activeCount) : "—"
+  const channelSummarySubtext = available
+    ? `${activeCount} active · ${pendingCount} opening`
+    : "Start node to view channels"
   const totalCapacity = available
     ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
     : "—"
   const localBalance = available
     ? formatCkb(BigInt(data?.totalLocalBalance ?? "0"))
     : "—"
+  const onChainWallet = !available
+    ? "—"
+    : isLoading && running
+      ? "…"
+      : data?.onChainWalletError
+        ? "—"
+        : data?.onChainWalletCkb !== null && data?.onChainWalletCkb !== undefined
+          ? String(data.onChainWalletCkb)
+          : "—"
+  const onChainWalletSubtext = (() => {
+    if (!available) {
+      return "Start node to view wallet"
+    }
+    if (data?.onChainWalletError) {
+      return "Could not read on-chain balance"
+    }
+    return "Available to fund channel opens"
+  })()
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
@@ -117,9 +140,22 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
             Open public channels for multi-hop routing.
           </Text>
         </div>
-        <Button onClick={openOpenDialog} disabled={!running}>
-          Open channel
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            outline
+            onClick={() => void refresh()}
+            disabled={!running || isRefreshing}
+          >
+            <RefreshCw
+              className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
+              data-slot="icon"
+            />
+            Refresh
+          </Button>
+          <Button onClick={openOpenDialog} disabled={!running}>
+            Open channel
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -130,30 +166,21 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          label="Active channels"
+          label="On-chain wallet"
+          value={isLoading && running ? "…" : onChainWallet}
+          unit={
+            available &&
+            data?.onChainWalletCkb !== null &&
+            data?.onChainWalletCkb !== undefined
+              ? "CKB"
+              : undefined
+          }
+          subtext={onChainWalletSubtext}
+        />
+        <StatCard
+          label="Channels"
           value={isLoading && running ? "…" : activeChannels}
-          subtext={
-            available
-              ? "Ready for payments"
-              : "Start node to view channels"
-          }
-        />
-        <StatCard
-          label="Pending channels"
-          value={isLoading && running ? "…" : pendingChannels}
-          subtext={
-            available
-              ? "Opening or awaiting peer"
-              : "Start node to view channels"
-          }
-        />
-        <StatCard
-          label="Total capacity"
-          value={isLoading && running ? "…" : totalCapacity}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available ? "Across all channels" : "Start node to view capacity"
-          }
+          subtext={channelSummarySubtext}
         />
         <StatCard
           label="Local balance"
@@ -163,6 +190,14 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
             available
               ? "Spendable in active channels"
               : "Start node to view balance"
+          }
+        />
+        <StatCard
+          label="Total capacity"
+          value={isLoading && running ? "…" : totalCapacity}
+          unit={available ? "CKB" : undefined}
+          subtext={
+            available ? "Across all channels" : "Start node to view capacity"
           }
         />
       </div>
@@ -176,7 +211,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         ) : channels.length === 0 ? (
           <HomeEmptyState
             title="No channels yet"
-            description={`Open a public channel to get started (check the peer minimum before funding).`}
+            description="Open a public channel with at least 1,000 CKB to get started."
             actionLabel="Open channel"
             onAction={openOpenDialog}
           />
@@ -253,6 +288,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
         config={config}
+        availableWalletCkb={data?.onChainWalletCkb ?? null}
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}
         onOpenChannel={channelActions.handleOpenChannel}

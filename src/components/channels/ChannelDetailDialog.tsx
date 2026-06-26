@@ -16,6 +16,7 @@ import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CapacityBar } from "../ui/capacity-bar"
+import { CopyButton } from "../ui/copy-button"
 import {
   DescriptionDetails,
   DescriptionList,
@@ -173,13 +174,23 @@ export function ChannelDetailDialog({
           <div className="space-y-6">
             <DescriptionList>
               <DescriptionTerm>Peer pubkey</DescriptionTerm>
-              <DescriptionDetails className="font-mono text-xs break-all text-zinc-600 dark:text-zinc-300">
-                {channel.pubkey}
+              <DescriptionDetails>
+                <div className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1 font-mono text-xs break-all text-zinc-600 dark:text-zinc-300">
+                    {channel.pubkey}
+                  </span>
+                  <CopyButton value={channel.pubkey} label="Copy peer pubkey" />
+                </div>
               </DescriptionDetails>
 
               <DescriptionTerm>Channel ID</DescriptionTerm>
-              <DescriptionDetails className="font-mono text-xs break-all text-zinc-600 dark:text-zinc-300">
-                {channel.channelId}
+              <DescriptionDetails>
+                <div className="flex items-start gap-2">
+                  <span className="min-w-0 flex-1 font-mono text-xs break-all text-zinc-600 dark:text-zinc-300">
+                    {channel.channelId}
+                  </span>
+                  <CopyButton value={channel.channelId} label="Copy channel ID" />
+                </div>
               </DescriptionDetails>
 
               <DescriptionTerm>Visibility</DescriptionTerm>

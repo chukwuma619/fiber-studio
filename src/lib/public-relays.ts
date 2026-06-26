@@ -20,6 +20,8 @@ export const PUBLIC_RELAYS: Record<FiberNetwork, PublicRelayNode[]> = MANIFEST
 
 export const FIBER_MIN_CHANNEL_FUNDING_CKB = 100
 
+export const CHANNEL_OPEN_MIN_FUNDING_CKB = 1000
+
 export const CHANNEL_RESERVE_CKB = 99
 
 /** Example third-party public nodes — placeholders for custom mode only. */

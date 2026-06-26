@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use super::rpc::{self, parse_hex_u128, Channel};
 
-const SHANNONS_PER_CKB: u128 = 100_000_000;
+pub const SHANNONS_PER_CKB: u128 = 100_000_000;
 
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,22 +23,16 @@ pub fn ckb_to_shannons_hex(ckb: u64) -> String {
     format!("0x{shannons:x}")
 }
 
-pub fn shannons_hex_to_ckb(shannons_hex: &str) -> Option<u64> {
-    let shannons = rpc::parse_hex_u128(shannons_hex)?;
-    let ckb = shannons / SHANNONS_PER_CKB;
-    if ckb > u64::MAX as u128 {
-        return None;
-    }
-    Some(ckb as u64)
-}
+pub const CHANNEL_OPEN_MIN_FUNDING_CKB: u64 = 1000;
 
-pub const RECOMMENDED_CHANNEL_FUNDING_CKB: u64 = 500;
+pub const CHANNEL_RESERVE_CKB: u64 = 99;
 
-pub fn recommended_funding_ckb(peer_min_ckb: Option<u64>) -> u64 {
-    match peer_min_ckb {
-        Some(min) => min.max(RECOMMENDED_CHANNEL_FUNDING_CKB),
-        None => RECOMMENDED_CHANNEL_FUNDING_CKB,
-    }
+pub const CHANNEL_OPEN_FEE_BUFFER_CKB: u64 = 10;
+
+pub fn required_wallet_ckb_for_open(funding_ckb: u64) -> u64 {
+    funding_ckb
+        .saturating_add(CHANNEL_RESERVE_CKB)
+        .saturating_add(CHANNEL_OPEN_FEE_BUFFER_CKB)
 }
 
 pub fn to_home_channel(channel: Channel) -> HomeChannel {
@@ -129,15 +123,8 @@ mod tests {
     }
 
     #[test]
-    fn shannons_hex_to_ckb_converts_400_ckb() {
-        assert_eq!(shannons_hex_to_ckb("0x9502f9000"), Some(400));
-    }
-
-    #[test]
-    fn recommended_funding_ckb_uses_peer_minimum_when_higher() {
-        assert_eq!(recommended_funding_ckb(Some(400)), 500);
-        assert_eq!(recommended_funding_ckb(Some(600)), 600);
-        assert_eq!(recommended_funding_ckb(None), 500);
+    fn required_wallet_ckb_for_open_includes_reserve_and_fee_buffer() {
+        assert_eq!(required_wallet_ckb_for_open(1000), 1109);
     }
 
     #[test]

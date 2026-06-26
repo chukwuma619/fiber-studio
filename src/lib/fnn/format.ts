@@ -1,4 +1,8 @@
+import { CHANNEL_RESERVE_CKB } from "../public-relays"
+
 const SHANNONS_PER_CKB = 100_000_000n
+
+export { CHANNEL_RESERVE_CKB }
 
 export function parseHexU128(hex: string): bigint {
   const trimmed = hex.startsWith("0x") ? hex.slice(2) : hex
@@ -82,6 +86,13 @@ export function channelStateBadgeColor(
 
 export function ckbToShannons(ckb: number): bigint {
   return BigInt(ckb) * SHANNONS_PER_CKB
+}
+
+
+export const CHANNEL_OPEN_FEE_BUFFER_CKB = 10
+
+export function requiredWalletCkbForOpen(fundingCkb: number): number {
+  return fundingCkb + CHANNEL_RESERVE_CKB + CHANNEL_OPEN_FEE_BUFFER_CKB
 }
 
 export function paymentStatusTone(

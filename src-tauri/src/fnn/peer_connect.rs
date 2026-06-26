@@ -235,36 +235,6 @@ async fn wait_for_peer(pubkey: &str) -> Result<bool, RpcError> {
     Ok(false)
 }
 
-pub async fn lookup_peer_auto_accept_min_ckb(pubkey: &str) -> Option<u64> {
-    let pubkey = pubkey.trim();
-    if pubkey.is_empty() {
-        return None;
-    }
-
-    for _ in 0..GRAPH_LOOKUP_RETRIES {
-        match super::rpc::fetch_graph_nodes().await {
-            Ok(nodes) => {
-                if let Some(node) = nodes
-                    .iter()
-                    .find(|node| pubkeys_equal(&node.pubkey, pubkey))
-                {
-                    if let Some(amount) = &node.auto_accept_min_ckb_funding_amount {
-                        if let Some(ckb) = super::channel::shannons_hex_to_ckb(amount) {
-                            return Some(ckb);
-                        }
-                    }
-                    return None;
-                }
-            }
-            Err(_) => {}
-        }
-
-        tokio::time::sleep(GRAPH_LOOKUP_DELAY).await;
-    }
-
-    None
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

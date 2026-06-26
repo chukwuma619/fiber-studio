@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import type { SetupConfig } from "../../lib/setup/types"
-import { FIBER_MIN_CHANNEL_FUNDING_CKB } from "../../lib/public-relays"
-import { getPeerOpenChannelPolicy } from "../../lib/fnn/invoke"
-import type { OpenChannelPayload, PeerOpenChannelPolicy } from "../../lib/fnn/types"
+import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../../lib/public-relays"
+import {
+  CHANNEL_OPEN_FEE_BUFFER_CKB,
+  CHANNEL_RESERVE_CKB,
+  requiredWalletCkbForOpen,
+} from "../../lib/fnn/format"
+import type { OpenChannelPayload } from "../../lib/fnn/types"
 import { Button } from "../ui/button"
 import {
   Dialog,
@@ -19,6 +23,7 @@ type OpenChannelDialogProps = {
   open: boolean
   onClose: () => void
   config: SetupConfig | null
+  availableWalletCkb: number | null
   isActing: boolean
   actionError: string | null
   onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
@@ -43,6 +48,7 @@ export function OpenChannelDialog({
   open,
   onClose,
   config,
+  availableWalletCkb,
   isActing,
   actionError,
   onOpenChannel,
@@ -52,14 +58,6 @@ export function OpenChannelDialog({
 
   const [capacity, setCapacity] = useState("")
   const [validationError, setValidationError] = useState<string | null>(null)
-  const [policy, setPolicy] = useState<PeerOpenChannelPolicy | null>(null)
-  const [policyLoading, setPolicyLoading] = useState(false)
-  const [policyError, setPolicyError] = useState<string | null>(null)
-
-  const effectiveMinimumCkb =
-    policy?.known && policy.minFundingCkb !== null
-      ? policy.minFundingCkb
-      : FIBER_MIN_CHANNEL_FUNDING_CKB
 
   const parsedCapacity = useMemo(() => {
     const trimmed = capacity.trim()
@@ -69,48 +67,23 @@ export function OpenChannelDialog({
     return parsed
   }, [capacity])
 
-  const belowPeerMinimum =
-    policy?.known &&
-    policy.minFundingCkb !== null &&
-    parsedCapacity !== null &&
-    parsedCapacity < policy.minFundingCkb
+  const belowMinimum =
+    parsedCapacity !== null && parsedCapacity < CHANNEL_OPEN_MIN_FUNDING_CKB
+
+  const requiredWalletCkb =
+    parsedCapacity !== null ? requiredWalletCkbForOpen(parsedCapacity) : null
+
+  const insufficientWalletBalance =
+    availableWalletCkb !== null &&
+    requiredWalletCkb !== null &&
+    availableWalletCkb < requiredWalletCkb
 
   useEffect(() => {
     if (!open) return
 
     setValidationError(null)
-    setPolicy(null)
-    setPolicyError(null)
     onClearError()
-
-    if (!peerPubkey) {
-      setCapacity("")
-      return
-    }
-
-    let cancelled = false
-    setPolicyLoading(true)
-
-    void getPeerOpenChannelPolicy(peerPubkey)
-      .then((nextPolicy) => {
-        if (cancelled) return
-        setPolicy(nextPolicy)
-        setCapacity(String(nextPolicy.recommendedFundingCkb))
-      })
-      .catch((error) => {
-        if (cancelled) return
-        setPolicyError(error instanceof Error ? error.message : String(error))
-        setCapacity(String(FIBER_MIN_CHANNEL_FUNDING_CKB))
-      })
-      .finally(() => {
-        if (!cancelled) {
-          setPolicyLoading(false)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
+    setCapacity(peerPubkey ? String(CHANNEL_OPEN_MIN_FUNDING_CKB) : "")
   }, [onClearError, open, peerPubkey])
 
   async function handleSubmit() {
@@ -119,26 +92,21 @@ export function OpenChannelDialog({
       return
     }
 
-    if (policyLoading) {
+    const fundingCkb = parseFundingCkb(capacity, CHANNEL_OPEN_MIN_FUNDING_CKB)
+    if (fundingCkb === null) {
+      setValidationError(
+        `Enter a whole number of at least ${CHANNEL_OPEN_MIN_FUNDING_CKB} CKB.`,
+      )
       return
     }
 
-    const fundingCkb = parseFundingCkb(capacity, effectiveMinimumCkb)
-    if (fundingCkb === null) {
-      if (
-        policy?.known &&
-        policy.minFundingCkb !== null &&
-        parsedCapacity !== null &&
-        parsedCapacity < policy.minFundingCkb
-      ) {
-        setValidationError(
-          `This peer requires at least ${policy.minFundingCkb} CKB to auto-accept a channel.`,
-        )
-        return
-      }
-
+    if (
+      availableWalletCkb !== null &&
+      availableWalletCkb < requiredWalletCkbForOpen(fundingCkb)
+    ) {
+      const required = requiredWalletCkbForOpen(fundingCkb)
       setValidationError(
-        `Enter a whole number of at least ${effectiveMinimumCkb} CKB.`,
+        `Insufficient on-chain CKB. Need at least ${required} CKB (${fundingCkb} funding + ${CHANNEL_RESERVE_CKB} reserve + ${CHANNEL_OPEN_FEE_BUFFER_CKB} fee buffer) but wallet has ${availableWalletCkb} CKB.`,
       )
       return
     }
@@ -152,26 +120,6 @@ export function OpenChannelDialog({
       // actionError is set by the hook
     }
   }
-
-  const policyDescription = (() => {
-    if (policyLoading) {
-      return "Looking up auto-accept minimum from the network graph…"
-    }
-
-    if (policy?.known && policy.minFundingCkb !== null) {
-      return `Auto-accept requires at least ${policy.minFundingCkb} CKB.`
-    }
-
-    if (policyError) {
-      return `Could not read peer policy (${policyError}). Use at least ${FIBER_MIN_CHANNEL_FUNDING_CKB} CKB.`
-    }
-
-    if (policy && !policy.known) {
-      return `Peer policy not in the network graph yet. Use at least ${FIBER_MIN_CHANNEL_FUNDING_CKB} CKB.`
-    }
-
-    return `Minimum ${FIBER_MIN_CHANNEL_FUNDING_CKB} CKB to open a channel.`
-  })()
 
   return (
     <Dialog
@@ -194,22 +142,24 @@ export function OpenChannelDialog({
               value={capacity}
               onChange={(event) => setCapacity(event.target.value)}
               inputMode="numeric"
-              placeholder={
-                policy
-                  ? String(policy.recommendedFundingCkb)
-                  : String(FIBER_MIN_CHANNEL_FUNDING_CKB)
-              }
-              disabled={policyLoading || !peerPubkey}
+              placeholder={String(CHANNEL_OPEN_MIN_FUNDING_CKB)}
+              disabled={!peerPubkey}
             />
-            <Description>{policyDescription}</Description>
+            <Description>
+              Minimum {CHANNEL_OPEN_MIN_FUNDING_CKB} CKB to open a channel.
+            </Description>
           </Field>
         </FieldGroup>
 
-        {belowPeerMinimum ? (
+        {insufficientWalletBalance && requiredWalletCkb !== null ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
-            {policy?.minFundingCkb} CKB is required for auto-accept. Lower
-            amounts can leave the channel stuck opening until the peer manually
-            accepts or it times out.
+            On-chain wallet has {availableWalletCkb} CKB but this open needs at
+            least {requiredWalletCkb} CKB. Check the balance card above.
+          </Text>
+        ) : null}
+        {belowMinimum ? (
+          <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
+            {CHANNEL_OPEN_MIN_FUNDING_CKB} CKB is the minimum channel capacity.
           </Text>
         ) : null}
         {validationError ? (
@@ -233,8 +183,8 @@ export function OpenChannelDialog({
           disabled={
             isActing ||
             !peerPubkey ||
-            policyLoading ||
-            belowPeerMinimum === true
+            belowMinimum === true ||
+            insufficientWalletBalance === true
           }
         >
           {isActing ? "Opening…" : "Open channel"}

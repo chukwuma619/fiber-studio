@@ -9,6 +9,8 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   pendingChannelCount: 0,
   totalCapacity: "0",
   totalLocalBalance: "0",
+  onChainWalletCkb: null,
+  onChainWalletError: null,
   network: null,
   defaultFundingLockScript: null,
 }
@@ -16,14 +18,20 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
 export function useChannelsPage(running: boolean, pollIntervalMs = 10_000) {
   const [data, setData] = useState<ChannelsPageResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (manual = false) => {
     if (!running) {
       setData(EMPTY_RESPONSE)
       setError(null)
       setIsLoading(false)
+      setIsRefreshing(false)
       return
+    }
+
+    if (manual) {
+      setIsRefreshing(true)
     }
 
     try {
@@ -34,6 +42,7 @@ export function useChannelsPage(running: boolean, pollIntervalMs = 10_000) {
       setError(err instanceof Error ? err.message : String(err))
     } finally {
       setIsLoading(false)
+      setIsRefreshing(false)
     }
   }, [running])
 
@@ -56,5 +65,7 @@ export function useChannelsPage(running: boolean, pollIntervalMs = 10_000) {
     }
   }, [pollIntervalMs, refresh, running])
 
-  return { data, isLoading, error, refresh }
+  const refreshNow = useCallback(() => refresh(true), [refresh])
+
+  return { data, isLoading, isRefreshing, error, refresh: refreshNow }
 }

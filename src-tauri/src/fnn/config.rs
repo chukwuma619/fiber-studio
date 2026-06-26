@@ -3,7 +3,7 @@ use thiserror::Error;
 const MAINNET_TEMPLATE: &str = include_str!("../../resources/fnn-config/mainnet.yml");
 const TESTNET_TEMPLATE: &str = include_str!("../../resources/fnn-config/testnet.yml");
 
-const MAINNET_CKB_RPC_URL: &str = "https://mainnet.ckbapp.dev/";
+pub const MAINNET_CKB_RPC_URL: &str = "https://mainnet.ckbapp.dev/";
 const ANNOUNCED_NODE_NAME_LINE: &str = r#"  announced_node_name: "fiber-studio""#;
 
 #[derive(Debug, Error)]

@@ -59,6 +59,11 @@ export type CkbScript = {
   args: string
 }
 
+export type WalletBalanceResponse = {
+  availableCkb: number
+  shannons: string
+}
+
 export type ChannelsPageResponse = {
   available: boolean
   channels: HomeChannel[]
@@ -66,6 +71,8 @@ export type ChannelsPageResponse = {
   pendingChannelCount: number
   totalCapacity: string
   totalLocalBalance: string
+  onChainWalletCkb: number | null
+  onChainWalletError?: string | null
   network: string | null
   defaultFundingLockScript: CkbScript | null
 }
@@ -78,13 +85,6 @@ export type OpenChannelPayload = {
 
 export type OpenChannelResult = {
   channelId: string | null
-}
-
-export type PeerOpenChannelPolicy = {
-  pubkey: string
-  minFundingCkb: number | null
-  known: boolean
-  recommendedFundingCkb: number
 }
 
 export type ShutdownChannelPayload = {
