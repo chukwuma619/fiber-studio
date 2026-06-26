@@ -46,7 +46,7 @@ export function channelStateDisplayLabel(state: string): string {
     case "ChannelReady":
       return "Ready"
     case "AwaitingTxSignatures":
-      return "Pending"
+      return "Awaiting signatures"
     case "NegotiatingFunding":
       return "Opening"
     case "ShuttingDown":
@@ -54,6 +54,18 @@ export function channelStateDisplayLabel(state: string): string {
     default:
       return state.replace(/([A-Z])/g, " $1").trim()
   }
+}
+
+export function canAbandonChannel(state: string): boolean {
+  return (
+    state !== "ChannelReady" &&
+    state !== "ShuttingDown" &&
+    state !== "Closed"
+  )
+}
+
+export function canCloseChannel(state: string): boolean {
+  return state === "ChannelReady"
 }
 
 export type ChannelBadgeColor = "green" | "amber" | "red" | "zinc"

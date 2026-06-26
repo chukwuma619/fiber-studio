@@ -14,6 +14,8 @@ pub struct HomeChannel {
     pub local_balance: String,
     pub remote_balance: String,
     pub local_percent: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub failure_detail: Option<String>,
 }
 
 pub fn ckb_to_shannons_hex(ckb: u64) -> String {
@@ -57,6 +59,7 @@ pub fn to_home_channel(channel: Channel) -> HomeChannel {
         local_balance: channel.local_balance,
         remote_balance: channel.remote_balance,
         local_percent,
+        failure_detail: channel.failure_detail,
     }
 }
 
@@ -84,6 +87,13 @@ pub fn count_active_channels(channels: &[Channel]) -> u32 {
     channels
         .iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))
+        .count() as u32
+}
+
+pub fn count_pending_channels(channels: &[Channel]) -> u32 {
+    channels
+        .iter()
+        .filter(|channel| rpc::is_channel_pending(&channel.state))
         .count() as u32
 }
 
@@ -128,5 +138,37 @@ mod tests {
         assert_eq!(recommended_funding_ckb(Some(400)), 500);
         assert_eq!(recommended_funding_ckb(Some(600)), 600);
         assert_eq!(recommended_funding_ckb(None), 500);
+    }
+
+    #[test]
+    fn count_pending_channels_counts_opening_states() {
+        let channels = vec![
+            Channel {
+                channel_id: "0x1".into(),
+                is_public: true,
+                pubkey: "02aa".into(),
+                state: serde_json::json!("ChannelReady"),
+                local_balance: "0x1".into(),
+                remote_balance: "0x2".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: true,
+                failure_detail: None,
+            },
+            Channel {
+                channel_id: "0x2".into(),
+                is_public: true,
+                pubkey: "02bb".into(),
+                state: serde_json::json!("AwaitingTxSignatures"),
+                local_balance: "0x3".into(),
+                remote_balance: "0x0".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: false,
+                failure_detail: None,
+            },
+        ];
+
+        assert_eq!(count_pending_channels(&channels), 1);
     }
 }

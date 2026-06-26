@@ -100,6 +100,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   }, [available, channels, initialChannelId])
 
   const activeChannels = available ? String(data?.activeChannelCount ?? 0) : "—"
+  const pendingChannels = available ? String(data?.pendingChannelCount ?? 0) : "—"
   const totalCapacity = available
     ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
     : "—"
@@ -127,13 +128,22 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Active channels"
           value={isLoading && running ? "…" : activeChannels}
           subtext={
             available
-              ? `${channels.length} total listed`
+              ? "Ready for payments"
+              : "Start node to view channels"
+          }
+        />
+        <StatCard
+          label="Pending channels"
+          value={isLoading && running ? "…" : pendingChannels}
+          subtext={
+            available
+              ? "Opening or awaiting peer"
               : "Start node to view channels"
           }
         />
@@ -213,7 +223,17 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge color={badgeColor}>{stateLabel}</Badge>
+                      <div className="space-y-1">
+                        <Badge color={badgeColor}>{stateLabel}</Badge>
+                        {channel.failureDetail ? (
+                          <p
+                            className="max-w-xs text-xs text-rose-600 dark:text-rose-400"
+                            title={channel.failureDetail}
+                          >
+                            {channel.failureDetail}
+                          </p>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {channelCapacityCkb(channel)} CKB
@@ -246,6 +266,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}
         onShutdownChannel={channelActions.handleShutdownChannel}
+        onAbandonChannel={channelActions.handleAbandonChannel}
         onClearError={channelActions.clearActionError}
       />
     </div>

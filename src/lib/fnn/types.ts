@@ -50,6 +50,7 @@ export type HomeChannel = {
   localBalance: string
   remoteBalance: string
   localPercent: number
+  failureDetail?: string | null
 }
 
 export type CkbScript = {
@@ -62,6 +63,7 @@ export type ChannelsPageResponse = {
   available: boolean
   channels: HomeChannel[]
   activeChannelCount: number
+  pendingChannelCount: number
   totalCapacity: string
   totalLocalBalance: string
   network: string | null
@@ -86,6 +88,10 @@ export type PeerOpenChannelPolicy = {
 }
 
 export type ShutdownChannelPayload = {
+  channelId: string
+}
+
+export type AbandonChannelPayload = {
   channelId: string
 }
 

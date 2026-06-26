@@ -112,6 +112,8 @@ pub struct Channel {
     pub received_tlc_balance: String,
     #[serde(default)]
     pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failure_detail: Option<String>,
 }
 
 /// Peer entry from `list_peers`.
@@ -318,6 +320,28 @@ pub async fn shutdown_channel(
     Ok(())
 }
 
+/// Abandons a channel that is still opening (not Ready or Closed).
+pub async fn abandon_channel(channel_id: &str) -> Result<(), RpcError> {
+    let params = serde_json::json!([{ "channel_id": channel_id }]);
+
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "abandon_channel",
+        "params": params,
+        "id": 1
+    });
+
+    let response = client.post(FNN_RPC_URL).json(&body).send().await?;
+    let payload: RpcResponse<serde_json::Value> = response.json().await?;
+
+    if let Some(error) = payload.error {
+        return Err(RpcError::Rpc(error));
+    }
+
+    Ok(())
+}
+
 /// Connect to a peer. Returns `Ok(())` when RPC succeeds (result may be null).
 pub async fn connect_peer(params: serde_json::Value) -> Result<(), RpcError> {
     let client = reqwest::Client::new();
@@ -364,6 +388,10 @@ pub fn channel_state_label(state: &serde_json::Value) -> String {
 
 pub fn is_channel_ready(state: &serde_json::Value) -> bool {
     channel_state_label(state) == "ChannelReady"
+}
+
+pub fn is_channel_pending(state: &serde_json::Value) -> bool {
+    is_listable_channel(state) && !is_channel_ready(state) && channel_state_label(state) != "ShuttingDown"
 }
 
 /// Whether a channel should appear in Fiber Studio channel lists.
@@ -586,6 +614,25 @@ mod tests {
     }
 
     #[test]
+    fn is_channel_pending_includes_opening_excludes_ready_and_closing() {
+        let ready = serde_json::json!("ChannelReady");
+        let opening = serde_json::json!({
+            "state_name": "NegotiatingFunding",
+            "state_flags": "OUR_INIT_SENT"
+        });
+        let closing = serde_json::json!("ShuttingDown");
+        let closed = serde_json::json!({
+            "state_name": "Closed",
+            "state_flags": "FUNDING_ABORTED"
+        });
+
+        assert!(!super::is_channel_pending(&ready));
+        assert!(super::is_channel_pending(&opening));
+        assert!(!super::is_channel_pending(&closing));
+        assert!(!super::is_channel_pending(&closed));
+    }
+
+    #[test]
     fn merge_channel_lists_dedupes_by_channel_id() {
         let active = vec![Channel {
             channel_id: "0xabc".into(),
@@ -597,6 +644,7 @@ mod tests {
             offered_tlc_balance: String::new(),
             received_tlc_balance: String::new(),
             enabled: true,
+            failure_detail: None,
         }];
         let pending = vec![
             Channel {
@@ -609,6 +657,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                failure_detail: None,
             },
             Channel {
                 channel_id: "0xdef".into(),
@@ -623,6 +672,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                failure_detail: Some("Peer did not respond".into()),
             },
         ];
 

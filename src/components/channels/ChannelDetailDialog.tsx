@@ -1,11 +1,17 @@
 import { useEffect, useState } from "react"
 import {
+  canAbandonChannel,
+  canCloseChannel,
   channelStateBadgeColor,
   channelStateDisplayLabel,
   formatCkb,
   parseHexU128,
 } from "../../lib/fnn/format"
-import type { HomeChannel, ShutdownChannelPayload } from "../../lib/fnn/types"
+import type {
+  AbandonChannelPayload,
+  HomeChannel,
+  ShutdownChannelPayload,
+} from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -24,7 +30,7 @@ import {
 } from "../ui/dialog"
 import { Text } from "../ui/text"
 
-type Step = "detail" | "confirm-close"
+type Step = "detail" | "confirm-close" | "confirm-abandon"
 
 type ChannelDetailDialogProps = {
   open: boolean
@@ -33,11 +39,8 @@ type ChannelDetailDialogProps = {
   isActing: boolean
   actionError: string | null
   onShutdownChannel: (payload: ShutdownChannelPayload) => Promise<void>
+  onAbandonChannel: (payload: AbandonChannelPayload) => Promise<void>
   onClearError: () => void
-}
-
-function canCloseChannel(state: string): boolean {
-  return state === "ChannelReady"
 }
 
 function closeDisabledReason(state: string): string | null {
@@ -50,6 +53,19 @@ function closeDisabledReason(state: string): string | null {
   return null
 }
 
+function abandonDisabledReason(state: string): string | null {
+  if (canAbandonChannel(state)) {
+    return null
+  }
+  if (state === "ChannelReady") {
+    return "Use close channel for active channels."
+  }
+  if (state === "ShuttingDown") {
+    return "This channel is already closing."
+  }
+  return "This channel cannot be abandoned."
+}
+
 export function ChannelDetailDialog({
   open,
   channel,
@@ -57,6 +73,7 @@ export function ChannelDetailDialog({
   isActing,
   actionError,
   onShutdownChannel,
+  onAbandonChannel,
   onClearError,
 }: ChannelDetailDialogProps) {
   const [step, setStep] = useState<Step>("detail")
@@ -83,7 +100,10 @@ export function ChannelDetailDialog({
     channel.localPercent,
   )
   const closeReason = closeDisabledReason(channel.state)
+  const abandonReason = abandonDisabledReason(channel.state)
   const isReady = channel.state === "ChannelReady"
+  const showAbandon = canAbandonChannel(channel.state)
+  const channelId = channel.channelId
 
   function handleDismiss() {
     setStep("detail")
@@ -93,12 +113,51 @@ export function ChannelDetailDialog({
 
   async function handleConfirmClose() {
     try {
-      await onShutdownChannel({ channelId: channel.channelId })
+      await onShutdownChannel({ channelId })
       handleDismiss()
     } catch {
       // actionError is set by the hook
     }
   }
+
+  async function handleConfirmAbandon() {
+    try {
+      await onAbandonChannel({ channelId })
+      handleDismiss()
+    } catch {
+      // actionError is set by the hook
+    }
+  }
+
+  const dialogTitle = (() => {
+    switch (step) {
+      case "detail":
+        return "Channel details"
+      case "confirm-close":
+        return "Close channel"
+      case "confirm-abandon":
+        return "Abandon channel"
+      default: {
+        const unreachable: never = step
+        return unreachable
+      }
+    }
+  })()
+
+  const dialogDescription = (() => {
+    switch (step) {
+      case "detail":
+        return `Channel with ${truncatePubkey(channel.pubkey)}.`
+      case "confirm-close":
+        return "Cooperative close returns funds to your on-chain CKB wallet."
+      case "confirm-abandon":
+        return "Cancel this opening attempt and remove the channel from your node."
+      default: {
+        const unreachable: never = step
+        return unreachable
+      }
+    }
+  })()
 
   return (
     <Dialog
@@ -106,14 +165,8 @@ export function ChannelDetailDialog({
       onClose={isActing ? () => {} : handleDismiss}
       size="lg"
     >
-      <DialogTitle>
-        {step === "detail" ? "Channel details" : "Close channel"}
-      </DialogTitle>
-      <DialogDescription>
-        {step === "detail"
-          ? `Channel with ${truncatePubkey(channel.pubkey)}.`
-          : "Cooperative close returns funds to your on-chain CKB wallet."}
-      </DialogDescription>
+      <DialogTitle>{dialogTitle}</DialogTitle>
+      <DialogDescription>{dialogDescription}</DialogDescription>
 
       <DialogBody>
         {step === "detail" ? (
@@ -140,6 +193,15 @@ export function ChannelDetailDialog({
               <DescriptionDetails>
                 <Badge color={badgeColor}>{stateLabel}</Badge>
               </DescriptionDetails>
+
+              {channel.failureDetail ? (
+                <>
+                  <DescriptionTerm>Failure detail</DescriptionTerm>
+                  <DescriptionDetails className="text-sm text-rose-700 dark:text-rose-300">
+                    {channel.failureDetail}
+                  </DescriptionDetails>
+                </>
+              ) : null}
 
               <DescriptionTerm>Capacity</DescriptionTerm>
               <DescriptionDetails className="font-semibold tabular-nums">
@@ -179,13 +241,18 @@ export function ChannelDetailDialog({
               )}
             </div>
 
-            {closeReason ? (
+            {closeReason && !showAbandon ? (
               <Text className="text-xs text-zinc-500 dark:text-zinc-400">
                 {closeReason}
               </Text>
             ) : null}
+            {abandonReason && showAbandon ? (
+              <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                Abandon cancels a stuck open before funding completes on-chain.
+              </Text>
+            ) : null}
           </div>
-        ) : (
+        ) : step === "confirm-close" ? (
           <div className="space-y-4">
             <Text className="text-sm text-zinc-600 dark:text-zinc-400">
               Closing this channel returns funds to your on-chain wallet.
@@ -195,6 +262,19 @@ export function ChannelDetailDialog({
               <span className="font-mono">{truncatePubkey(channel.pubkey)}</span>
               {" · "}
               {capacity} CKB
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+              Abandon removes this opening attempt from your node. If funding
+              never completed on-chain, your CKB stays in your wallet.
+            </Text>
+            <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+              <span className="font-mono">{truncatePubkey(channel.pubkey)}</span>
+              {" · "}
+              {stateLabel}
+              {channel.failureDetail ? ` · ${channel.failureDetail}` : ""}
             </div>
           </div>
         )}
@@ -212,19 +292,33 @@ export function ChannelDetailDialog({
             <Button plain onClick={handleDismiss} disabled={isActing}>
               Done
             </Button>
-            <Button
-              outline
-              className="text-red-700 dark:text-red-400"
-              onClick={() => {
-                onClearError()
-                setStep("confirm-close")
-              }}
-              disabled={isActing || !canCloseChannel(channel.state)}
-            >
-              Close channel
-            </Button>
+            {showAbandon ? (
+              <Button
+                outline
+                className="text-amber-800 dark:text-amber-300"
+                onClick={() => {
+                  onClearError()
+                  setStep("confirm-abandon")
+                }}
+                disabled={isActing}
+              >
+                Abandon channel
+              </Button>
+            ) : (
+              <Button
+                outline
+                className="text-red-700 dark:text-red-400"
+                onClick={() => {
+                  onClearError()
+                  setStep("confirm-close")
+                }}
+                disabled={isActing || !canCloseChannel(channel.state)}
+              >
+                Close channel
+              </Button>
+            )}
           </>
-        ) : (
+        ) : step === "confirm-close" ? (
           <>
             <Button plain onClick={() => setStep("detail")} disabled={isActing}>
               Back
@@ -235,6 +329,19 @@ export function ChannelDetailDialog({
               disabled={isActing}
             >
               {isActing ? "Closing…" : "Confirm close"}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button plain onClick={() => setStep("detail")} disabled={isActing}>
+              Back
+            </Button>
+            <Button
+              color="red"
+              onClick={() => void handleConfirmAbandon()}
+              disabled={isActing}
+            >
+              {isActing ? "Abandoning…" : "Confirm abandon"}
             </Button>
           </>
         )}

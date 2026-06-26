@@ -10,6 +10,7 @@ import type {
   OpenChannelResult,
   PeerOpenChannelPolicy,
   ShutdownChannelPayload,
+  AbandonChannelPayload,
   StartNodePayload,
 } from "./types"
 
@@ -78,4 +79,10 @@ export async function shutdownChannel(
   payload: ShutdownChannelPayload,
 ): Promise<void> {
   return invoke<void>("shutdown_channel", { payload })
+}
+
+export async function abandonChannel(
+  payload: AbandonChannelPayload,
+): Promise<void> {
+  return invoke<void>("abandon_channel", { payload })
 }

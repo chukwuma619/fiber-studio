@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react"
-import { openChannel, shutdownChannel } from "./invoke"
-import type { OpenChannelPayload, ShutdownChannelPayload } from "./types"
+import { abandonChannel, openChannel, shutdownChannel } from "./invoke"
+import type {
+  AbandonChannelPayload,
+  OpenChannelPayload,
+  ShutdownChannelPayload,
+} from "./types"
 
 export function useChannelActions(onSuccess?: () => void) {
   const [isActing, setIsActing] = useState(false)
@@ -40,6 +44,23 @@ export function useChannelActions(onSuccess?: () => void) {
     [onSuccess],
   )
 
+  const handleAbandonChannel = useCallback(
+    async (payload: AbandonChannelPayload) => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        await abandonChannel(payload)
+        onSuccess?.()
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : String(error))
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
   const clearActionError = useCallback(() => {
     setActionError(null)
   }, [])
@@ -49,6 +70,7 @@ export function useChannelActions(onSuccess?: () => void) {
     actionError,
     handleOpenChannel,
     handleShutdownChannel,
+    handleAbandonChannel,
     clearActionError,
   }
 }

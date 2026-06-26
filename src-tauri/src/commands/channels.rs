@@ -2,8 +2,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 
 use crate::fnn::channel::{
-    self, count_active_channels, map_channels, sum_local_balances, sum_total_capacity,
-    HomeChannel,
+    self, count_active_channels, count_pending_channels, map_channels, sum_local_balances,
+    sum_total_capacity, HomeChannel,
 };
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
@@ -17,6 +17,7 @@ pub struct ChannelsPageResponse {
     pub available: bool,
     pub channels: Vec<HomeChannel>,
     pub active_channel_count: u32,
+    pub pending_channel_count: u32,
     pub total_capacity: String,
     pub total_local_balance: String,
     pub network: Option<String>,
@@ -40,6 +41,12 @@ pub struct OpenChannelResult {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownChannelPayload {
+    pub channel_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AbandonChannelPayload {
     pub channel_id: String,
 }
 
@@ -113,6 +120,7 @@ pub async fn get_channels_page(
             available: false,
             channels: Vec::new(),
             active_channel_count: 0,
+            pending_channel_count: 0,
             total_capacity: "0".to_string(),
             total_local_balance: "0".to_string(),
             network: None,
@@ -135,6 +143,7 @@ pub async fn get_channels_page(
         .map_err(|error| error.to_string())?;
 
     let active_channel_count = count_active_channels(&channels);
+    let pending_channel_count = count_pending_channels(&channels);
     let total_capacity = sum_total_capacity(&channels);
     let total_local_balance = sum_local_balances(&channels);
 
@@ -142,6 +151,7 @@ pub async fn get_channels_page(
         available: true,
         channels: map_channels(channels),
         active_channel_count,
+        pending_channel_count,
         total_capacity: total_capacity.to_string(),
         total_local_balance: total_local_balance.to_string(),
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
@@ -235,6 +245,28 @@ pub async fn shutdown_channel(
         .map_err(|error| error.to_string())?;
 
     rpc::shutdown_channel(channel_id, &node_info.default_funding_lock_script)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub async fn abandon_channel(
+    state: State<'_, AppState>,
+    payload: AbandonChannelPayload,
+) -> Result<(), String> {
+    let channel_id = payload.channel_id.trim();
+    if channel_id.is_empty() {
+        return Err("Channel ID is required.".to_string());
+    }
+
+    let manager = state.fnn.lock().await;
+
+    if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
+        return Err("Node is not running. Start your node before abandoning a channel.".to_string());
+    }
+    drop(manager);
+
+    rpc::abandon_channel(channel_id)
         .await
         .map_err(|error| error.to_string())
 }

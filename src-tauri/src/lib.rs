@@ -31,6 +31,7 @@ pub fn run() {
             commands::channels::get_peer_open_channel_policy,
             commands::channels::open_channel,
             commands::channels::shutdown_channel,
+            commands::channels::abandon_channel,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

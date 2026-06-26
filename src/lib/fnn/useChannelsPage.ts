@@ -6,6 +6,7 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   available: false,
   channels: [],
   activeChannelCount: 0,
+  pendingChannelCount: 0,
   totalCapacity: "0",
   totalLocalBalance: "0",
   network: null,
