@@ -35,10 +35,41 @@ export function formatRelativeTime(timestampMs: number): string {
 
 export function channelStatusLabel(state: string, localPercent: number): string {
   if (state !== "ChannelReady") {
-    return state.replace(/([A-Z])/g, " $1").trim()
+    return channelStateDisplayLabel(state)
   }
   if (localPercent < 15) return "Low"
   return "Active"
+}
+
+export function channelStateDisplayLabel(state: string): string {
+  switch (state) {
+    case "ChannelReady":
+      return "Ready"
+    case "AwaitingTxSignatures":
+      return "Pending"
+    case "NegotiatingFunding":
+      return "Opening"
+    case "ShuttingDown":
+      return "Closing"
+    default:
+      return state.replace(/([A-Z])/g, " $1").trim()
+  }
+}
+
+export type ChannelBadgeColor = "green" | "amber" | "red" | "zinc"
+
+export function channelStateBadgeColor(
+  state: string,
+  localPercent: number,
+): ChannelBadgeColor {
+  if (state === "ShuttingDown") return "red"
+  if (state !== "ChannelReady") return "amber"
+  if (localPercent < 15) return "amber"
+  return "green"
+}
+
+export function ckbToShannons(ckb: number): bigint {
+  return BigInt(ckb) * SHANNONS_PER_CKB
 }
 
 export function paymentStatusTone(

@@ -34,7 +34,7 @@ export function HomePage() {
     : "—"
 
   const relaySubtext = available
-    ? formatRelayStatus(dashboard?.peers ?? [], dashboard, config)
+    ? formatRelayStatus( dashboard, config)
     : running
       ? "Loading peer status…"
       : "Start node to connect"
@@ -98,7 +98,6 @@ export function HomePage() {
         <ChannelLiquiditySection
           channels={dashboard?.channels ?? []}
           available={available}
-          network={dashboard?.network ?? config?.network ?? undefined}
         />
         <NodeStatusPanel
           dashboard={dashboard}

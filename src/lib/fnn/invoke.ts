@@ -1,10 +1,15 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { SetupConfig } from "../setup/types"
 import type {
+  ChannelsPageResponse,
   CompleteSetupPayload,
   CompleteSetupResult,
   HomeDashboardResponse,
   NodeStatusResponse,
+  OpenChannelPayload,
+  OpenChannelResult,
+  PeerOpenChannelPolicy,
+  ShutdownChannelPayload,
   StartNodePayload,
 } from "./types"
 
@@ -51,4 +56,26 @@ export async function stopNode(): Promise<NodeStatusResponse> {
 
 export async function getHomeDashboard(): Promise<HomeDashboardResponse> {
   return invoke<HomeDashboardResponse>("get_home_dashboard")
+}
+
+export async function getChannelsPage(): Promise<ChannelsPageResponse> {
+  return invoke<ChannelsPageResponse>("get_channels_page")
+}
+
+export async function openChannel(
+  payload: OpenChannelPayload,
+): Promise<OpenChannelResult> {
+  return invoke<OpenChannelResult>("open_channel", { payload })
+}
+
+export async function getPeerOpenChannelPolicy(
+  pubkey: string,
+): Promise<PeerOpenChannelPolicy> {
+  return invoke<PeerOpenChannelPolicy>("get_peer_open_channel_policy", { pubkey })
+}
+
+export async function shutdownChannel(
+  payload: ShutdownChannelPayload,
+): Promise<void> {
+  return invoke<void>("shutdown_channel", { payload })
 }

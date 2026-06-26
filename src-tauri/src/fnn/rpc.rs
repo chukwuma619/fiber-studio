@@ -128,6 +128,8 @@ pub struct GraphNode {
     pub addresses: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub auto_accept_min_ckb_funding_amount: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -218,8 +220,30 @@ pub async fn fetch_node_info() -> Result<NodeInfo, RpcError> {
 }
 
 pub async fn fetch_list_channels() -> Result<Vec<Channel>, RpcError> {
-    let result: ListChannelsResult = call_rpc("list_channels", serde_json::json!([{}])).await?;
-    Ok(result.channels)
+    let active: ListChannelsResult = call_rpc("list_channels", serde_json::json!([{}])).await?;
+    let pending: ListChannelsResult = call_rpc(
+        "list_channels",
+        serde_json::json!([{ "only_pending": true }]),
+    )
+    .await?;
+
+    Ok(merge_channel_lists(active.channels, pending.channels)
+        .into_iter()
+        .filter(|channel| is_listable_channel(&channel.state))
+        .collect())
+}
+
+fn merge_channel_lists(active: Vec<Channel>, pending: Vec<Channel>) -> Vec<Channel> {
+    let mut merged = active;
+    for channel in pending {
+        if !merged
+            .iter()
+            .any(|existing| existing.channel_id == channel.channel_id)
+        {
+            merged.push(channel);
+        }
+    }
+    merged
 }
 
 pub async fn fetch_list_peers() -> Result<Vec<PeerInfo>, RpcError> {
@@ -240,6 +264,58 @@ pub async fn fetch_list_payments(limit: u32) -> Result<Vec<PaymentSummary>, RpcE
     )
     .await?;
     Ok(result.payments)
+}
+
+#[derive(Debug, Deserialize)]
+struct OpenChannelResult {
+    #[serde(default, rename = "channel_id")]
+    channel_id: Option<String>,
+}
+
+/// Opens a channel with a connected peer.
+pub async fn open_channel(
+    pubkey: &str,
+    funding_amount: &str,
+    is_public: bool,
+) -> Result<Option<String>, RpcError> {
+    let params = serde_json::json!([{
+        "pubkey": pubkey,
+        "funding_amount": funding_amount,
+        "public": is_public,
+    }]);
+
+    let result: OpenChannelResult = call_rpc("open_channel", params).await?;
+    Ok(result.channel_id)
+}
+
+/// Cooperatively shuts down a channel.
+pub async fn shutdown_channel(
+    channel_id: &str,
+    close_script: &CkbScript,
+) -> Result<(), RpcError> {
+    let params = serde_json::json!([{
+        "channel_id": channel_id,
+        "close_script": close_script,
+        "fee_rate": "0x3fc",
+        "force": false,
+    }]);
+
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "shutdown_channel",
+        "params": params,
+        "id": 1
+    });
+
+    let response = client.post(FNN_RPC_URL).json(&body).send().await?;
+    let payload: RpcResponse<serde_json::Value> = response.json().await?;
+
+    if let Some(error) = payload.error {
+        return Err(RpcError::Rpc(error));
+    }
+
+    Ok(())
 }
 
 /// Connect to a peer. Returns `Ok(())` when RPC succeeds (result may be null).
@@ -275,6 +351,9 @@ pub fn channel_state_label(state: &serde_json::Value) -> String {
     }
 
     if let Some(obj) = state.as_object() {
+        if let Some(name) = obj.get("state_name").and_then(|value| value.as_str()) {
+            return name.to_string();
+        }
         if let Some((key, _)) = obj.iter().next() {
             return key.clone();
         }
@@ -285,6 +364,12 @@ pub fn channel_state_label(state: &serde_json::Value) -> String {
 
 pub fn is_channel_ready(state: &serde_json::Value) -> bool {
     channel_state_label(state) == "ChannelReady"
+}
+
+/// Whether a channel should appear in Fiber Studio channel lists.
+/// Abandoned or otherwise closed failed opens remain in fnn's pending query but are not live channels.
+pub fn is_listable_channel(state: &serde_json::Value) -> bool {
+    channel_state_label(state) != "Closed"
 }
 
 pub async fn wait_for_node_info() -> Result<NodeInfo, RpcError> {
@@ -473,5 +558,77 @@ mod tests {
     fn parse_hex_u128_handles_prefixed_and_plain_hex() {
         assert_eq!(parse_hex_u128("0xbebc200"), Some(200_000_000));
         assert_eq!(parse_hex_u128("bebc200"), Some(200_000_000));
+    }
+
+    #[test]
+    fn channel_state_label_reads_state_name_object() {
+        let state = serde_json::json!({
+            "state_name": "NegotiatingFunding",
+            "state_flags": "OUR_INIT_SENT|INIT_SENT"
+        });
+        assert_eq!(channel_state_label(&state), "NegotiatingFunding");
+    }
+
+    #[test]
+    fn is_listable_channel_excludes_closed() {
+        let closed = serde_json::json!({
+            "state_name": "Closed",
+            "state_flags": "FUNDING_ABORTED"
+        });
+        let opening = serde_json::json!({
+            "state_name": "NegotiatingFunding",
+            "state_flags": "OUR_INIT_SENT"
+        });
+
+        assert!(!super::is_listable_channel(&closed));
+        assert!(super::is_listable_channel(&opening));
+        assert!(super::is_listable_channel(&serde_json::json!("ChannelReady")));
+    }
+
+    #[test]
+    fn merge_channel_lists_dedupes_by_channel_id() {
+        let active = vec![Channel {
+            channel_id: "0xabc".into(),
+            is_public: true,
+            pubkey: "02aa".into(),
+            state: serde_json::json!("ChannelReady"),
+            local_balance: "0x1".into(),
+            remote_balance: "0x2".into(),
+            offered_tlc_balance: String::new(),
+            received_tlc_balance: String::new(),
+            enabled: true,
+        }];
+        let pending = vec![
+            Channel {
+                channel_id: "0xabc".into(),
+                is_public: true,
+                pubkey: "02aa".into(),
+                state: serde_json::json!("AwaitingTxSignatures"),
+                local_balance: "0x1".into(),
+                remote_balance: "0x0".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: false,
+            },
+            Channel {
+                channel_id: "0xdef".into(),
+                is_public: false,
+                pubkey: "02bb".into(),
+                state: serde_json::json!({
+                    "state_name": "NegotiatingFunding",
+                    "state_flags": "OUR_INIT_SENT"
+                }),
+                local_balance: "0x3".into(),
+                remote_balance: "0x0".into(),
+                offered_tlc_balance: String::new(),
+                received_tlc_balance: String::new(),
+                enabled: false,
+            },
+        ];
+
+        let merged = merge_channel_lists(active, pending);
+        assert_eq!(merged.len(), 2);
+        assert_eq!(merged[0].channel_id, "0xabc");
+        assert_eq!(merged[1].channel_id, "0xdef");
     }
 }

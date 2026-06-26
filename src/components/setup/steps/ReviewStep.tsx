@@ -1,7 +1,4 @@
-import {
-  getRelay,
-  truncatePubkey,
-} from "../../../lib/public-relays"
+import { truncatePubkey } from "../../../lib/public-relays"
 import type { SetupConfig } from "../../../lib/setup/types"
 import {
   DescriptionDetails,
@@ -10,17 +7,6 @@ import {
 } from "../../ui/description-list"
 import { Heading } from "../../ui/heading"
 import { Text } from "../../ui/text"
-
-function relayLabelForPubkey(
-  network: SetupConfig["network"],
-  pubkey: string,
-): string | null {
-  const node1 = getRelay(network, "node1")
-  const node2 = getRelay(network, "node2")
-  if (pubkey === node1.pubkey) return "node1"
-  if (pubkey === node2.pubkey) return "node2"
-  return null
-}
 
 type ReviewRow = {
   label: string
@@ -35,15 +21,8 @@ export function ReviewStep({
   config: SetupConfig
   startError?: string | null
 }) {
-  const relayLabel = relayLabelForPubkey(
-    config.network,
-    config.customPublicNodePubkey,
-  )
-
   const peerValue = config.customPublicNodePubkey
-    ? relayLabel
-      ? `Public ${relayLabel} · ${truncatePubkey(config.customPublicNodePubkey)}`
-      : truncatePubkey(config.customPublicNodePubkey)
+    ? truncatePubkey(config.customPublicNodePubkey)
     : "Not set"
 
   const rows: ReviewRow[] = [

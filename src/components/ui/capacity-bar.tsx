@@ -1,8 +1,9 @@
 type CapacityBarProps = {
   percent: number
+  showLabel?: boolean
 }
 
-export function CapacityBar({ percent }: CapacityBarProps) {
+export function CapacityBar({ percent, showLabel = true }: CapacityBarProps) {
   const tone =
     percent < 15
       ? "bg-amber-500 dark:bg-amber-400"
@@ -16,9 +17,11 @@ export function CapacityBar({ percent }: CapacityBarProps) {
           style={{ width: `${percent}%` }}
         />
       </div>
-      <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-        {percent}%
-      </span>
+      {showLabel ? (
+        <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+          {percent}%
+        </span>
+      ) : null}
     </div>
   )
 }

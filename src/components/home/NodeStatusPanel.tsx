@@ -88,7 +88,7 @@ export function NodeStatusPanel({
             <>
               <DescriptionTerm>Public relay</DescriptionTerm>
               <DescriptionDetails>
-                {formatRelayStatus(dashboard.peers, dashboard, config)}
+                {formatRelayStatus(dashboard, config)}
               </DescriptionDetails>
             </>
           ) : null}

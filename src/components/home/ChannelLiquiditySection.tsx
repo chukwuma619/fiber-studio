@@ -10,28 +10,29 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table"
-import { channelStatusLabel, formatCkb, parseHexU128 } from "../../lib/fnn/format"
-import { formatPeerLabel } from "../../lib/fnn/relay"
+import {
+  channelStateBadgeColor,
+  channelStateDisplayLabel,
+  channelStatusLabel,
+  formatCkb,
+  parseHexU128,
+} from "../../lib/fnn/format"
 import type { HomeChannel } from "../../lib/fnn/types"
+import { truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "./HomeEmptyState"
 
 type ChannelLiquiditySectionProps = {
   channels: HomeChannel[]
   available: boolean
-  network: string | undefined
 }
 
 function channelBadgeColor(state: string, localPercent: number) {
-  const label = channelStatusLabel(state, localPercent)
-  if (label === "Low") return "amber" as const
-  if (label === "Active") return "green" as const
-  return "zinc" as const
+  return channelStateBadgeColor(state, localPercent)
 }
 
 export function ChannelLiquiditySection({
   channels,
   available,
-  network,
 }: ChannelLiquiditySectionProps) {
   return (
     <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
@@ -56,6 +57,7 @@ export function ChannelLiquiditySection({
         <Table dense>
           <TableHead>
             <TableRow>
+              <TableHeader className="w-10">S/N</TableHeader>
               <TableHeader>Peer</TableHeader>
               <TableHeader>Capacity</TableHeader>
               <TableHeader>Local balance</TableHeader>
@@ -63,11 +65,11 @@ export function ChannelLiquiditySection({
             </TableRow>
           </TableHead>
           <TableBody>
-            {channels.map((channel) => {
-              const statusLabel = channelStatusLabel(
-                channel.state,
-                channel.localPercent,
-              )
+            {channels.map((channel, index) => {
+              const statusLabel =
+                channel.state === "ChannelReady"
+                  ? channelStatusLabel(channel.state, channel.localPercent)
+                  : channelStateDisplayLabel(channel.state)
               const badgeColor = channelBadgeColor(
                 channel.state,
                 channel.localPercent,
@@ -75,8 +77,11 @@ export function ChannelLiquiditySection({
 
               return (
                 <TableRow key={channel.channelId} href="/channels">
+                  <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                    {index + 1}
+                  </TableCell>
                   <TableCell className="font-mono text-zinc-600 dark:text-zinc-400">
-                    {formatPeerLabel(channel.pubkey, network)}
+                    {truncatePubkey(channel.pubkey)}
                   </TableCell>
                   <TableCell className="tabular-nums">
                     {formatCkb(

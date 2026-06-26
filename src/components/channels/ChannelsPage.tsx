@@ -1,0 +1,253 @@
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { useNodeControlContext } from "../layout/NodeControlProvider"
+import {
+  channelStateBadgeColor,
+  channelStateDisplayLabel,
+  formatCkb,
+  parseHexU128,
+} from "../../lib/fnn/format"
+import { useChannelActions } from "../../lib/fnn/useChannelActions"
+import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
+import type { HomeChannel } from "../../lib/fnn/types"
+import { truncatePubkey } from "../../lib/public-relays"
+import { HomeEmptyState } from "../home/HomeEmptyState"
+import { StatCard } from "../home/StatCard"
+import { Badge } from "../ui/badge"
+import { Button } from "../ui/button"
+import { CapacityBar } from "../ui/capacity-bar"
+import { Heading } from "../ui/heading"
+import { Text } from "../ui/text"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "../ui/table"
+import { ChannelDetailDialog } from "./ChannelDetailDialog"
+import { OpenChannelDialog } from "./OpenChannelDialog"
+
+type ChannelsPageProps = {
+  initialChannelId?: string
+}
+
+function channelCapacityCkb(channel: HomeChannel): string {
+  const total =
+    parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance)
+  return formatCkb(total)
+}
+
+function remotePercent(channel: HomeChannel): number {
+  return Math.max(0, 100 - channel.localPercent)
+}
+
+function channelLiquidityCell(channel: HomeChannel) {
+  if (channel.state !== "ChannelReady") {
+    return (
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        Not available until ready
+      </span>
+    )
+  }
+
+  const remote = remotePercent(channel)
+  return (
+    <div className="flex items-center gap-3">
+      <CapacityBar percent={channel.localPercent} showLabel={false} />
+      <span className="shrink-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+        {channel.localPercent}% local / {remote}% remote
+      </span>
+    </div>
+  )
+}
+
+export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
+  const { config, running } = useNodeControlContext()
+  const { data, isLoading, error, refresh } = useChannelsPage(running)
+  const channelActions = useChannelActions(refresh)
+
+  const [openDialogOpen, setOpenDialogOpen] = useState(false)
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+
+  const available = data?.available ?? false
+  const channels = data?.channels ?? []
+
+  const selectedChannel = useMemo(
+    () => channels.find((channel) => channel.channelId === selectedChannelId) ?? null,
+    [channels, selectedChannelId],
+  )
+
+  const openOpenDialog = useCallback(() => {
+    channelActions.clearActionError()
+    setOpenDialogOpen(true)
+  }, [channelActions])
+
+  const openDetailDialog = useCallback(
+    (channelId: string) => {
+      channelActions.clearActionError()
+      setSelectedChannelId(channelId)
+    },
+    [channelActions],
+  )
+
+  useEffect(() => {
+    if (!initialChannelId || !available) return
+    const match = channels.find((channel) => channel.channelId === initialChannelId)
+    if (match) {
+      setSelectedChannelId(match.channelId)
+    }
+  }, [available, channels, initialChannelId])
+
+  const activeChannels = available ? String(data?.activeChannelCount ?? 0) : "—"
+  const totalCapacity = available
+    ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
+    : "—"
+  const localBalance = available
+    ? formatCkb(BigInt(data?.totalLocalBalance ?? "0"))
+    : "—"
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Heading level={1}>Channels</Heading>
+          <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+            Open public channels for multi-hop routing.
+          </Text>
+        </div>
+        <Button onClick={openOpenDialog} disabled={!running}>
+          Open channel
+        </Button>
+      </div>
+
+      {error ? (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
+          Failed to load channels: {error}
+        </div>
+      ) : null}
+
+      <div className="grid gap-4 sm:grid-cols-3">
+        <StatCard
+          label="Active channels"
+          value={isLoading && running ? "…" : activeChannels}
+          subtext={
+            available
+              ? `${channels.length} total listed`
+              : "Start node to view channels"
+          }
+        />
+        <StatCard
+          label="Total capacity"
+          value={isLoading && running ? "…" : totalCapacity}
+          unit={available ? "CKB" : undefined}
+          subtext={
+            available ? "Across all channels" : "Start node to view capacity"
+          }
+        />
+        <StatCard
+          label="Local balance"
+          value={isLoading && running ? "…" : localBalance}
+          unit={available ? "CKB" : undefined}
+          subtext={
+            available
+              ? "Spendable in active channels"
+              : "Start node to view balance"
+          }
+        />
+      </div>
+
+      <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+        {!available ? (
+          <HomeEmptyState
+            title="Node not running"
+            description="Start your node to view and manage payment channels."
+          />
+        ) : channels.length === 0 ? (
+          <HomeEmptyState
+            title="No channels yet"
+            description={`Open a public channel to get started (check the peer minimum before funding).`}
+            actionLabel="Open channel"
+            onAction={openOpenDialog}
+          />
+        ) : (
+          <Table dense>
+            <TableHead>
+              <TableRow>
+                <TableHeader className="w-10">S/N</TableHeader>
+                <TableHeader>Peer</TableHeader>
+                <TableHeader>Visibility</TableHeader>
+                <TableHeader>State</TableHeader>
+                <TableHeader className="text-right">Capacity</TableHeader>
+                <TableHeader>Liquidity</TableHeader>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {channels.map((channel, index) => {
+                const badgeColor = channelStateBadgeColor(
+                  channel.state,
+                  channel.localPercent,
+                )
+                const stateLabel = channelStateDisplayLabel(channel.state)
+
+                return (
+                  <TableRow
+                    key={channel.channelId}
+                    onClick={() => openDetailDialog(channel.channelId)}
+                    className="cursor-pointer"
+                  >
+                    <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
+                      {index + 1}
+                    </TableCell>
+                    <TableCell className="max-w-48 sm:max-w-xs">
+                      <span
+                        className="block font-mono text-xs text-zinc-600 break-all dark:text-zinc-400"
+                        title={channel.pubkey}
+                      >
+                        {truncatePubkey(channel.pubkey)}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge color={channel.isPublic ? "blue" : "zinc"}>
+                        {channel.isPublic ? "Public" : "Private"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge color={badgeColor}>{stateLabel}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {channelCapacityCkb(channel)} CKB
+                    </TableCell>
+                    <TableCell>
+                      {channelLiquidityCell(channel)}
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </section>
+
+      <OpenChannelDialog
+        open={openDialogOpen}
+        onClose={() => setOpenDialogOpen(false)}
+        config={config}
+        isActing={channelActions.isActing}
+        actionError={channelActions.actionError}
+        onOpenChannel={channelActions.handleOpenChannel}
+        onClearError={channelActions.clearActionError}
+      />
+
+      <ChannelDetailDialog
+        open={selectedChannel !== null}
+        channel={selectedChannel}
+        onClose={() => setSelectedChannelId(null)}
+        isActing={channelActions.isActing}
+        actionError={channelActions.actionError}
+        onShutdownChannel={channelActions.handleShutdownChannel}
+        onClearError={channelActions.clearActionError}
+      />
+    </div>
+  )
+}

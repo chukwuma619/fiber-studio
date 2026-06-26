@@ -52,6 +52,43 @@ export type HomeChannel = {
   localPercent: number
 }
 
+export type CkbScript = {
+  codeHash: string
+  hashType: string
+  args: string
+}
+
+export type ChannelsPageResponse = {
+  available: boolean
+  channels: HomeChannel[]
+  activeChannelCount: number
+  totalCapacity: string
+  totalLocalBalance: string
+  network: string | null
+  defaultFundingLockScript: CkbScript | null
+}
+
+export type OpenChannelPayload = {
+  pubkey: string
+  fundingCkb: number
+  isPublic: boolean
+}
+
+export type OpenChannelResult = {
+  channelId: string | null
+}
+
+export type PeerOpenChannelPolicy = {
+  pubkey: string
+  minFundingCkb: number | null
+  known: boolean
+  recommendedFundingCkb: number
+}
+
+export type ShutdownChannelPayload = {
+  channelId: string
+}
+
 export type HomePeer = {
   pubkey: string
   address: string

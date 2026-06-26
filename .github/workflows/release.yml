@@ -37,27 +37,18 @@ jobs:
             args: --target aarch64-apple-darwin
             fnn_triple: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
-            release_asset_name_pattern: Fiber-Studio-[version]-macOS-Apple-Silicon-[bundle][ext]
           - platform: macos-latest
             args: --target x86_64-apple-darwin
             fnn_triple: x86_64-apple-darwin
             rust_target: x86_64-apple-darwin
-            release_asset_name_pattern: Fiber-Studio-[version]-macOS-Intel-[bundle][ext]
           - platform: ubuntu-22.04
             args: ""
             fnn_triple: x86_64-unknown-linux-gnu
             rust_target: ""
-            release_asset_name_pattern: Fiber-Studio-[version]-Linux-x64-[bundle][ext]
-          - platform: ubuntu-22.04-arm
-            args: ""
-            fnn_triple: aarch64-unknown-linux-gnu
-            rust_target: ""
-            release_asset_name_pattern: Fiber-Studio-[version]-Linux-ARM64-[bundle][ext]
           - platform: windows-latest
             args: ""
             fnn_triple: x86_64-pc-windows-msvc
             rust_target: ""
-            release_asset_name_pattern: Fiber-Studio-[version]-Windows-x64-[bundle][setup][ext]
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -118,33 +109,16 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: Fiber Studio ${{ github.ref_name }}
-          # Must stay false while the updater endpoint uses releases/latest/download/latest.json.
-          # GitHub excludes prereleases from "latest", which breaks in-app update checks.
           prerelease: false
-          uploadUpdaterJson: true
-          uploadUpdaterSignatures: false
-          updaterJsonPreferNsis: true
-          releaseAssetNamePattern: ${{ matrix.release_asset_name_pattern }}
           releaseBody: |
             ## Fiber Studio ${{ github.ref_name }}
 
             **Unsigned app installers with signed in-app updates.** Wallet, Channels, and Network flows continue in M2.
 
             ### Install
-
-            Download the **`-dmg`**, **`-nsis-setup.exe`**, **`-msi`**, **`-appimage`**, **`-deb`**, or **`-rpm`** file for your platform. Ignore `latest.json` and files ending in `-app.app.tar.gz` — those are for in-app updates.
-
-            | Platform | Example filename |
-            |----------|------------------|
-            | macOS (Apple Silicon) | `Fiber-Studio-*-macOS-Apple-Silicon-dmg.dmg` |
-            | macOS (Intel) | `Fiber-Studio-*-macOS-Intel-dmg.dmg` |
-            | Windows | `Fiber-Studio-*-Windows-x64-nsis-setup.exe` or `...-msi.msi` |
-            | Linux x64 | `Fiber-Studio-*-Linux-x64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) |
-            | Linux ARM64 | `Fiber-Studio-*-Linux-ARM64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) |
-
-            - **macOS:** open the `.dmg`, drag Fiber Studio to Applications. If Gatekeeper blocks launch, use **System Settings → Privacy & Security → Open Anyway** (see the repo README).
-            - **Windows:** run the NSIS setup or MSI. If SmartScreen warns, choose **More info → Run anyway**.
-            - **Linux:** AppImage — `chmod +x` then run. Debian/Ubuntu — `sudo apt install ./Fiber-Studio-*-deb.deb`. Fedora/RHEL — `sudo dnf install ./Fiber-Studio-*-rpm.rpm`.
+            - **macOS:** download the `.dmg` for your chip (Apple Silicon or Intel), open it, drag Fiber Studio to Applications. If Gatekeeper warns, right-click → Open.
+            - **Windows:** download the `-setup.exe` NSIS installer. If SmartScreen warns, choose More info → Run anyway.
+            - **Linux:** download the `.AppImage`, then `chmod +x Fiber\ Studio_*.AppImage` and run it.
 
             ### In-app updates
             Installed copies check GitHub Releases for updates automatically on launch. You can also use **Settings → Updates**.

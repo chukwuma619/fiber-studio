@@ -1,13 +1,19 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { ComingSoonPage } from "../../components/layout/ComingSoonPage"
-import { getNavItemById } from "../../lib/nav"
+import { ChannelsPage } from "../../components/channels/ChannelsPage"
+
+type ChannelsSearch = {
+  channel?: string
+}
 
 export const Route = createFileRoute("/_app/channels")({
-  component: ChannelsPage,
+  validateSearch: (search: Record<string, unknown>): ChannelsSearch => ({
+    channel: typeof search.channel === "string" ? search.channel : undefined,
+  }),
+  component: ChannelsRoute,
 })
 
-function ChannelsPage() {
-  const item = getNavItemById("channels")
+function ChannelsRoute() {
+  const { channel } = Route.useSearch()
 
-  return <ComingSoonPage title={item.label} description={item.description} />
+  return <ChannelsPage initialChannelId={channel} />
 }

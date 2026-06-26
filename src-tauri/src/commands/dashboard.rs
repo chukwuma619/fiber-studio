@@ -1,11 +1,10 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
+use crate::fnn::channel::{self, HomeChannel};
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
-use crate::fnn::rpc::{
-    self, is_channel_ready, parse_hex_u128, Channel, NodeInfo, PaymentSummary, PeerInfo,
-};
+use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo, PaymentSummary, PeerInfo};
 use crate::fnn::studio;
 use crate::state::AppState;
 
@@ -36,18 +35,6 @@ pub struct HomeNodeInfo {
     pub channel_count: u32,
     pub pending_channel_count: u32,
     pub peers_count: u32,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HomeChannel {
-    pub channel_id: String,
-    pub pubkey: String,
-    pub is_public: bool,
-    pub state: String,
-    pub local_balance: String,
-    pub remote_balance: String,
-    pub local_percent: u8,
 }
 
 #[derive(Debug, Serialize)]
@@ -113,7 +100,7 @@ pub async fn get_home_dashboard(
         .await
         .map_err(|error| error.to_string())?;
 
-    let total_local_balance = sum_local_balances(&channels);
+    let total_local_balance = channel::sum_local_balances(&channels);
     let home_channels = select_home_channels(channels);
 
     let relay_status =
@@ -180,49 +167,11 @@ fn parse_hex_u32(hex: &str) -> u32 {
     parse_hex_u128(hex).unwrap_or(0).min(u32::MAX as u128) as u32
 }
 
-fn sum_local_balances(channels: &[Channel]) -> u128 {
-    channels
-        .iter()
-        .filter(|channel| is_channel_ready(&channel.state))
-        .filter_map(|channel| parse_hex_u128(&channel.local_balance))
-        .sum()
-}
-
-fn select_home_channels(mut channels: Vec<Channel>) -> Vec<HomeChannel> {
-    channels.sort_by(|left, right| {
-        let left_ready = is_channel_ready(&left.state);
-        let right_ready = is_channel_ready(&right.state);
-        right_ready
-            .cmp(&left_ready)
-            .then_with(|| left.pubkey.cmp(&right.pubkey))
-    });
-
-    channels
+fn select_home_channels(channels: Vec<Channel>) -> Vec<HomeChannel> {
+    channel::map_channels(channels)
         .into_iter()
         .take(HOME_CHANNEL_LIMIT)
-        .map(to_home_channel)
         .collect()
-}
-
-fn to_home_channel(channel: Channel) -> HomeChannel {
-    let local = parse_hex_u128(&channel.local_balance).unwrap_or(0);
-    let remote = parse_hex_u128(&channel.remote_balance).unwrap_or(0);
-    let total = local.saturating_add(remote);
-    let local_percent = if total == 0 {
-        0
-    } else {
-        ((local * 100) / total).min(100) as u8
-    };
-
-    HomeChannel {
-        channel_id: channel.channel_id,
-        pubkey: channel.pubkey,
-        is_public: channel.is_public,
-        state: rpc::channel_state_label(&channel.state),
-        local_balance: channel.local_balance,
-        remote_balance: channel.remote_balance,
-        local_percent,
-    }
 }
 
 fn to_home_peer(peer: PeerInfo) -> HomePeer {

@@ -1,4 +1,4 @@
-import { PUBLIC_RELAYS, truncatePubkey } from "../public-relays"
+
 import type { SetupConfig } from "../setup/types"
 import type {
   HomeDashboardResponse,
@@ -39,18 +39,6 @@ export function getRelayContext(
   }
 }
 
-export function getRelayLabel(
-  pubkey: string,
-  network: SetupConfig["network"] | string | undefined,
-): string | null {
-  if (!network || (network !== "mainnet" && network !== "testnet")) return null
-
-  const relay = PUBLIC_RELAYS[network].find((node) =>
-    pubkeysEqual(node.pubkey, pubkey),
-  )
-  return relay?.label ?? null
-}
-
 export function isRelayConnected(
   peers: HomePeer[],
   context: RelayContext,
@@ -63,41 +51,21 @@ export function isRelayConnected(
 }
 
 export function formatRelayStatus(
-  peers: HomePeer[],
   dashboard: HomeDashboardResponse | null,
   config: SetupConfig | null,
 ): string {
   const context = getRelayContext(dashboard, config)
-  const configuredPubkey = context.configuredRelayPubkey
-
-  if (!configuredPubkey) {
-    return "No relay configured in setup"
-  }
-
-  const label = getRelayLabel(configuredPubkey, context.network ?? undefined)
-  const relayName = label ?? truncatePubkey(configuredPubkey)
-
-  if (isRelayConnected(peers, context)) {
-    return `${relayName} connected (outbound)`
-  }
 
   switch (context.relayStatus) {
     case "failed":
-      return `${relayName} · connection failed — try restarting the node`
+      return `Connection failed — try restarting the node`
     case "connecting":
-      return `${relayName} · connecting…`
+      return `Connecting…`
     case "not_configured":
-      return "No relay configured in setup"
+      return "No peer configured in setup"
     case "connected":
-      return `${relayName} connected (outbound)`
+      return `Connected (outbound)`
     default:
-      return `${relayName} · not connected`
+      return `Not connected`
   }
-}
-
-export function formatPeerLabel(
-  pubkey: string,
-  network: SetupConfig["network"] | string | undefined,
-): string {
-  return getRelayLabel(pubkey, network) ?? truncatePubkey(pubkey)
 }
