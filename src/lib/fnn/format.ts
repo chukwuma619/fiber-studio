@@ -130,3 +130,43 @@ export function paymentActivityTitle(status: string): string {
       return `Payment ${status.toLowerCase()}`
   }
 }
+
+export type InvoiceBadgeColor = "green" | "amber" | "red" | "zinc"
+
+export function invoiceStatusTone(status: string): InvoiceBadgeColor {
+  switch (status) {
+    case "Open":
+      return "green"
+    case "Received":
+      return "amber"
+    case "Expired":
+    case "Cancelled":
+      return "zinc"
+    case "Paid":
+      return "green"
+    default:
+      return "zinc"
+  }
+}
+
+export function truncateLockScriptArgs(args: string): string {
+  const trimmed = args.startsWith("0x") ? args.slice(2) : args
+  if (trimmed.length <= 12) return `0x${trimmed}`
+  return `0x${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`
+}
+
+export function invoiceCurrencyLabel(
+  network: string | null | undefined,
+): string {
+  return network === "mainnet" ? "Fibb" : "Fibt"
+}
+
+export function paymentRouteTitle(hopCount: number): string {
+  if (hopCount > 1) return "Multi-hop route"
+  if (hopCount === 1) return "Direct route"
+  return "Route"
+}
+
+export function paymentRouteBadgeLabel(hopCount: number): string {
+  return hopCount > 1 ? "Multi-hop" : "Direct"
+}

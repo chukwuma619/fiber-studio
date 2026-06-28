@@ -32,6 +32,12 @@ pub fn run() {
             commands::channels::open_channel,
             commands::channels::shutdown_channel,
             commands::channels::abandon_channel,
+            commands::wallet::get_wallet_page,
+            commands::wallet::create_invoice,
+            commands::wallet::preview_send_payment,
+            commands::wallet::send_payment,
+            commands::wallet::get_payment,
+            commands::wallet::cancel_invoice,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

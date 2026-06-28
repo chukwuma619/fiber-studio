@@ -268,6 +268,141 @@ pub async fn fetch_list_payments(limit: u32) -> Result<Vec<PaymentSummary>, RpcE
     Ok(result.payments)
 }
 
+/// Invoice currency for a CKB network (Fibt = testnet, Fibb = mainnet).
+pub fn currency_for_network(network: &str) -> &'static str {
+    match network {
+        "mainnet" => "Fibb",
+        _ => "Fibt",
+    }
+}
+
+/// Invoice status from `get_invoice`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "PascalCase")]
+pub enum CkbInvoiceStatus {
+    Open,
+    Cancelled,
+    Expired,
+    Received,
+    Paid,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct InvoiceData {
+    pub payment_hash: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct CkbInvoice {
+    pub amount: Option<String>,
+    pub data: InvoiceData,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct NewInvoiceResult {
+    pub invoice_address: String,
+    pub invoice: CkbInvoice,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct GetInvoiceResult {
+    pub invoice_address: String,
+    pub invoice: CkbInvoice,
+    pub status: CkbInvoiceStatus,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct ParseInvoiceResult {
+    pub invoice: CkbInvoice,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SessionRouteNode {
+    pub pubkey: String,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SessionRoute {
+    pub nodes: Vec<SessionRouteNode>,
+}
+
+#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
+pub struct SendPaymentResult {
+    pub payment_hash: String,
+    pub status: String,
+    pub fee: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed_error: Option<String>,
+    #[serde(default)]
+    pub routers: Vec<SessionRoute>,
+}
+
+/// Creates a new CKB invoice via FNN `new_invoice`.
+pub async fn new_invoice(
+    amount_shannons: u128,
+    currency: &str,
+    description: Option<&str>,
+    expiry_seconds: u64,
+) -> Result<NewInvoiceResult, RpcError> {
+    let mut params = serde_json::json!({
+        "amount": format!("0x{amount_shannons:x}"),
+        "currency": currency,
+        "expiry": format!("0x{expiry_seconds:x}"),
+        "hash_algorithm": "sha256",
+    });
+
+    if let Some(desc) = description.filter(|value| !value.trim().is_empty()) {
+        params["description"] = serde_json::Value::String(desc.to_string());
+    }
+
+    call_rpc("new_invoice", serde_json::json!([params])).await
+}
+
+/// Retrieves an invoice by payment hash via FNN `get_invoice`.
+pub async fn get_invoice(payment_hash: &str) -> Result<GetInvoiceResult, RpcError> {
+    call_rpc(
+        "get_invoice",
+        serde_json::json!([{ "payment_hash": payment_hash }]),
+    )
+    .await
+}
+
+/// Parses an encoded invoice string via FNN `parse_invoice`.
+pub async fn parse_invoice(invoice: &str) -> Result<ParseInvoiceResult, RpcError> {
+    call_rpc(
+        "parse_invoice",
+        serde_json::json!([{ "invoice": invoice }]),
+    )
+    .await
+}
+
+/// Sends or previews a payment via FNN `send_payment`.
+pub async fn send_payment(invoice: &str, dry_run: bool) -> Result<SendPaymentResult, RpcError> {
+    let params = serde_json::json!([{
+        "invoice": invoice,
+        "dry_run": dry_run,
+    }]);
+    call_rpc("send_payment", params).await
+}
+
+/// Retrieves a payment by hash via FNN `get_payment`.
+pub async fn get_payment(payment_hash: &str) -> Result<SendPaymentResult, RpcError> {
+    call_rpc(
+        "get_payment",
+        serde_json::json!([{ "payment_hash": payment_hash }]),
+    )
+    .await
+}
+
+/// Cancels an open invoice via FNN `cancel_invoice`.
+pub async fn cancel_invoice(payment_hash: &str) -> Result<GetInvoiceResult, RpcError> {
+    call_rpc(
+        "cancel_invoice",
+        serde_json::json!([{ "payment_hash": payment_hash }]),
+    )
+    .await
+}
+
 #[derive(Debug, Deserialize)]
 struct OpenChannelResult {
     #[serde(default, rename = "channel_id")]

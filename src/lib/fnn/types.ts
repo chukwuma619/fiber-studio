@@ -129,3 +129,68 @@ export type HomeDashboardResponse = {
   network: string | null
   relayStatus: RelayConnectionStatus
 }
+
+export type WalletInvoiceItem = {
+  paymentHash: string
+  invoiceAddress: string
+  amountCkb: string
+  note: string
+  status: string
+  expiresIn: string | null
+}
+
+export type WalletPaymentItem = {
+  paymentHash: string
+  status: string
+  createdAt: number
+  lastUpdatedAt: number
+  failedError: string | null
+  fee: string
+}
+
+export type WalletPageResponse = {
+  available: boolean
+  network: string | null
+  pubkey: string | null
+  inChannelBalanceCkb: number
+  onChainWalletCkb: number | null
+  onChainWalletError?: string | null
+  lockScript: CkbScript | null
+  invoices: WalletInvoiceItem[]
+  payments: WalletPaymentItem[]
+  relayStatus: RelayConnectionStatus
+}
+
+export type CreateInvoicePayload = {
+  amountCkb: number
+  expiryHours: number
+  description?: string
+}
+
+export type CreateInvoiceResult = {
+  invoiceAddress: string
+  paymentHash: string
+}
+
+export type SendPaymentPayload = {
+  invoice: string
+}
+
+export type PreviewSendPaymentResult = {
+  feeShannons: string
+  feeCkb: string
+  amountCkb: string
+  routeHops: string[]
+}
+
+export type SendPaymentResult = {
+  paymentHash: string
+  status: string
+  fee: string
+  failedError?: string | null
+  routeHops: string[]
+}
+
+export type PaymentHashPayload = {
+  paymentHash: string
+}

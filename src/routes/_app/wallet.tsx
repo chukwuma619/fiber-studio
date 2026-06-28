@@ -1,13 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router"
-import { ComingSoonPage } from "../../components/layout/ComingSoonPage"
-import { getNavItemById } from "../../lib/nav"
+import {
+  WalletPage,
+  type WalletInitialAction,
+} from "../../components/wallet/WalletPage"
+
+type WalletSearch = {
+  action?: WalletInitialAction
+}
 
 export const Route = createFileRoute("/_app/wallet")({
-  component: WalletPage,
+  validateSearch: (search: Record<string, unknown>): WalletSearch => {
+    const action = search.action
+    if (action === "create-invoice" || action === "send") {
+      return { action }
+    }
+    return {}
+  },
+  component: WalletRoute,
 })
 
-function WalletPage() {
-  const item = getNavItemById("wallet")
+function WalletRoute() {
+  const { action } = Route.useSearch()
 
-  return <ComingSoonPage title={item.label} description={item.description} />
+  return <WalletPage initialAction={action} />
 }

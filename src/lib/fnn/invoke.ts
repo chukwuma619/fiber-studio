@@ -1,17 +1,25 @@
 import { invoke } from "@tauri-apps/api/core"
 import type { SetupConfig } from "../setup/types"
 import type {
+  AbandonChannelPayload,
   ChannelsPageResponse,
   CompleteSetupPayload,
   CompleteSetupResult,
+  CreateInvoicePayload,
+  CreateInvoiceResult,
   HomeDashboardResponse,
   NodeStatusResponse,
   OpenChannelPayload,
   OpenChannelResult,
+  PreviewSendPaymentResult,
+  SendPaymentPayload,
+  SendPaymentResult,
+  PaymentHashPayload,
   ShutdownChannelPayload,
-  AbandonChannelPayload,
-  WalletBalanceResponse,
   StartNodePayload,
+  WalletBalanceResponse,
+  WalletInvoiceItem,
+  WalletPageResponse,
 } from "./types"
 
 function toCompleteSetupPayload(config: SetupConfig): CompleteSetupPayload {
@@ -83,4 +91,38 @@ export async function abandonChannel(
   payload: AbandonChannelPayload,
 ): Promise<void> {
   return invoke<void>("abandon_channel", { payload })
+}
+
+export async function getWalletPage(): Promise<WalletPageResponse> {
+  return invoke<WalletPageResponse>("get_wallet_page")
+}
+
+export async function createInvoice(
+  payload: CreateInvoicePayload,
+): Promise<CreateInvoiceResult> {
+  return invoke<CreateInvoiceResult>("create_invoice", { payload })
+}
+
+export async function previewSendPayment(
+  payload: SendPaymentPayload,
+): Promise<PreviewSendPaymentResult> {
+  return invoke<PreviewSendPaymentResult>("preview_send_payment", { payload })
+}
+
+export async function sendPayment(
+  payload: SendPaymentPayload,
+): Promise<SendPaymentResult> {
+  return invoke<SendPaymentResult>("send_payment", { payload })
+}
+
+export async function getPayment(
+  payload: PaymentHashPayload,
+): Promise<SendPaymentResult> {
+  return invoke<SendPaymentResult>("get_payment", { payload })
+}
+
+export async function cancelInvoice(
+  payload: PaymentHashPayload,
+): Promise<WalletInvoiceItem> {
+  return invoke<WalletInvoiceItem>("cancel_invoice", { payload })
 }

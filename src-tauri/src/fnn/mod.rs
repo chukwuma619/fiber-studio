@@ -1,5 +1,6 @@
 pub mod channel;
 pub mod ckb_indexer;
+pub mod invoices;
 pub mod config;
 pub mod keychain;
 pub mod log_store;
