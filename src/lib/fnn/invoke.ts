@@ -8,7 +8,10 @@ import type {
   ConnectPeerPayload,
   CreateInvoicePayload,
   CreateInvoiceResult,
+  DisconnectPeerPayload,
+  GetNetworkGraphPayload,
   HomeDashboardResponse,
+  NetworkGraphResponse,
   NetworkPageResponse,
   NodeStatusResponse,
   OpenChannelPayload,
@@ -180,4 +183,16 @@ export async function setConfiguredPeer(
   payload: SetConfiguredPeerPayload,
 ): Promise<PeerConnectResult> {
   return invoke<PeerConnectResult>("set_configured_peer", { payload })
+}
+
+export async function disconnectPeer(
+  payload: DisconnectPeerPayload,
+): Promise<void> {
+  return invoke<void>("disconnect_peer", { payload })
+}
+
+export async function getNetworkGraph(
+  payload: GetNetworkGraphPayload,
+): Promise<NetworkGraphResponse> {
+  return invoke<NetworkGraphResponse>("get_network_graph", { payload })
 }

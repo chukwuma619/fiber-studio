@@ -259,7 +259,6 @@ export type NetworkConnectionMode = "official-relays" | "custom-public-node"
 
 export type NetworkRelayEntry = {
   id: string
-  label: string
   pubkey: string
   multiaddr: string | null
   connected: boolean
@@ -271,7 +270,14 @@ export type NetworkRelayEntry = {
 export type NetworkCustomPeer = {
   pubkey: string
   address: string
-  label: string | null
+  channelCount: number
+}
+
+export type NetworkConnectedPeer = {
+  pubkey: string
+  address: string
+  isConfigured: boolean
+  isOfficialRelay: boolean
   channelCount: number
 }
 
@@ -285,7 +291,9 @@ export type NetworkPageResponse = {
   relayStatus: RelayConnectionStatus
   graphNodeCount: number
   graphReady: boolean
+  connectedPeerCount: number
   relays: NetworkRelayEntry[]
+  connectedPeers: NetworkConnectedPeer[]
   customPeers: NetworkCustomPeer[]
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
@@ -305,4 +313,38 @@ export type SetConfiguredPeerPayload = {
 
 export type PeerConnectResult = {
   status: "connected" | "already_connected" | "failed" | "connecting" | "not_configured"
+}
+
+export type DisconnectPeerPayload = {
+  pubkey: string
+}
+
+export type NetworkGraphKind = "nodes" | "channels"
+
+export type GetNetworkGraphPayload = {
+  kind: NetworkGraphKind
+  limit?: number
+  after?: string
+}
+
+export type NetworkGraphNodeEntry = {
+  pubkey: string
+  nodeName: string | null
+  addressCount: number
+  primaryAddress: string | null
+}
+
+export type NetworkGraphChannelEntry = {
+  channelOutpoint: string
+  node1: string
+  node2: string
+  capacityCkb: string
+}
+
+export type NetworkGraphResponse = {
+  kind: NetworkGraphKind
+  nodes: NetworkGraphNodeEntry[]
+  channels: NetworkGraphChannelEntry[]
+  lastCursor: string | null
+  hasMore: boolean
 }

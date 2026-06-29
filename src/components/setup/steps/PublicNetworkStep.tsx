@@ -4,23 +4,35 @@ import { ConnectPeerForm } from "../../connect/ConnectPeerForm"
 import { Heading } from "../../ui/heading"
 import { Text } from "../../ui/text"
 
+export type ConfiguredPeerFields = Pick<
+  SetupConfig,
+  "network" | "customPublicNodePubkey" | "customPublicNodeMultiaddr"
+>
+
 type PublicNetworkStepProps = {
-  config: SetupConfig
-  onChange: (patch: Partial<SetupConfig>) => void
+  config: ConfiguredPeerFields
+  onChange: (patch: Partial<ConfiguredPeerFields>) => void
+  hideHeading?: boolean
 }
 
-export function PublicNetworkStep({ config, onChange }: PublicNetworkStepProps) {
+export function PublicNetworkStep({
+  config,
+  onChange,
+  hideHeading = false,
+}: PublicNetworkStepProps) {
   const { network } = config
 
   return (
     <div className="space-y-5">
-      <div>
-        <Heading level={2}>Connect to public network</Heading>
-        <Text className="mt-1">
-          Pick a public relay or enter a peer pubkey. Fiber Studio connects
-          outbound on start — no public IP or VPS required.
-        </Text>
-      </div>
+      {!hideHeading ? (
+        <div>
+          <Heading level={2}>Connect to public network</Heading>
+          <Text className="mt-1">
+            Pick a public relay or enter a peer pubkey. Fiber Studio connects
+            outbound on start — no public IP or VPS required.
+          </Text>
+        </div>
+      ) : null}
 
       <ConnectPeerForm
         network={network}

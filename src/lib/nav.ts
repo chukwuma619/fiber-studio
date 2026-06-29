@@ -48,7 +48,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Network",
     href: "/network",
     icon: Globe,
-    description: "Connect to peers, relays, and view network status.",
+    description: "Manage your configured peer, connections, and gossip graph data.",
   },
   {
     id: "settings",

@@ -7,6 +7,7 @@ const RELAYS_JSON: &str = include_str!("../../../shared/relays.json");
 #[derive(Debug, Clone, Deserialize)]
 pub struct RelayNode {
     pub id: String,
+    #[allow(dead_code)]
     pub label: String,
     pub pubkey: String,
     #[serde(default)]
@@ -51,8 +52,4 @@ pub fn connection_mode_for_pubkey(network: &str, pubkey: &str) -> &'static str {
     } else {
         "custom-public-node"
     }
-}
-
-pub fn relay_id_label(network: &str, pubkey: &str) -> Option<String> {
-    find_relay_by_pubkey(network, pubkey).map(|relay| relay.label)
 }

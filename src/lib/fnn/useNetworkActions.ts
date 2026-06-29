@@ -1,6 +1,10 @@
 import { useCallback, useState } from "react"
-import { connectPeer, setConfiguredPeer } from "./invoke"
-import type { ConnectPeerPayload, SetConfiguredPeerPayload } from "./types"
+import { connectPeer, disconnectPeer, setConfiguredPeer } from "./invoke"
+import type {
+  ConnectPeerPayload,
+  DisconnectPeerPayload,
+  SetConfiguredPeerPayload,
+} from "./types"
 
 export function useNetworkActions(onSuccess?: () => void) {
   const [isActing, setIsActing] = useState(false)
@@ -58,11 +62,30 @@ export function useNetworkActions(onSuccess?: () => void) {
     setActionError(null)
   }, [])
 
+  const handleDisconnectPeer = useCallback(
+    async (payload: DisconnectPeerPayload) => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        await disconnectPeer(payload)
+        onSuccess?.()
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setActionError(message)
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
   return {
     isActing,
     actionError,
     handleConnectPeer,
     handleSetConfiguredPeer,
+    handleDisconnectPeer,
     clearActionError,
   }
 }

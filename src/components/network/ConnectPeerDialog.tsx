@@ -57,10 +57,10 @@ export function ConnectPeerDialog({
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Connect to peer</DialogTitle>
+      <DialogTitle>Connect another peer</DialogTitle>
       <DialogDescription>
-        Add an optional direct peer connection. This does not change your
-        configured relay.
+        Add a peer connection alongside your existing ones. This does not change
+        your primary peer or which peer channel opens use.
       </DialogDescription>
       <DialogBody>
         {actionError ? (

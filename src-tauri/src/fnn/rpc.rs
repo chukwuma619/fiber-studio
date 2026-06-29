@@ -138,8 +138,29 @@ pub struct GraphNode {
 struct GraphNodesResult {
     nodes: Vec<GraphNode>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[allow(dead_code)]
     last_cursor: Option<serde_json::Value>,
+}
+
+/// Public channel entry from `graph_channels`.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GraphChannelInfo {
+    pub channel_outpoint: String,
+    pub node1: String,
+    pub node2: String,
+    pub capacity: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct GraphChannelsResult {
+    channels: Vec<GraphChannelInfo>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    last_cursor: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Clone)]
+pub struct GraphPage<T> {
+    pub items: Vec<T>,
+    pub last_cursor: Option<String>,
 }
 
 /// Node hop in a payment route from FNN (when exposed by the node build).
@@ -276,9 +297,59 @@ pub async fn fetch_list_peers() -> Result<Vec<PeerInfo>, RpcError> {
 }
 
 pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
-    let result: GraphNodesResult =
-        call_rpc("graph_nodes", serde_json::json!([{ "limit": "0x100" }])).await?;
-    Ok(result.nodes)
+    Ok(fetch_graph_nodes_page(0x100, None).await?.items)
+}
+
+fn cursor_to_string(cursor: Option<serde_json::Value>) -> Option<String> {
+    cursor.and_then(|value| match value {
+        serde_json::Value::String(text) if !text.trim().is_empty() => Some(text),
+        serde_json::Value::Null => None,
+        other => {
+            let text = other.to_string();
+            if text.is_empty() || text == "null" {
+                None
+            } else {
+                Some(text)
+            }
+        }
+    })
+}
+
+pub async fn fetch_graph_nodes_page(
+    limit: u32,
+    after: Option<&str>,
+) -> Result<GraphPage<GraphNode>, RpcError> {
+    let mut params = serde_json::json!({
+        "limit": format!("0x{limit:x}"),
+    });
+    if let Some(cursor) = after.filter(|value| !value.trim().is_empty()) {
+        params["after"] = serde_json::Value::String(cursor.to_string());
+    }
+
+    let result: GraphNodesResult = call_rpc("graph_nodes", serde_json::json!([params])).await?;
+    Ok(GraphPage {
+        items: result.nodes,
+        last_cursor: cursor_to_string(result.last_cursor),
+    })
+}
+
+pub async fn fetch_graph_channels_page(
+    limit: u32,
+    after: Option<&str>,
+) -> Result<GraphPage<GraphChannelInfo>, RpcError> {
+    let mut params = serde_json::json!({
+        "limit": format!("0x{limit:x}"),
+    });
+    if let Some(cursor) = after.filter(|value| !value.trim().is_empty()) {
+        params["after"] = serde_json::Value::String(cursor.to_string());
+    }
+
+    let result: GraphChannelsResult =
+        call_rpc("graph_channels", serde_json::json!([params])).await?;
+    Ok(GraphPage {
+        items: result.channels,
+        last_cursor: cursor_to_string(result.last_cursor),
+    })
 }
 
 pub async fn fetch_list_payments(limit: u32) -> Result<Vec<PaymentSummary>, RpcError> {
@@ -554,6 +625,28 @@ pub async fn connect_peer(params: serde_json::Value) -> Result<(), RpcError> {
     let body = serde_json::json!({
         "jsonrpc": "2.0",
         "method": "connect_peer",
+        "params": params,
+        "id": 1
+    });
+
+    let response = client.post(FNN_RPC_URL).json(&body).send().await?;
+    let payload: RpcResponse<serde_json::Value> = response.json().await?;
+
+    if let Some(error) = payload.error {
+        return Err(RpcError::Rpc(error));
+    }
+
+    Ok(())
+}
+
+/// Disconnect from a peer.
+pub async fn disconnect_peer(pubkey: &str) -> Result<(), RpcError> {
+    let params = serde_json::json!([{ "pubkey": pubkey }]);
+
+    let client = reqwest::Client::new();
+    let body = serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "disconnect_peer",
         "params": params,
         "id": 1
     });

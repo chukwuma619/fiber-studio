@@ -15,6 +15,16 @@ use super::channels::fetch_wallet_balance_for_network;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct NetworkConnectedPeer {
+    pub pubkey: String,
+    pub address: String,
+    pub is_configured: bool,
+    pub is_official_relay: bool,
+    pub channel_count: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct NetworkPageResponse {
     pub available: bool,
     pub network: Option<String>,
@@ -25,7 +35,9 @@ pub struct NetworkPageResponse {
     pub relay_status: String,
     pub graph_node_count: u32,
     pub graph_ready: bool,
+    pub connected_peer_count: u32,
     pub relays: Vec<NetworkRelayEntry>,
+    pub connected_peers: Vec<NetworkConnectedPeer>,
     pub custom_peers: Vec<NetworkCustomPeer>,
     pub on_chain_wallet_ckb: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -38,7 +50,6 @@ pub struct NetworkPageResponse {
 #[serde(rename_all = "camelCase")]
 pub struct NetworkRelayEntry {
     pub id: String,
-    pub label: String,
     pub pubkey: String,
     pub multiaddr: Option<String>,
     pub connected: bool,
@@ -52,7 +63,6 @@ pub struct NetworkRelayEntry {
 pub struct NetworkCustomPeer {
     pub pubkey: String,
     pub address: String,
-    pub label: Option<String>,
     pub channel_count: u32,
 }
 
@@ -78,6 +88,50 @@ pub struct SetConfiguredPeerPayload {
     pub multiaddr: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisconnectPeerPayload {
+    pub pubkey: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetNetworkGraphPayload {
+    pub kind: String,
+    #[serde(default)]
+    pub limit: Option<u32>,
+    #[serde(default)]
+    pub after: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkGraphNodeEntry {
+    pub pubkey: String,
+    pub node_name: Option<String>,
+    pub address_count: u32,
+    pub primary_address: Option<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkGraphChannelEntry {
+    pub channel_outpoint: String,
+    pub node1: String,
+    pub node2: String,
+    pub capacity_ckb: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NetworkGraphResponse {
+    pub kind: String,
+    pub nodes: Vec<NetworkGraphNodeEntry>,
+    pub channels: Vec<NetworkGraphChannelEntry>,
+    pub last_cursor: Option<String>,
+    pub has_more: bool,
+}
+
 fn network_page_unavailable() -> NetworkPageResponse {
     NetworkPageResponse {
         available: false,
@@ -89,7 +143,9 @@ fn network_page_unavailable() -> NetworkPageResponse {
         relay_status: "not_configured".to_string(),
         graph_node_count: 0,
         graph_ready: false,
+        connected_peer_count: 0,
         relays: Vec::new(),
+        connected_peers: Vec::new(),
         custom_peers: Vec::new(),
         on_chain_wallet_ckb: None,
         on_chain_wallet_error: None,
@@ -206,7 +262,6 @@ pub async fn get_network_page(
 
             NetworkRelayEntry {
                 id: relay.id,
-                label: relay.label,
                 pubkey: relay.pubkey,
                 multiaddr: relay.multiaddr,
                 connected,
@@ -223,10 +278,29 @@ pub async fn get_network_page(
         .map(|peer| NetworkCustomPeer {
             pubkey: peer.pubkey.clone(),
             address: peer.address.clone(),
-            label: relays::relay_id_label(network, &peer.pubkey),
             channel_count: count_channels_to_peer(&channels, &peer.pubkey),
         })
         .collect();
+
+    let connected_peers: Vec<NetworkConnectedPeer> = peers
+        .iter()
+        .map(|peer| {
+            let is_official_relay = relays::is_official_relay_pubkey(network, &peer.pubkey);
+            let is_configured = configured_peer_pubkey
+                .as_deref()
+                .map(|pubkey| peer_connect::pubkeys_equal(pubkey, &peer.pubkey))
+                .unwrap_or(false);
+            NetworkConnectedPeer {
+                pubkey: peer.pubkey.clone(),
+                address: peer.address.clone(),
+                is_configured,
+                is_official_relay,
+                channel_count: count_channels_to_peer(&channels, &peer.pubkey),
+            }
+        })
+        .collect();
+
+    let connected_peer_count = connected_peers.len() as u32;
 
     let (on_chain_wallet_ckb, on_chain_wallet_error) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
@@ -250,7 +324,9 @@ pub async fn get_network_page(
         relay_status,
         graph_node_count,
         graph_ready,
+        connected_peer_count,
         relays: relay_entries,
+        connected_peers,
         custom_peers,
         on_chain_wallet_ckb,
         on_chain_wallet_error,
@@ -333,4 +409,98 @@ pub async fn set_configured_peer(
     Ok(PeerConnectResult {
         status: connect_status_label(status).to_string(),
     })
+}
+
+#[tauri::command]
+pub async fn disconnect_peer(
+    state: State<'_, AppState>,
+    payload: DisconnectPeerPayload,
+) -> Result<(), String> {
+    let pubkey = payload.pubkey.trim();
+    if pubkey.is_empty() {
+        return Err("Peer pubkey is required.".to_string());
+    }
+
+    let manager = state.fnn.lock().await;
+
+    if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
+        return Err("Node is not running. Start your node before disconnecting a peer.".to_string());
+    }
+    drop(manager);
+
+    rpc::disconnect_peer(pubkey)
+        .await
+        .map_err(|error| error.to_string())
+}
+
+const DEFAULT_GRAPH_PAGE_LIMIT: u32 = 25;
+
+fn graph_capacity_ckb(capacity: &str) -> String {
+    let shannons = rpc::parse_hex_u128(capacity).unwrap_or(0);
+    let ckb = shannons / channel::SHANNONS_PER_CKB;
+    format!("{ckb}")
+}
+
+#[tauri::command]
+pub async fn get_network_graph(
+    state: State<'_, AppState>,
+    payload: GetNetworkGraphPayload,
+) -> Result<NetworkGraphResponse, String> {
+    let manager = state.fnn.lock().await;
+
+    if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
+        return Err("Node is not running. Start your node to browse the network graph.".to_string());
+    }
+    drop(manager);
+
+    let limit = payload.limit.unwrap_or(DEFAULT_GRAPH_PAGE_LIMIT).clamp(1, 100);
+    let after = payload.after.as_deref();
+
+    match payload.kind.as_str() {
+        "nodes" => {
+            let page = rpc::fetch_graph_nodes_page(limit, after)
+                .await
+                .map_err(|error| error.to_string())?;
+            let has_more = page.last_cursor.is_some();
+            Ok(NetworkGraphResponse {
+                kind: "nodes".to_string(),
+                nodes: page
+                    .items
+                    .into_iter()
+                    .map(|node| NetworkGraphNodeEntry {
+                        primary_address: node.addresses.first().cloned(),
+                        address_count: node.addresses.len() as u32,
+                        pubkey: node.pubkey,
+                        node_name: node.node_name,
+                    })
+                    .collect(),
+                channels: Vec::new(),
+                last_cursor: page.last_cursor,
+                has_more,
+            })
+        }
+        "channels" => {
+            let page = rpc::fetch_graph_channels_page(limit, after)
+                .await
+                .map_err(|error| error.to_string())?;
+            let has_more = page.last_cursor.is_some();
+            Ok(NetworkGraphResponse {
+                kind: "channels".to_string(),
+                nodes: Vec::new(),
+                channels: page
+                    .items
+                    .into_iter()
+                    .map(|channel| NetworkGraphChannelEntry {
+                        channel_outpoint: channel.channel_outpoint,
+                        node1: channel.node1,
+                        node2: channel.node2,
+                        capacity_ckb: graph_capacity_ckb(&channel.capacity),
+                    })
+                    .collect(),
+                last_cursor: page.last_cursor,
+                has_more,
+            })
+        }
+        other => Err(format!("Unknown graph kind: {other}. Use \"nodes\" or \"channels\".")),
+    }
 }

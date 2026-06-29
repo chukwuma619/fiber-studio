@@ -35,6 +35,8 @@ pub fn run() {
             commands::network::get_network_page,
             commands::network::connect_peer,
             commands::network::set_configured_peer,
+            commands::network::disconnect_peer,
+            commands::network::get_network_graph,
             commands::wallet::get_wallet_page,
             commands::wallet::create_invoice,
             commands::wallet::preview_send_payment,
