@@ -254,3 +254,55 @@ export type LoadMorePaymentsResult = {
   lastCursor: string | null
   hasMore: boolean
 }
+
+export type NetworkConnectionMode = "official-relays" | "custom-public-node"
+
+export type NetworkRelayEntry = {
+  id: string
+  label: string
+  pubkey: string
+  multiaddr: string | null
+  connected: boolean
+  channelCount: number
+  hasActiveOrPendingChannel: boolean
+  isConfigured: boolean
+}
+
+export type NetworkCustomPeer = {
+  pubkey: string
+  address: string
+  label: string | null
+  channelCount: number
+}
+
+export type NetworkPageResponse = {
+  available: boolean
+  network: string | null
+  nodePubkey: string | null
+  connectionMode: NetworkConnectionMode
+  configuredPeerPubkey: string | null
+  configuredPeerMultiaddr: string | null
+  relayStatus: RelayConnectionStatus
+  graphNodeCount: number
+  graphReady: boolean
+  relays: NetworkRelayEntry[]
+  customPeers: NetworkCustomPeer[]
+  onChainWalletCkb: number | null
+  onChainWalletError?: string | null
+  minFundingCkb: number
+  hasChannelToConfiguredPeer: boolean
+}
+
+export type ConnectPeerPayload = {
+  pubkey: string
+  multiaddr?: string
+}
+
+export type SetConfiguredPeerPayload = {
+  pubkey: string
+  multiaddr?: string
+}
+
+export type PeerConnectResult = {
+  status: "connected" | "already_connected" | "failed" | "connecting" | "not_configured"
+}

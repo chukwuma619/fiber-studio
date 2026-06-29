@@ -275,6 +275,18 @@ impl FnnManager {
         self.spawn_relay_connect_loop(app);
     }
 
+    pub fn restart_relay_connect_loop(&mut self, app: &AppHandle) {
+        if !matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+            return;
+        }
+
+        if self.data_directory.is_none() {
+            return;
+        }
+
+        self.spawn_relay_connect_loop(app);
+    }
+
     fn spawn_relay_connect_loop(&mut self, app: &AppHandle) {
         let Some(data_directory) = self.data_directory.clone() else {
             return;

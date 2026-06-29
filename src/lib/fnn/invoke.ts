@@ -5,9 +5,11 @@ import type {
   ChannelsPageResponse,
   CompleteSetupPayload,
   CompleteSetupResult,
+  ConnectPeerPayload,
   CreateInvoicePayload,
   CreateInvoiceResult,
   HomeDashboardResponse,
+  NetworkPageResponse,
   NodeStatusResponse,
   OpenChannelPayload,
   OpenChannelResult,
@@ -16,10 +18,12 @@ import type {
   LoadMorePaymentsResult,
   ParseInvoicePayload,
   ParseInvoicePreview,
+  PeerConnectResult,
   PreviewSendPaymentResult,
   SendPaymentPayload,
   SendPaymentResult,
   PaymentHashPayload,
+  SetConfiguredPeerPayload,
   ShutdownChannelPayload,
   StartNodePayload,
   WalletBalanceResponse,
@@ -160,4 +164,20 @@ export async function importInvoice(
   payload: PaymentHashPayload,
 ): Promise<WalletInvoiceItem> {
   return invoke<WalletInvoiceItem>("import_invoice", { payload })
+}
+
+export async function getNetworkPage(): Promise<NetworkPageResponse> {
+  return invoke<NetworkPageResponse>("get_network_page")
+}
+
+export async function connectPeer(
+  payload: ConnectPeerPayload,
+): Promise<PeerConnectResult> {
+  return invoke<PeerConnectResult>("connect_peer", { payload })
+}
+
+export async function setConfiguredPeer(
+  payload: SetConfiguredPeerPayload,
+): Promise<PeerConnectResult> {
+  return invoke<PeerConnectResult>("set_configured_peer", { payload })
 }

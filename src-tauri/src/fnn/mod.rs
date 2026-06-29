@@ -12,6 +12,7 @@ pub mod payment_display;
 pub mod peer_connect;
 pub mod process;
 pub mod provision;
+pub mod relays;
 pub mod rpc;
 pub mod sent_payments;
 pub mod spawn;

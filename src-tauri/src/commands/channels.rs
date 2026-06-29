@@ -63,7 +63,9 @@ pub struct WalletBalanceResponse {
     pub shannons: String,
 }
 
-async fn fetch_wallet_balance_for_network(network: &str) -> Result<WalletBalanceResponse, String> {
+pub(crate) async fn fetch_wallet_balance_for_network(
+    network: &str,
+) -> Result<WalletBalanceResponse, String> {
     let node_info = rpc::fetch_node_info()
         .await
         .map_err(|error| error.to_string())?;

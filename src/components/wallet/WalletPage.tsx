@@ -21,7 +21,7 @@ import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
 import { Heading, Subheading } from "../ui/heading"
-import { Text, TextLink } from "../ui/text"
+import { Text } from "../ui/text"
 import {
   Table,
   TableBody,
