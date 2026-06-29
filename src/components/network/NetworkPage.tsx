@@ -1,11 +1,9 @@
 import { RefreshCw } from "lucide-react"
 import { useCallback, useState } from "react"
 import { HomeEmptyState } from "../home/HomeEmptyState"
-import { StatCard } from "../home/StatCard"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { StatusDot } from "../layout/StatusDot"
 import {
-  configuredPeerStatLabel,
   graphStatusBadgeColor,
   graphStatusDotTone,
   graphStatusLabel,
@@ -14,59 +12,32 @@ import {
 } from "../../lib/fnn/network"
 import { useNetworkActions } from "../../lib/fnn/useNetworkActions"
 import { useNetworkPage } from "../../lib/fnn/useNetworkPage"
-import type { SetConfiguredPeerPayload } from "../../lib/fnn/types"
 import { truncatePubkey, type FiberNetwork } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { CopyButton } from "../ui/copy-button"
 import { Heading } from "../ui/heading"
 import { Text } from "../ui/text"
-import { ChangeConfiguredPeerDialog } from "./ChangeConfiguredPeerDialog"
 import { ConnectPeerDialog } from "./ConnectPeerDialog"
 import { ConnectedPeersSection } from "./ConnectedPeersSection"
 import { GraphBrowserSection } from "./GraphBrowserSection"
 
-function networkDisplayLabel(network: string | null): string {
-  if (network === "mainnet") return "Mainnet"
-  if (network === "testnet") return "Testnet"
-  return network ?? "—"
-}
-
 export function NetworkPage() {
   const { running, config } = useNodeControlContext()
-  const { data, isLoading, isRefreshing, error, refresh } = useNetworkPage(running)
+  const { data, isRefreshing, error, refresh } = useNetworkPage(running)
   const networkActions = useNetworkActions(refresh)
 
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
-  const [changePeerDialogOpen, setChangePeerDialogOpen] = useState(false)
   const [disconnectingPubkey, setDisconnectingPubkey] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const network = (data?.network ?? config?.network ?? "testnet") as FiberNetwork
   const connectedPeers = data?.connectedPeers ?? []
-  const connectedPeerCount = data?.connectedPeerCount ?? 0
   const relayStatus = data?.relayStatus ?? "not_configured"
   const graphReady = data?.graphReady ?? false
-
-  const nodePubkeyDisplay =
-    available && data?.nodePubkey
-      ? truncatePubkey(data.nodePubkey)
-      : running && isLoading
-        ? "…"
-        : "—"
-
-  const configuredPeerDisplay = available
-    ? configuredPeerStatLabel(relayStatus, data?.configuredPeerPubkey)
-    : "Start node to view"
 
   const openConnectDialog = useCallback(() => {
     networkActions.clearActionError()
     setConnectDialogOpen(true)
-  }, [networkActions])
-
-  const openChangePeerDialog = useCallback(() => {
-    networkActions.clearActionError()
-    setChangePeerDialogOpen(true)
   }, [networkActions])
 
   const handleDisconnectPeer = useCallback(
@@ -109,9 +80,6 @@ export function NetworkPage() {
             />
             Refresh
           </Button>
-          <Button outline onClick={openChangePeerDialog} disabled={!running}>
-            Change primary peer
-          </Button>
           <Button onClick={openConnectDialog} disabled={!running}>
             Connect another peer
           </Button>
@@ -124,45 +92,11 @@ export function NetworkPage() {
         </div>
       ) : null}
 
-      {(networkActions.actionError && !connectDialogOpen && !changePeerDialogOpen) ? (
+      {networkActions.actionError && !connectDialogOpen ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
           {networkActions.actionError}
         </div>
       ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard
-          label="Connected peers"
-          value={
-            isLoading && running ? "…" : available ? String(connectedPeerCount) : "—"
-          }
-          subtext={
-            available
-              ? `${networkDisplayLabel(data?.network ?? null)} network`
-              : "Start node to view"
-          }
-        />
-        <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
-          <p className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
-            Your node pubkey
-          </p>
-          <div className="mt-2 flex items-center gap-2">
-            <p className="text-2xl font-semibold tabular-nums text-zinc-950 dark:text-white">
-              {nodePubkeyDisplay}
-            </p>
-            {available && data?.nodePubkey ? (
-              <CopyButton value={data.nodePubkey} label="Copy node pubkey" />
-            ) : null}
-          </div>
-        </div>
-        <StatCard
-          label="Primary peer"
-          value={isLoading && running ? "…" : configuredPeerDisplay}
-          subtext={
-            available ? "Used for channel opens" : "Start node to view"
-          }
-        />
-      </div>
 
       {available ? (
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
@@ -219,19 +153,6 @@ export function NetworkPage() {
         actionError={networkActions.actionError}
         onConnect={async (payload) => {
           await networkActions.handleConnectPeer(payload)
-        }}
-        onClearError={networkActions.clearActionError}
-      />
-
-      <ChangeConfiguredPeerDialog
-        open={changePeerDialogOpen}
-        onClose={() => setChangePeerDialogOpen(false)}
-        network={network}
-        data={data}
-        isActing={networkActions.isActing}
-        actionError={networkActions.actionError}
-        onSave={async (payload: SetConfiguredPeerPayload) => {
-          await networkActions.handleSetConfiguredPeer(payload)
         }}
         onClearError={networkActions.clearActionError}
       />
