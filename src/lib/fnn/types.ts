@@ -181,6 +181,8 @@ export type WalletPageResponse = {
   lockScript: CkbScript | null
   invoices: WalletInvoiceItem[]
   payments: WalletPaymentItem[]
+  paymentsLastCursor: string | null
+  paymentsHasMore: boolean
   sendTargets: WalletSendTarget[]
   relayStatus: RelayConnectionStatus
 }
@@ -241,4 +243,14 @@ export type SendPaymentResult = {
 
 export type PaymentHashPayload = {
   paymentHash: string
+}
+
+export type LoadMorePaymentsPayload = {
+  after: string
+}
+
+export type LoadMorePaymentsResult = {
+  payments: WalletPaymentItem[]
+  lastCursor: string | null
+  hasMore: boolean
 }

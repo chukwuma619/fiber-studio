@@ -30,7 +30,7 @@ export function AppHeader() {
 
   return (
     <>
-      <div className="flex flex-col gap-4 border-b py-3 px-4 border-zinc-950/5 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-4 border-b py-4 px-4 border-zinc-950/5 dark:border-white/5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <StatusDot tone={dotTone} />
           <span className="text-sm/5 font-medium text-zinc-950 dark:text-white">

@@ -12,7 +12,8 @@ import {
 } from "../../lib/fnn/format"
 import { useWalletActions } from "../../lib/fnn/useWalletActions"
 import { useWalletPage } from "../../lib/fnn/useWalletPage"
-import type { WalletInvoiceItem } from "../../lib/fnn/types"
+import { loadMoreWalletPayments } from "../../lib/fnn/invoke"
+import type { WalletInvoiceItem, WalletPaymentItem } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatCard } from "../home/StatCard"
@@ -30,6 +31,7 @@ import {
   TableRow,
 } from "../ui/table"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
+import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
 import { IncomingPaymentsSection } from "./IncomingPaymentsSection"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
@@ -72,22 +74,34 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     sendKeysendPayment,
     getPayment,
     cancelInvoice,
+    importInvoice,
     clearActionError,
   } = useWalletActions(refresh)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
   const [selectedInvoice, setSelectedInvoice] = useState<WalletInvoiceItem | null>(
     null,
   )
+  const [payments, setPayments] = useState<WalletPaymentItem[]>([])
+  const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null)
+  const [paymentsHasMore, setPaymentsHasMore] = useState(false)
+  const [isLoadingMorePayments, setIsLoadingMorePayments] = useState(false)
 
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
-  const payments = data?.payments ?? []
   const sendTargets = data?.sendTargets ?? []
   const invoiceCurrency = invoiceCurrencyLabel(data?.network)
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
   const filteredInvoices = filterInvoices(invoices, invoiceFilter)
+
+  useEffect(() => {
+    if (!data) return
+    setPayments(data.payments)
+    setPaymentsCursor(data.paymentsLastCursor)
+    setPaymentsHasMore(data.paymentsHasMore)
+  }, [data])
 
   useEffect(() => {
     if (!selectedInvoice) return
@@ -152,6 +166,33 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     },
     [cancelInvoice],
   )
+
+  const handleImportInvoice = useCallback(
+    async (paymentHash: string) => {
+      await importInvoice({ paymentHash })
+    },
+    [importInvoice],
+  )
+
+  const handleLoadMorePayments = useCallback(async () => {
+    if (!paymentsCursor || isLoadingMorePayments) return
+
+    setIsLoadingMorePayments(true)
+    try {
+      const result = await loadMoreWalletPayments({ after: paymentsCursor })
+      setPayments((current) => {
+        const existing = new Set(current.map((payment) => payment.paymentHash))
+        const next = result.payments.filter(
+          (payment) => !existing.has(payment.paymentHash),
+        )
+        return [...current, ...next]
+      })
+      setPaymentsCursor(result.lastCursor)
+      setPaymentsHasMore(result.hasMore)
+    } finally {
+      setIsLoadingMorePayments(false)
+    }
+  }, [isLoadingMorePayments, paymentsCursor])
 
   return (
     <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
@@ -226,14 +267,24 @@ export function WalletPage({ initialAction }: WalletPageProps) {
                 Invoices you created — click a row for details
               </Text>
             </div>
-            <Button
-              outline
-              className="text-xs"
-              onClick={() => setCreateDialogOpen(true)}
-              disabled={!running}
-            >
-              Create invoice
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                outline
+                className="text-xs"
+                onClick={() => setImportDialogOpen(true)}
+                disabled={!running}
+              >
+                Import
+              </Button>
+              <Button
+                outline
+                className="text-xs"
+                onClick={() => setCreateDialogOpen(true)}
+                disabled={!running}
+              >
+                Create invoice
+              </Button>
+            </div>
           </div>
 
           {available && invoices.length > 0 ? (
@@ -350,7 +401,13 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         onSelectInvoice={setSelectedInvoice}
       />
 
-      <SentPaymentsSection payments={payments} available={available} />
+      <SentPaymentsSection
+        payments={payments}
+        available={available}
+        hasMore={paymentsHasMore}
+        isLoadingMore={isLoadingMorePayments}
+        onLoadMore={() => void handleLoadMorePayments()}
+      />
 
       {available && data?.pubkey ? (
         <Text className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -368,6 +425,15 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         isActing={isActing}
         actionError={actionError}
         onCreateInvoice={createInvoice}
+        onClearError={clearActionError}
+      />
+
+      <ImportInvoiceDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        isActing={isActing}
+        actionError={actionError}
+        onImportInvoice={handleImportInvoice}
         onClearError={clearActionError}
       />
 

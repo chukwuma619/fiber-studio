@@ -12,6 +12,8 @@ import type {
   OpenChannelPayload,
   OpenChannelResult,
   KeysendPaymentPayload,
+  LoadMorePaymentsPayload,
+  LoadMorePaymentsResult,
   ParseInvoicePayload,
   ParseInvoicePreview,
   PreviewSendPaymentResult,
@@ -146,4 +148,16 @@ export async function cancelInvoice(
   payload: PaymentHashPayload,
 ): Promise<WalletInvoiceItem> {
   return invoke<WalletInvoiceItem>("cancel_invoice", { payload })
+}
+
+export async function loadMoreWalletPayments(
+  payload: LoadMorePaymentsPayload,
+): Promise<LoadMorePaymentsResult> {
+  return invoke<LoadMorePaymentsResult>("load_more_wallet_payments", { payload })
+}
+
+export async function importInvoice(
+  payload: PaymentHashPayload,
+): Promise<WalletInvoiceItem> {
+  return invoke<WalletInvoiceItem>("import_invoice", { payload })
 }

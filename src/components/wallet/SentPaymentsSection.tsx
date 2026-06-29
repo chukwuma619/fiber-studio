@@ -11,6 +11,7 @@ import {
 import type { WalletPaymentItem } from "../../lib/fnn/types"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
+import { Button } from "../ui/button"
 import { Subheading } from "../ui/heading"
 import { Text } from "../ui/text"
 import { PaymentDetailDialog } from "./PaymentDetailDialog"
@@ -18,6 +19,9 @@ import { PaymentDetailDialog } from "./PaymentDetailDialog"
 type SentPaymentsSectionProps = {
   payments: WalletPaymentItem[]
   available: boolean
+  hasMore: boolean
+  isLoadingMore: boolean
+  onLoadMore: () => void
 }
 
 function paymentStatusBadgeColor(
@@ -60,6 +64,9 @@ function paymentSummaryLine(payment: WalletPaymentItem): string {
 export function SentPaymentsSection({
   payments,
   available,
+  hasMore,
+  isLoadingMore,
+  onLoadMore,
 }: SentPaymentsSectionProps) {
   const [selectedPayment, setSelectedPayment] = useState<WalletPaymentItem | null>(
     null,
@@ -94,47 +101,64 @@ export function SentPaymentsSection({
             </Text>
           </div>
         ) : (
-          <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
-            {payments.map((payment) => (
-              <li key={payment.paymentHash}>
-                <button
-                  type="button"
-                  className="flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
-                  onClick={() => setSelectedPayment(payment)}
-                >
-                  <div className="mt-1.5">
-                    <StatusDot tone={paymentStatusTone(payment.status)} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        {payment.amountCkb ? (
-                          <span className="text-sm font-medium tabular-nums text-zinc-950 dark:text-white">
-                            {payment.amountCkb}
-                          </span>
-                        ) : null}
-                        <Badge color="sky">{paymentKindLabel(payment.paymentKind)}</Badge>
-                        {payment.routeHops.length > 0 ? (
-                          <Badge color="zinc">
-                            {paymentRouteBadgeLabel(payment.routeHops.length)}
-                          </Badge>
-                        ) : null}
-                        <Badge color={paymentStatusBadgeColor(payment.status)}>
-                          {payment.status}
-                        </Badge>
-                      </div>
-                      <time className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
-                        {formatRelativeTime(payment.lastUpdatedAt)}
-                      </time>
+          <>
+            <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">
+              {payments.map((payment) => (
+                <li key={payment.paymentHash}>
+                  <button
+                    type="button"
+                    className="flex w-full items-start gap-4 px-5 py-4 text-left transition hover:bg-zinc-50 dark:hover:bg-zinc-800/40"
+                    onClick={() => setSelectedPayment(payment)}
+                  >
+                    <div className="mt-1.5">
+                      <StatusDot tone={paymentStatusTone(payment.status)} />
                     </div>
-                    <Text className="mt-0.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                      {paymentSummaryLine(payment)}
-                    </Text>
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {payment.amountCkb ? (
+                            <span className="text-sm font-medium tabular-nums text-zinc-950 dark:text-white">
+                              {payment.amountCkb}
+                            </span>
+                          ) : null}
+                          <Badge color="sky">
+                            {paymentKindLabel(payment.paymentKind)}
+                          </Badge>
+                          {payment.routeHops.length > 0 ? (
+                            <Badge color="zinc">
+                              {paymentRouteBadgeLabel(payment.routeHops.length)}
+                            </Badge>
+                          ) : null}
+                          <Badge color={paymentStatusBadgeColor(payment.status)}>
+                            {payment.status}
+                          </Badge>
+                        </div>
+                        <time className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                          {formatRelativeTime(payment.lastUpdatedAt)}
+                        </time>
+                      </div>
+                      <Text className="mt-0.5 font-mono text-xs text-zinc-500 dark:text-zinc-400">
+                        {paymentSummaryLine(payment)}
+                      </Text>
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+
+            {hasMore ? (
+              <div className="border-t border-zinc-200 px-5 py-4 dark:border-zinc-800">
+                <Button
+                  outline
+                  className="w-full text-xs"
+                  onClick={onLoadMore}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? "Loading…" : "Load more payments"}
+                </Button>
+              </div>
+            ) : null}
+          </>
         )}
       </section>
 

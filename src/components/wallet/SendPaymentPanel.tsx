@@ -291,9 +291,9 @@ export function SendPaymentPanel({
           </FieldGroup>
         ) : (
           <FieldGroup className="mt-4">
-            <Field>
-              <Label>Recipient node</Label>
-              {sendTargets.length > 0 ? (
+            {sendTargets.length > 0 ? (
+              <Field>
+                <Label>Recipient node</Label>
                 <Select
                   value={targetPubkey}
                   onChange={(event) => setTargetPubkey(event.target.value)}
@@ -305,7 +305,11 @@ export function SendPaymentPanel({
                     </option>
                   ))}
                 </Select>
-              ) : (
+                <Description>Relay, channel, and connected peers</Description>
+              </Field>
+            ) : (
+              <Field>
+                <Label>Recipient node</Label>
                 <Input
                   type="text"
                   placeholder="02… or 03…"
@@ -314,9 +318,9 @@ export function SendPaymentPanel({
                   onChange={(event) => setTargetPubkey(event.target.value)}
                   disabled={!running}
                 />
-              )}
-
-            </Field>
+                <Description>Paste the recipient node pubkey</Description>
+              </Field>
+            )}
 
             <Field>
               <Label>Amount (CKB)</Label>
@@ -366,8 +370,8 @@ export function SendPaymentPanel({
 
         {sendMode === "keysend" && sendTargets.length === 0 ? (
           <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-            No known peers yet — connect to your relay and open a channel for
-            reliable keysend, or paste a pubkey manually.
+            No known peers yet — paste a recipient pubkey. Opening a channel
+            improves delivery reliability.
           </Text>
         ) : null}
 

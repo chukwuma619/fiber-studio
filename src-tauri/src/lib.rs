@@ -41,6 +41,8 @@ pub fn run() {
             commands::wallet::send_keysend_payment,
             commands::wallet::get_payment,
             commands::wallet::cancel_invoice,
+            commands::wallet::load_more_wallet_payments,
+            commands::wallet::import_invoice,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

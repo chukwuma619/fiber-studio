@@ -3,6 +3,7 @@ import {
   cancelInvoice,
   createInvoice,
   getPayment,
+  importInvoice,
   parseInvoicePreview,
   previewKeysendPayment,
   previewSendPayment,
@@ -147,6 +148,24 @@ export function useWalletActions(onSuccess?: () => void) {
     [],
   )
 
+  const handleImportInvoice = useCallback(
+    async (payload: PaymentHashPayload) => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        const result = await importInvoice(payload)
+        onSuccess?.()
+        return result
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : String(error))
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
   const clearActionError = useCallback(() => {
     setActionError(null)
   }, [])
@@ -161,6 +180,7 @@ export function useWalletActions(onSuccess?: () => void) {
     sendKeysendPayment: handleSendKeysendPayment,
     getPayment: handleGetPayment,
     cancelInvoice: handleCancelInvoice,
+    importInvoice: handleImportInvoice,
     parseInvoicePreview: handleParseInvoicePreview,
     clearActionError,
   }

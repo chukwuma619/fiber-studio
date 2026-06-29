@@ -16,7 +16,7 @@ use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
 
-const WALLET_PAYMENT_LIMIT: u32 = 50;
+const WALLET_PAYMENT_PAGE_SIZE: u32 = 25;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -31,6 +31,8 @@ pub struct WalletPageResponse {
     pub lock_script: Option<CkbScript>,
     pub invoices: Vec<WalletInvoiceItem>,
     pub payments: Vec<WalletPaymentItem>,
+    pub payments_last_cursor: Option<String>,
+    pub payments_has_more: bool,
     pub send_targets: Vec<WalletSendTarget>,
     pub relay_status: String,
 }
@@ -133,6 +135,20 @@ pub struct PaymentHashPayload {
     pub payment_hash: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadMorePaymentsPayload {
+    pub after: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LoadMorePaymentsResult {
+    pub payments: Vec<WalletPaymentItem>,
+    pub last_cursor: Option<String>,
+    pub has_more: bool,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewSendPaymentResult {
@@ -164,6 +180,8 @@ fn wallet_page_unavailable() -> WalletPageResponse {
         lock_script: None,
         invoices: Vec::new(),
         payments: Vec::new(),
+        payments_last_cursor: None,
+        payments_has_more: false,
         send_targets: Vec::new(),
         relay_status: "not_configured".to_string(),
     }
@@ -346,6 +364,67 @@ fn build_send_targets(
     targets
 }
 
+fn normalize_payment_hash(payment_hash: &str) -> String {
+    let trimmed = payment_hash.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    if trimmed.starts_with("0x") || trimmed.starts_with("0X") {
+        trimmed.to_string()
+    } else {
+        format!("0x{trimmed}")
+    }
+}
+
+fn map_wallet_payments(
+    payments: Vec<rpc::PaymentSummary>,
+    stored_sent_payments: &[sent_payments::StoredSentPayment],
+) -> Vec<WalletPaymentItem> {
+    payments
+        .into_iter()
+        .map(|payment| {
+            let stored = stored_sent_payments
+                .iter()
+                .find(|entry| entry.payment_hash == payment.payment_hash);
+            to_wallet_payment(payment_display::map_payment_list_item(payment, stored))
+        })
+        .collect()
+}
+
+fn payments_page_meta(
+    page_size: u32,
+    last_cursor: Option<String>,
+    returned_count: usize,
+) -> (Option<String>, bool) {
+    let has_more = last_cursor.is_some() && returned_count >= page_size as usize;
+    (last_cursor, has_more)
+}
+
+fn default_import_expiry_seconds() -> u64 {
+    86_400
+}
+
+fn stored_invoice_from_get_invoice(
+    payment_hash: String,
+    result: rpc::GetInvoiceResult,
+) -> invoices::StoredInvoice {
+    let amount_shannons = result
+        .invoice
+        .amount
+        .as_deref()
+        .and_then(rpc::parse_hex_u128)
+        .unwrap_or(0);
+    let description = extract_invoice_description(&result.invoice.data.attrs);
+
+    invoices::new_stored_invoice(
+        payment_hash,
+        result.invoice_address,
+        amount_shannons,
+        description,
+        default_import_expiry_seconds(),
+    )
+}
+
 async fn fetch_on_chain_balance(
     network: &str,
     lock_script: &CkbScript,
@@ -468,7 +547,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .map(to_wallet_invoice)
         .collect();
 
-    let payments = rpc::fetch_list_payments(WALLET_PAYMENT_LIMIT)
+    let payments_page = rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, None)
         .await
         .map_err(|error| error.to_string())?;
 
@@ -477,18 +556,12 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .map(|path| sent_payments::read_sent_payments(path).unwrap_or_default())
         .unwrap_or_default();
 
-    let payment_items = payments
-        .into_iter()
-        .map(|payment| {
-            let stored = stored_sent_payments
-                .iter()
-                .find(|entry| entry.payment_hash == payment.payment_hash);
-            to_wallet_payment(payment_display::map_payment_list_item(
-                payment,
-                stored,
-            ))
-        })
-        .collect();
+    let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
+    let (payments_last_cursor, payments_has_more) = payments_page_meta(
+        WALLET_PAYMENT_PAGE_SIZE,
+        payments_page.last_cursor,
+        payment_items.len(),
+    );
 
     let send_targets = build_send_targets(
         &peers,
@@ -507,6 +580,8 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         lock_script: Some(node_info.default_funding_lock_script),
         invoices: invoice_items,
         payments: payment_items,
+        payments_last_cursor,
+        payments_has_more,
         send_targets,
         relay_status,
     })
@@ -804,6 +879,67 @@ pub async fn cancel_invoice(
         .to_string(),
         expires_in: None,
     })
+}
+
+#[tauri::command]
+pub async fn load_more_wallet_payments(
+    state: State<'_, AppState>,
+    payload: LoadMorePaymentsPayload,
+) -> Result<LoadMorePaymentsResult, String> {
+    let after = payload.after.trim();
+    if after.is_empty() {
+        return Err("Pagination cursor is required.".to_string());
+    }
+
+    let data_directory = require_running_data_dir(&state).await?;
+
+    let payments_page = rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, Some(after))
+        .await
+        .map_err(|error| error.to_string())?;
+
+    let stored_sent_payments = sent_payments::read_sent_payments(&data_directory).unwrap_or_default();
+    let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
+    let (last_cursor, has_more) = payments_page_meta(
+        WALLET_PAYMENT_PAGE_SIZE,
+        payments_page.last_cursor,
+        payment_items.len(),
+    );
+
+    Ok(LoadMorePaymentsResult {
+        payments: payment_items,
+        last_cursor,
+        has_more,
+    })
+}
+
+#[tauri::command]
+pub async fn import_invoice(
+    state: State<'_, AppState>,
+    payload: PaymentHashPayload,
+) -> Result<WalletInvoiceItem, String> {
+    let payment_hash = normalize_payment_hash(&payload.payment_hash);
+    if payment_hash.is_empty() {
+        return Err("Payment hash is required.".to_string());
+    }
+
+    let data_directory = require_running_data_dir(&state).await?;
+
+    let live = rpc::get_invoice(&payment_hash)
+        .await
+        .map_err(|error| format!("Invoice not found on this node: {error}"))?;
+
+    let stored = stored_invoice_from_get_invoice(payment_hash.clone(), live);
+    invoices::append_invoice(&data_directory, stored)
+        .map_err(|error| format!("Failed to save imported invoice: {error}"))?;
+
+    let items = invoice_display::build_invoice_list_items(invoices::read_invoices(&data_directory).unwrap_or_default())
+        .await;
+    let imported = items
+        .into_iter()
+        .find(|item| item.payment_hash.eq_ignore_ascii_case(&payment_hash))
+        .ok_or_else(|| "Imported invoice could not be loaded.".to_string())?;
+
+    Ok(to_wallet_invoice(imported))
 }
 
 #[cfg(test)]

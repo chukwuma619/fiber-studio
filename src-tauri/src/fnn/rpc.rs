@@ -184,8 +184,14 @@ struct ListPeersResult {
 struct ListPaymentsResult {
     payments: Vec<PaymentSummary>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    #[allow(dead_code)]
     last_cursor: Option<String>,
+}
+
+/// Paginated payments from `list_payments`.
+#[derive(Debug, Clone)]
+pub struct ListPaymentsPage {
+    pub payments: Vec<PaymentSummary>,
+    pub last_cursor: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,12 +282,25 @@ pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
 }
 
 pub async fn fetch_list_payments(limit: u32) -> Result<Vec<PaymentSummary>, RpcError> {
-    let result: ListPaymentsResult = call_rpc(
-        "list_payments",
-        serde_json::json!([{ "limit": format!("0x{limit:x}") }]),
-    )
-    .await?;
-    Ok(result.payments)
+    Ok(fetch_list_payments_page(limit, None).await?.payments)
+}
+
+pub async fn fetch_list_payments_page(
+    limit: u32,
+    after: Option<&str>,
+) -> Result<ListPaymentsPage, RpcError> {
+    let mut params = serde_json::json!({
+        "limit": format!("0x{limit:x}"),
+    });
+    if let Some(cursor) = after.filter(|value| !value.trim().is_empty()) {
+        params["after"] = serde_json::Value::String(cursor.to_string());
+    }
+
+    let result: ListPaymentsResult = call_rpc("list_payments", serde_json::json!([params])).await?;
+    Ok(ListPaymentsPage {
+        payments: result.payments,
+        last_cursor: result.last_cursor,
+    })
 }
 
 /// Invoice currency for a CKB network (Fibt = testnet, Fibb = mainnet).
