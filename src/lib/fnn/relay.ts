@@ -15,7 +15,7 @@ export function pubkeysEqual(left: string, right: string): boolean {
 }
 
 export type RelayContext = {
-  configuredRelayPubkey: string | null
+  savedPeerPubkeys: string[]
   network: SetupConfig["network"] | string | null | undefined
   relayStatus: RelayConnectionStatus | null | undefined
 }
@@ -24,16 +24,17 @@ export function getRelayContext(
   dashboard: HomeDashboardResponse | null,
   config: SetupConfig | null,
 ): RelayContext {
-  const configuredRelayPubkey =
-    dashboard?.configuredRelayPubkey?.trim() ||
-    config?.customPublicNodePubkey?.trim() ||
-    null
+  const savedPeerPubkeys =
+    dashboard?.savedPeerPubkeys?.filter((pubkey) => pubkey.trim()) ??
+    (config?.customPublicNodePubkey?.trim()
+      ? [config.customPublicNodePubkey.trim()]
+      : [])
 
   const network =
     (dashboard?.network as SetupConfig["network"] | null) ?? config?.network
 
   return {
-    configuredRelayPubkey,
+    savedPeerPubkeys,
     network,
     relayStatus: dashboard?.relayStatus,
   }
@@ -45,21 +46,22 @@ export function isRelayConnected(
 ): boolean {
   if (context.relayStatus === "connected") return true
 
-  const configuredPubkey = context.configuredRelayPubkey
-  if (!configuredPubkey) return false
-  return peers.some((peer) => pubkeysEqual(peer.pubkey, configuredPubkey))
+  if (context.savedPeerPubkeys.length === 0) return false
+  return context.savedPeerPubkeys.some((pubkey) =>
+    peers.some((peer) => pubkeysEqual(peer.pubkey, pubkey)),
+  )
 }
 
 export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
   switch (status) {
     case "failed":
-      return "Connection failed — ensure the peer is online"
+      return "Connection failed — ensure a saved peer is online"
     case "connecting":
-      return "Connecting to relay…"
+      return "Connecting to saved peers…"
     case "not_configured":
-      return "No relay configured in setup"
+      return "No saved peers configured"
     case "connected":
-      return "Connected to relay"
+      return "Connected to saved peer"
     default: {
       const _exhaustive: never = status
       return _exhaustive
@@ -74,11 +76,11 @@ export function relaySendPaymentWarning(
     case "connected":
       return null
     case "connecting":
-      return "Relay is still connecting — route preview may fail until the connection is ready."
+      return "Saved peers are still connecting — route preview may fail until a connection is ready."
     case "failed":
-      return "Relay connection failed — payments may not route until your node reconnects. Try refreshing or restarting the node."
+      return "Saved peer connection failed — payments may not route until your node reconnects. Try refreshing or restarting the node."
     case "not_configured":
-      return "No relay configured — multi-hop payments may fail unless you pay a direct channel peer."
+      return "No saved peers configured — multi-hop payments may fail unless you pay a direct channel peer."
     default: {
       const exhaustive: never = status
       return exhaustive
@@ -98,9 +100,9 @@ export function formatRelayStatus(
     case "connecting":
       return `Connecting…`
     case "not_configured":
-      return "No relay configured in setup"
+      return "No saved peers configured"
     case "connected":
-      return "Relay connected (outbound)"
+      return "Saved peers connected (outbound)"
     default:
       return `Not connected`
   }

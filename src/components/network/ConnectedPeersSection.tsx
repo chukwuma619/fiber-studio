@@ -12,13 +12,15 @@ type ConnectedPeersSectionProps = {
   peers: NetworkConnectedPeer[]
   isActing: boolean
   disconnectingPubkey: string | null
+  removingPubkey: string | null
   onConnectPeer: () => void
   onDisconnectPeer: (pubkey: string) => void
+  onRemoveSavedPeer: (pubkey: string) => void
 }
 
 function peerRoleBadge(peer: NetworkConnectedPeer) {
-  if (peer.isConfigured) {
-    return <Badge color="blue">Primary</Badge>
+  if (peer.isSaved) {
+    return <Badge color="blue">Saved</Badge>
   }
   if (peer.isBootnode) {
     return <Badge color="amber">Bootnode</Badge>
@@ -29,15 +31,14 @@ function peerRoleBadge(peer: NetworkConnectedPeer) {
   return <Badge color="zinc">Additional</Badge>
 }
 
-function peerActions(peer: NetworkConnectedPeer) {
-  if (peer.isConfigured) {
-    return (
-      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-        Primary peer
-      </span>
-    )
-  }
-
+function peerActions(
+  peer: NetworkConnectedPeer,
+  isActing: boolean,
+  disconnectingPubkey: string | null,
+  removingPubkey: string | null,
+  onDisconnectPeer: (pubkey: string) => void,
+  onRemoveSavedPeer: (pubkey: string) => void,
+) {
   if (peer.isBootnode) {
     return (
       <span
@@ -49,32 +50,58 @@ function peerActions(peer: NetworkConnectedPeer) {
     )
   }
 
-  return null
+  if (peer.isSaved) {
+    return (
+      <Button
+        outline
+        className="text-xs text-red-600 dark:text-red-400"
+        disabled={isActing && removingPubkey === peer.pubkey}
+        onClick={() => onRemoveSavedPeer(peer.pubkey)}
+      >
+        {isActing && removingPubkey === peer.pubkey ? "Removing…" : "Remove"}
+      </Button>
+    )
+  }
+
+  return (
+    <Button
+      outline
+      className="text-xs text-red-600 dark:text-red-400"
+      disabled={isActing && disconnectingPubkey === peer.pubkey}
+      onClick={() => onDisconnectPeer(peer.pubkey)}
+    >
+      {isActing && disconnectingPubkey === peer.pubkey
+        ? "Disconnecting…"
+        : "Disconnect"}
+    </Button>
+  )
 }
 
 export function ConnectedPeersSection({
   peers,
   isActing,
   disconnectingPubkey,
+  removingPubkey,
   onConnectPeer,
   onDisconnectPeer,
+  onRemoveSavedPeer,
 }: ConnectedPeersSectionProps) {
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
       <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <Subheading level={2}>Connected peers</Subheading>
         <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          Active peer connections. One primary peer is used for channel opens.
-          Bootnodes are listed for visibility — they are auto-connected for
-          discovery and are not channel partners.
+          Active peer connections. Saved peers reconnect on node start and can be
+          used for channel opens. Bootnodes are listed for visibility — they are
+          auto-connected for discovery and are not channel partners.
         </Text>
       </div>
 
       {peers.length === 0 ? (
         <HomeEmptyState
           title="No peers connected yet"
-          description="Set a primary peer during setup, or connect another peer from the header."
-          actionLabel="Connect another peer"
+          description="Add a saved peer during setup or from the header. Saved peers connect automatically when your node starts."
+          actionLabel="Add saved peer"
           onAction={onConnectPeer}
         />
       ) : (
@@ -130,19 +157,14 @@ export function ConnectedPeersSection({
                     channel{peer.channelCount === 1 ? "" : "s"}
                   </p>
                 </div>
-                {peerActions(peer) ??
-                  (!peer.isConfigured ? (
-                    <Button
-                      outline
-                      className="text-xs text-red-600 dark:text-red-400"
-                      disabled={isActing && disconnectingPubkey === peer.pubkey}
-                      onClick={() => onDisconnectPeer(peer.pubkey)}
-                    >
-                      {isActing && disconnectingPubkey === peer.pubkey
-                        ? "Disconnecting…"
-                        : "Disconnect"}
-                    </Button>
-                  ) : null)}
+                {peerActions(
+                  peer,
+                  isActing,
+                  disconnectingPubkey,
+                  removingPubkey,
+                  onDisconnectPeer,
+                  onRemoveSavedPeer,
+                )}
               </div>
             </li>
           ))}

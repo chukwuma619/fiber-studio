@@ -13,7 +13,7 @@ use crate::state::AppState;
 
 use super::log_store;
 use super::logs::normalize_log_line;
-use super::peer_connect::{self, RelayConnectStatus};
+use super::peer_connect::{self, RelayConnectStatus, SavedPeersConnectResult};
 use super::rpc::{self, NodeInfo};
 use super::spawn;
 
@@ -295,7 +295,7 @@ impl FnnManager {
         self.stop_relay_connect_loop();
         self.relay_state = RelayConnectionState {
             status: RelayConnectStatus::Connecting.status_label().to_string(),
-            detail: Some("Resolving relay from network graph…".into()),
+            detail: Some("Connecting to saved peers…".into()),
         };
 
         let cancel = Arc::new(AtomicBool::new(false));
@@ -308,21 +308,17 @@ impl FnnManager {
                     break;
                 }
 
-                let result = peer_connect::ensure_configured_peer_connected(&data_directory).await;
+                let result = peer_connect::ensure_saved_peers_connected(&data_directory).await;
 
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     let mut manager = state.fnn.lock().await;
-                    manager.relay_state = relay_state_from_result(&result);
+                    manager.relay_state = relay_state_from_saved_peers_result(&result);
                 }
 
                 match result {
-                    Ok(RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected) => {
-                        break;
-                    }
-                    Ok(RelayConnectStatus::NotConfigured) => {
-                        break;
-                    }
-                    Ok(RelayConnectStatus::Connecting | RelayConnectStatus::Failed) => {}
+                    Ok(summary) if summary.total == 0 => break,
+                    Ok(summary) if summary.connected_count == summary.total => break,
+                    Ok(_) => {}
                     Err(error) => {
                         if let Some(state) = app_handle.try_state::<AppState>() {
                             let mut manager = state.fnn.lock().await;
@@ -443,27 +439,36 @@ impl FnnManager {
     }
 }
 
-fn relay_state_from_result(
-    result: &Result<RelayConnectStatus, rpc::RpcError>,
+fn relay_state_from_saved_peers_result(
+    result: &Result<SavedPeersConnectResult, rpc::RpcError>,
 ) -> RelayConnectionState {
     match result {
-        Ok(RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected) => {
-            RelayConnectionState {
-                status: RelayConnectStatus::Connected.status_label().to_string(),
-                detail: None,
-            }
-        }
-        Ok(RelayConnectStatus::NotConfigured) => RelayConnectionState {
+        Ok(summary) if summary.total == 0 => RelayConnectionState {
             status: RelayConnectStatus::NotConfigured.status_label().to_string(),
             detail: None,
         },
-        Ok(RelayConnectStatus::Connecting) => RelayConnectionState {
-            status: RelayConnectStatus::Connecting.status_label().to_string(),
-            detail: Some("Waiting for relay handshake…".into()),
+        Ok(summary) if summary.connected_count == summary.total => RelayConnectionState {
+            status: RelayConnectStatus::Connected.status_label().to_string(),
+            detail: None,
         },
-        Ok(RelayConnectStatus::Failed) => RelayConnectionState {
-            status: RelayConnectStatus::Failed.status_label().to_string(),
-            detail: Some("Could not reach configured relay".into()),
+        Ok(summary) if summary.connected_count > 0 => RelayConnectionState {
+            status: RelayConnectStatus::Connected.status_label().to_string(),
+            detail: Some(format!(
+                "{}/{} saved peers connected",
+                summary.connected_count, summary.total
+            )),
+        },
+        Ok(summary) => RelayConnectionState {
+            status: if summary.any_failed {
+                RelayConnectStatus::Failed.status_label()
+            } else {
+                RelayConnectStatus::Connecting.status_label()
+            }
+            .to_string(),
+            detail: Some(format!(
+                "{}/{} saved peers connected",
+                summary.connected_count, summary.total
+            )),
         },
         Err(error) => RelayConnectionState {
             status: RelayConnectStatus::Failed.status_label().to_string(),

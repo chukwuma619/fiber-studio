@@ -28,8 +28,7 @@ pub struct HomeDashboardResponse {
     pub active_channel_count: u32,
     pub pending_channel_count: u32,
     pub total_local_balance: String,
-    pub configured_relay_pubkey: Option<String>,
-    pub configured_relay_multiaddr: Option<String>,
+    pub saved_peer_pubkeys: Vec<String>,
     pub network: Option<String>,
     pub relay_status: String,
 }
@@ -117,8 +116,7 @@ pub async fn get_home_dashboard(
             active_channel_count: 0,
             pending_channel_count: 0,
             total_local_balance: "0".to_string(),
-            configured_relay_pubkey: None,
-            configured_relay_multiaddr: None,
+            saved_peer_pubkeys: Vec::new(),
             network: None,
             relay_status: "not_configured".to_string(),
         });
@@ -170,15 +168,24 @@ pub async fn get_home_dashboard(
     let total_local_balance = channel::sum_local_balances(&channels);
     let home_channels = select_home_channels(channels);
 
-    let configured_pubkey = studio_metadata
+    let saved_peers = studio_metadata
         .as_ref()
-        .map(|metadata| metadata.custom_public_node_pubkey.as_str())
-        .unwrap_or("");
-    let relay_status = peer_connect::relay_status_for_configured_peer(
-        &peers,
-        configured_pubkey,
-        &manager_relay_status,
-    );
+        .map(|metadata| metadata.saved_peers.as_slice())
+        .unwrap_or(&[]);
+
+    let relay_status =
+        peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
+
+    let saved_peer_pubkeys: Vec<String> = studio_metadata
+        .as_ref()
+        .map(|metadata| {
+            metadata
+                .saved_peer_pubkeys()
+                .into_iter()
+                .map(str::to_string)
+                .collect()
+        })
+        .unwrap_or_default();
 
     Ok(HomeDashboardResponse {
         available: true,
@@ -201,14 +208,7 @@ pub async fn get_home_dashboard(
         active_channel_count,
         pending_channel_count,
         total_local_balance: total_local_balance.to_string(),
-        configured_relay_pubkey: studio_metadata
-            .as_ref()
-            .map(|metadata| metadata.custom_public_node_pubkey.clone())
-            .filter(|pubkey| !pubkey.trim().is_empty()),
-        configured_relay_multiaddr: studio_metadata
-            .as_ref()
-            .map(|metadata| metadata.custom_public_node_multiaddr.clone())
-            .filter(|address| !address.trim().is_empty()),
+        saved_peer_pubkeys,
         network: studio_metadata
             .as_ref()
             .map(|metadata| metadata.network.clone()),

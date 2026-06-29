@@ -2,7 +2,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use super::rpc::{self, GraphNode, PeerInfo, RpcError};
-use super::studio::{self, StudioMetadata};
+use super::studio::{self, SavedPeer, StudioMetadata};
 
 const CONNECT_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const CONNECT_POLL_TIMEOUT: Duration = Duration::from_secs(25);
@@ -29,6 +29,13 @@ impl RelayConnectStatus {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SavedPeersConnectResult {
+    pub connected_count: usize,
+    pub total: usize,
+    pub any_failed: bool,
+}
+
 pub fn pubkeys_equal(left: &str, right: &str) -> bool {
     normalize_pubkey(left) == normalize_pubkey(right)
 }
@@ -37,23 +44,23 @@ pub fn normalize_pubkey(pubkey: &str) -> String {
     pubkey.trim().trim_start_matches("0x").to_ascii_lowercase()
 }
 
-pub fn relay_status_for_configured_peer(
+pub fn relay_status_for_saved_peers(
     peers: &[PeerInfo],
-    configured_pubkey: &str,
+    saved_peers: &[SavedPeer],
     fallback_status: &str,
 ) -> String {
-    if configured_pubkey.trim().is_empty() {
+    if saved_peers.is_empty() {
         return "not_configured".to_string();
     }
 
-    if peers
-        .iter()
-        .any(|peer| pubkeys_equal(&peer.pubkey, configured_pubkey))
-    {
+    if saved_peers.iter().any(|saved| {
+        peers
+            .iter()
+            .any(|peer| pubkeys_equal(&peer.pubkey, &saved.pubkey))
+    }) {
         return "connected".to_string();
     }
 
-    // Never trust cached manager state as "connected" — verify against list_peers.
     match fallback_status {
         "connecting" => "connecting".to_string(),
         "failed" => "failed".to_string(),
@@ -74,90 +81,105 @@ pub async fn ensure_peer_connected(
         return Ok(RelayConnectStatus::AlreadyConnected);
     }
 
-    let addresses = resolve_connect_addresses(pubkey, saved_multiaddr).await;
-    if !addresses.is_empty() {
-        for address in addresses {
-            connect_peer_with_address(pubkey, &address).await?;
+    let saved_multiaddr = saved_multiaddr.trim();
 
-            if wait_for_peer(pubkey).await? {
-                return Ok(RelayConnectStatus::Connected);
-            }
-        }
-    }
-
-    connect_peer_pubkey_only(pubkey).await?;
-
-    if wait_for_peer(pubkey).await? {
-        return Ok(RelayConnectStatus::Connected);
-    }
-
-    Ok(RelayConnectStatus::Failed)
-}
-
-pub async fn ensure_configured_peer_connected(
-    data_dir: &Path,
-) -> Result<RelayConnectStatus, RpcError> {
-    let metadata = match studio::read_studio_metadata(data_dir) {
-        Ok(metadata) => metadata,
-        Err(_) => return Ok(RelayConnectStatus::NotConfigured),
-    };
-
-    connect_from_metadata(data_dir, &metadata).await
-}
-
-pub async fn connect_from_metadata(
-    data_dir: &Path,
-    metadata: &StudioMetadata,
-) -> Result<RelayConnectStatus, RpcError> {
-    let pubkey = metadata.custom_public_node_pubkey.trim();
-    if pubkey.is_empty() {
-        return Ok(RelayConnectStatus::NotConfigured);
-    }
-
-    if is_peer_connected(pubkey).await? {
-        return Ok(RelayConnectStatus::AlreadyConnected);
-    }
-
-    let addresses =
-        resolve_connect_addresses(pubkey, metadata.custom_public_node_multiaddr.trim()).await;
-    if addresses.is_empty() {
-        return try_pubkey_only_connect(data_dir, metadata, pubkey).await;
-    }
-
-    for address in addresses {
-        connect_peer_with_address(pubkey, &address).await?;
+    if !saved_multiaddr.is_empty() {
+        connect_peer_with_address(pubkey, saved_multiaddr).await?;
 
         if wait_for_peer(pubkey).await? {
-            let _ = studio::persist_relay_multiaddr(data_dir, metadata, &address);
             return Ok(RelayConnectStatus::Connected);
         }
     }
 
-    try_pubkey_only_connect(data_dir, metadata, pubkey).await
-}
-
-async fn try_pubkey_only_connect(
-    data_dir: &Path,
-    metadata: &StudioMetadata,
-    pubkey: &str,
-) -> Result<RelayConnectStatus, RpcError> {
     connect_peer_pubkey_only(pubkey).await?;
 
     if wait_for_peer(pubkey).await? {
         return Ok(RelayConnectStatus::Connected);
     }
 
-    let _ = metadata;
-    let _ = data_dir;
+    let addresses = resolve_graph_addresses(pubkey, saved_multiaddr).await;
+    for address in addresses {
+        connect_peer_with_address(pubkey, &address).await?;
+
+        if wait_for_peer(pubkey).await? {
+            return Ok(RelayConnectStatus::Connected);
+        }
+    }
+
     Ok(RelayConnectStatus::Failed)
 }
 
-async fn resolve_connect_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<String> {
-    let mut addresses = Vec::new();
+pub async fn ensure_saved_peers_connected(
+    data_dir: &Path,
+) -> Result<SavedPeersConnectResult, RpcError> {
+    let metadata = match studio::read_studio_metadata(data_dir) {
+        Ok(metadata) => metadata,
+        Err(_) => {
+            return Ok(SavedPeersConnectResult {
+                connected_count: 0,
+                total: 0,
+                any_failed: false,
+            });
+        }
+    };
 
-    if !saved_multiaddr.is_empty() {
-        addresses.push(saved_multiaddr.to_string());
+    if metadata.saved_peers.is_empty() {
+        return Ok(SavedPeersConnectResult {
+            connected_count: 0,
+            total: 0,
+            any_failed: false,
+        });
     }
+
+    let total = metadata.saved_peers.len();
+    let mut connected_count = 0;
+    let mut any_failed = false;
+
+    for saved_peer in &metadata.saved_peers {
+        let status = connect_saved_peer(data_dir, &metadata, saved_peer).await?;
+        match status {
+            RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected => {
+                connected_count += 1;
+            }
+            RelayConnectStatus::Failed => {
+                any_failed = true;
+            }
+            RelayConnectStatus::NotConfigured | RelayConnectStatus::Connecting => {}
+        }
+    }
+
+    Ok(SavedPeersConnectResult {
+        connected_count,
+        total,
+        any_failed,
+    })
+}
+
+pub async fn connect_saved_peer(
+    data_dir: &Path,
+    metadata: &StudioMetadata,
+    saved_peer: &SavedPeer,
+) -> Result<RelayConnectStatus, RpcError> {
+    let pubkey = saved_peer.pubkey.trim();
+    if pubkey.is_empty() {
+        return Ok(RelayConnectStatus::NotConfigured);
+    }
+
+    let status = ensure_peer_connected(pubkey, saved_peer.multiaddr.trim()).await?;
+
+    if status == RelayConnectStatus::Connected {
+        if let Ok(peers) = rpc::fetch_list_peers().await {
+            if let Some(peer) = peers.iter().find(|peer| pubkeys_equal(&peer.pubkey, pubkey)) {
+                let _ = studio::persist_relay_multiaddr(data_dir, metadata, pubkey, &peer.address);
+            }
+        }
+    }
+
+    Ok(status)
+}
+
+async fn resolve_graph_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<String> {
+    let mut addresses = Vec::new();
 
     for _ in 0..GRAPH_LOOKUP_RETRIES {
         match rpc::fetch_graph_nodes().await {
@@ -167,6 +189,9 @@ async fn resolve_connect_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<S
                     .find(|node| pubkeys_equal(&node.pubkey, pubkey))
                 {
                     for address in rank_addresses(node) {
+                        if address.trim() == saved_multiaddr.trim() {
+                            continue;
+                        }
                         if !addresses.iter().any(|existing| existing == &address) {
                             addresses.push(address);
                         }
@@ -177,7 +202,7 @@ async fn resolve_connect_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<S
             Err(_) => {}
         }
 
-        if addresses.len() <= usize::from(!saved_multiaddr.is_empty()) {
+        if addresses.is_empty() {
             tokio::time::sleep(GRAPH_LOOKUP_DELAY).await;
         } else {
             break;
@@ -297,12 +322,33 @@ mod tests {
 
     #[test]
     fn relay_status_never_reports_connected_without_peer_in_list() {
-        let status = relay_status_for_configured_peer(
-            &[],
-            "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71",
-            "connected",
-        );
+        let saved_peers = vec![SavedPeer {
+            pubkey: "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71".into(),
+            multiaddr: String::new(),
+        }];
+        let status = relay_status_for_saved_peers(&[], &saved_peers, "connected");
 
         assert_eq!(status, "failed");
+    }
+
+    #[test]
+    fn relay_status_connected_when_any_saved_peer_present() {
+        let saved_peers = vec![
+            SavedPeer {
+                pubkey: "02aaa".into(),
+                multiaddr: String::new(),
+            },
+            SavedPeer {
+                pubkey: "02bbb".into(),
+                multiaddr: String::new(),
+            },
+        ];
+        let peers = vec![PeerInfo {
+            pubkey: "02bbb".into(),
+            address: "/ip4/1.2.3.4/tcp/8228".into(),
+        }];
+        let status = relay_status_for_saved_peers(&peers, &saved_peers, "failed");
+
+        assert_eq!(status, "connected");
     }
 }

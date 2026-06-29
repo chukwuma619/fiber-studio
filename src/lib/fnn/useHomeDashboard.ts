@@ -19,8 +19,7 @@ export function useHomeDashboard(running: boolean, pollIntervalMs = 10_000) {
         activeChannelCount: 0,
         pendingChannelCount: 0,
         totalLocalBalance: "0",
-        configuredRelayPubkey: null,
-        configuredRelayMultiaddr: null,
+        savedPeerPubkeys: [],
         network: null,
         relayStatus: "not_configured",
       })

@@ -7,7 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use thiserror::Error;
 
 use super::config;
-use super::studio::{write_studio_metadata, StudioMetadata};
+use super::studio::{write_studio_metadata, SavedPeer, StudioMetadata};
 
 #[derive(Debug, Error)]
 pub enum ProvisionError {
@@ -87,11 +87,14 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
     let config_yaml = config::build_config_yaml(&request.network)?;
     fs::write(data_dir.join("config.yml"), config_yaml)?;
 
+    let saved_peers = vec![SavedPeer {
+        pubkey: request.custom_public_node_pubkey.clone(),
+        multiaddr: request.custom_public_node_multiaddr.clone(),
+    }];
     let metadata = StudioMetadata::new(
         request.network.clone(),
         request.data_directory.clone(),
-        request.custom_public_node_pubkey.clone(),
-        request.custom_public_node_multiaddr.clone(),
+        saved_peers,
     );
     write_studio_metadata(data_dir, &metadata)?;
 

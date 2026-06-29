@@ -45,7 +45,7 @@ export function graphStatusLabel(
   relayStatus: RelayConnectionStatus,
 ): string {
   if (relayStatus !== "connected") {
-    return "Needs configured peer"
+    return "Needs saved peer"
   }
   if (graphReady) {
     return "Graph data available"
@@ -79,33 +79,14 @@ export function graphStatusBadgeColor(
   return "amber"
 }
 
-export function connectionModeLabel(
-  mode: "official-relays" | "custom-public-node",
+export function savedPeersStatusLabel(
+  connectedCount: number,
+  totalCount: number,
 ): string {
-  if (mode === "official-relays") {
-    return "Official Fiber relay"
+  if (totalCount === 0) {
+    return "Saved peers · none"
   }
-  return "Custom public node"
-}
-
-export function connectionModeSubtext(
-  mode: "official-relays" | "custom-public-node",
-): string {
-  if (mode === "official-relays") {
-    return "Saved peer is an official relay"
-  }
-  return "Saved peer is a custom public node"
-}
-
-export function configuredPeerPubkeyLabel(
-  configuredPeerPubkey: string | null | undefined,
-): string | null {
-  const pubkey = configuredPeerPubkey?.trim()
-  if (!pubkey) {
-    return null
-  }
-
-  return truncatePubkey(pubkey)
+  return `Saved peers · ${connectedCount}/${totalCount} connected`
 }
 
 export function truncateMultiaddr(address: string): string {
@@ -128,37 +109,22 @@ export function truncateMultiaddr(address: string): string {
   return `${trimmed.slice(0, 22)}…${trimmed.slice(-10)}`
 }
 
-export function configuredPeerStatLabel(
+export function savedPeerStatLabel(
   relayStatus: RelayConnectionStatus,
-  configuredPeerPubkey: string | null | undefined,
+  connectedCount: number,
+  totalCount: number,
 ): string {
-  const name = configuredPeerPubkeyLabel(configuredPeerPubkey)
-  if (!name) {
-    switch (relayStatus) {
-      case "connected":
-        return "Connected"
-      case "connecting":
-        return "Connecting…"
-      case "failed":
-        return "Connection failed"
-      case "not_configured":
-        return "Not set"
-      default: {
-        const _exhaustive: never = relayStatus
-        return _exhaustive
-      }
-    }
-  }
+  const summary = savedPeersStatusLabel(connectedCount, totalCount)
 
   switch (relayStatus) {
     case "connected":
-      return `Connected · ${name}`
+      return summary
     case "connecting":
-      return `Connecting to ${name}…`
+      return `Connecting · ${summary}`
     case "failed":
-      return `Not connected · ${name}`
+      return `Not connected · ${summary}`
     case "not_configured":
-      return name
+      return summary
     default: {
       const _exhaustive: never = relayStatus
       return _exhaustive
@@ -166,11 +132,11 @@ export function configuredPeerStatLabel(
   }
 }
 
-export function configuredPeerConnectionLabel(
+export function savedPeerConnectionLabel(
   relayStatus: RelayConnectionStatus,
-  configuredPeerPubkey: string | null | undefined,
+  pubkey: string | null | undefined,
 ): string {
-  const name = configuredPeerPubkeyLabel(configuredPeerPubkey)
+  const name = pubkey?.trim() ? truncatePubkey(pubkey) : null
   if (!name) {
     return relayStatus === "connecting" ? "Connecting…" : "Not set"
   }

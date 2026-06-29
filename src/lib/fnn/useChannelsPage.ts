@@ -14,10 +14,10 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   onChainWalletError: null,
   network: null,
   defaultFundingLockScript: null,
-  configuredPeerPubkey: null,
+  savedPeers: [],
+  savedPeersOpenForChannel: [],
   relayStatus: "not_configured",
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
-  hasChannelToConfiguredPeer: false,
 }
 
 const OPENING_POLL_INTERVAL_MS = 3_000

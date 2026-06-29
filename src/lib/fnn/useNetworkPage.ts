@@ -7,9 +7,8 @@ const EMPTY_RESPONSE: NetworkPageResponse = {
   available: false,
   network: null,
   nodePubkey: null,
-  connectionMode: "custom-public-node",
-  configuredPeerPubkey: null,
-  configuredPeerMultiaddr: null,
+  savedPeers: [],
+  savedPeerConnectedCount: 0,
   relayStatus: "not_configured",
   graphNodeCount: 0,
   graphReady: false,
@@ -20,7 +19,7 @@ const EMPTY_RESPONSE: NetworkPageResponse = {
   onChainWalletCkb: null,
   onChainWalletError: null,
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
-  hasChannelToConfiguredPeer: false,
+  savedPeersOpenForChannel: [],
 }
 
 const CONNECTING_POLL_INTERVAL_MS = 3_000

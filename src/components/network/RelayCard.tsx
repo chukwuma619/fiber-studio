@@ -15,10 +15,10 @@ type RelayCardProps = {
   onOpenChannel: () => void
 }
 
-function primaryPeerButtonLabel(isActing: boolean, isConfigured: boolean): string {
-  if (isConfigured) return "Primary peer"
+function savedPeerButtonLabel(isActing: boolean, isSaved: boolean): string {
+  if (isSaved) return "Saved"
   if (isActing) return "Saving…"
-  return "Set as primary"
+  return "Save peer"
 }
 
 export function RelayCard({
@@ -46,9 +46,9 @@ export function RelayCard({
           </div>
           <span className="mt-1 block">
             <Badge color="zinc">{networkLabel}</Badge>
-            {relay.isConfigured ? (
+            {relay.isSaved ? (
               <Badge color="blue" className="ml-1.5">
-                Primary
+                Saved
               </Badge>
             ) : null}
           </span>
@@ -71,9 +71,9 @@ export function RelayCard({
           outline
           className="text-xs"
           onClick={onConnect}
-          disabled={disabled || isActing || relay.isConfigured}
+          disabled={disabled || isActing || relay.isSaved}
         >
-          {primaryPeerButtonLabel(isActing, relay.isConfigured)}
+          {savedPeerButtonLabel(isActing, relay.isSaved)}
         </Button>
         <Button
           plain

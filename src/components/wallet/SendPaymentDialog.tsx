@@ -374,7 +374,7 @@ export function SendPaymentDialog({
                 (isPendingPaymentStatus(result?.status ?? "")
                   ? "Payment timed out while waiting for confirmation."
                   : isKeysend
-                    ? "Failed to route keysend. Try your configured relay or a direct channel peer."
+                    ? "Failed to route keysend. Try a saved peer or a direct channel peer."
                     : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")}
             </Text>
             <div className="mt-3">

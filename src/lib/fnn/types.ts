@@ -64,6 +64,14 @@ export type WalletBalanceResponse = {
   shannons: string
 }
 
+export type SavedPeerEntry = {
+  pubkey: string
+  multiaddr: string | null
+  connected: boolean
+  channelCount: number
+  hasActiveOrPendingChannel: boolean
+}
+
 export type ChannelsPageResponse = {
   available: boolean
   channels: HomeChannel[]
@@ -75,13 +83,14 @@ export type ChannelsPageResponse = {
   onChainWalletError?: string | null
   network: string | null
   defaultFundingLockScript: CkbScript | null
-  configuredPeerPubkey: string | null
+  savedPeers: SavedPeerEntry[]
+  savedPeersOpenForChannel: SavedPeerEntry[]
   relayStatus: RelayConnectionStatus
   minFundingCkb: number
-  hasChannelToConfiguredPeer: boolean
 }
 
 export type OpenChannelPayload = {
+  pubkey: string
   fundingCkb: number
 }
 
@@ -137,8 +146,7 @@ export type HomeDashboardResponse = {
   activeChannelCount: number
   pendingChannelCount: number
   totalLocalBalance: string
-  configuredRelayPubkey: string | null
-  configuredRelayMultiaddr: string | null
+  savedPeerPubkeys: string[]
   network: string | null
   relayStatus: RelayConnectionStatus
 }
@@ -264,7 +272,7 @@ export type NetworkRelayEntry = {
   connected: boolean
   channelCount: number
   hasActiveOrPendingChannel: boolean
-  isConfigured: boolean
+  isSaved: boolean
 }
 
 export type NetworkCustomPeer = {
@@ -276,7 +284,7 @@ export type NetworkCustomPeer = {
 export type NetworkConnectedPeer = {
   pubkey: string
   address: string
-  isConfigured: boolean
+  isSaved: boolean
   isOfficialRelay: boolean
   isBootnode: boolean
   channelCount: number
@@ -286,9 +294,8 @@ export type NetworkPageResponse = {
   available: boolean
   network: string | null
   nodePubkey: string | null
-  connectionMode: NetworkConnectionMode
-  configuredPeerPubkey: string | null
-  configuredPeerMultiaddr: string | null
+  savedPeers: SavedPeerEntry[]
+  savedPeerConnectedCount: number
   relayStatus: RelayConnectionStatus
   graphNodeCount: number
   graphReady: boolean
@@ -299,7 +306,7 @@ export type NetworkPageResponse = {
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
   minFundingCkb: number
-  hasChannelToConfiguredPeer: boolean
+  savedPeersOpenForChannel: SavedPeerEntry[]
 }
 
 export type ConnectPeerPayload = {
@@ -307,9 +314,13 @@ export type ConnectPeerPayload = {
   multiaddr?: string
 }
 
-export type SetConfiguredPeerPayload = {
+export type AddSavedPeerPayload = {
   pubkey: string
   multiaddr?: string
+}
+
+export type RemoveSavedPeerPayload = {
+  pubkey: string
 }
 
 export type PeerConnectResult = {

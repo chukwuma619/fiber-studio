@@ -162,7 +162,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
           </Button>
           <Button
             onClick={openOpenDialog}
-            disabled={!running || (data?.hasChannelToConfiguredPeer ?? false)}
+            disabled={!running || (data?.savedPeers.length ?? 0) === 0}
           >
             Open channel
           </Button>
@@ -298,10 +298,9 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
       <OpenChannelDialog
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
-        configuredPeerPubkey={data?.configuredPeerPubkey ?? null}
+        savedPeers={data?.savedPeers ?? []}
         relayStatus={data?.relayStatus ?? "not_configured"}
         minFundingCkb={minFundingCkb}
-        hasChannelToConfiguredPeer={data?.hasChannelToConfiguredPeer ?? false}
         availableWalletCkb={data?.onChainWalletCkb ?? null}
         onChainWalletError={data?.onChainWalletError ?? null}
         isActing={channelActions.isActing}

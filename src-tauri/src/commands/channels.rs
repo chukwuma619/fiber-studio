@@ -12,6 +12,16 @@ use crate::fnn::rpc::{self, CkbScript};
 use crate::fnn::studio;
 use crate::state::AppState;
 
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChannelsSavedPeerEntry {
+    pub pubkey: String,
+    pub multiaddr: Option<String>,
+    pub connected: bool,
+    pub channel_count: u32,
+    pub has_active_or_pending_channel: bool,
+}
+
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelsPageResponse {
@@ -26,15 +36,16 @@ pub struct ChannelsPageResponse {
     pub on_chain_wallet_error: Option<String>,
     pub network: Option<String>,
     pub default_funding_lock_script: Option<CkbScript>,
-    pub configured_peer_pubkey: Option<String>,
+    pub saved_peers: Vec<ChannelsSavedPeerEntry>,
+    pub saved_peers_open_for_channel: Vec<ChannelsSavedPeerEntry>,
     pub relay_status: String,
     pub min_funding_ckb: u64,
-    pub has_channel_to_configured_peer: bool,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenChannelPayload {
+    pub pubkey: String,
     pub funding_ckb: u64,
 }
 
@@ -118,10 +129,46 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         on_chain_wallet_error: None,
         network: None,
         default_funding_lock_script: None,
-        configured_peer_pubkey: None,
+        saved_peers: Vec::new(),
+        saved_peers_open_for_channel: Vec::new(),
         relay_status: "not_configured".to_string(),
         min_funding_ckb: channel::CHANNEL_OPEN_MIN_FUNDING_CKB,
-        has_channel_to_configured_peer: false,
+    }
+}
+
+fn peer_is_connected(peers: &[rpc::PeerInfo], pubkey: &str) -> bool {
+    peers
+        .iter()
+        .any(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
+}
+
+fn count_channels_to_peer(channels: &[rpc::Channel], pubkey: &str) -> u32 {
+    channels
+        .iter()
+        .filter(|channel| peer_connect::pubkeys_equal(&channel.pubkey, pubkey))
+        .count() as u32
+}
+
+fn build_channels_saved_peer_entry(
+    saved_peer: &studio::SavedPeer,
+    peers: &[rpc::PeerInfo],
+    channels: &[rpc::Channel],
+) -> ChannelsSavedPeerEntry {
+    let connected = peer_is_connected(peers, &saved_peer.pubkey);
+    let channel_count = count_channels_to_peer(channels, &saved_peer.pubkey);
+    let has_active_or_pending_channel =
+        has_active_or_pending_channel_to_peer(channels, &saved_peer.pubkey);
+    let multiaddr = saved_peer.multiaddr.trim();
+    ChannelsSavedPeerEntry {
+        pubkey: saved_peer.pubkey.clone(),
+        multiaddr: if multiaddr.is_empty() {
+            None
+        } else {
+            Some(multiaddr.to_string())
+        },
+        connected,
+        channel_count,
+        has_active_or_pending_channel,
     }
 }
 
@@ -160,26 +207,27 @@ pub async fn get_channels_page(
     let min_funding_ckb =
         min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
 
-    let configured_peer_pubkey = studio_metadata
+    let saved_peers = studio_metadata
         .as_ref()
-        .map(|metadata| metadata.custom_public_node_pubkey.clone())
-        .filter(|pubkey| !pubkey.trim().is_empty());
+        .map(|metadata| metadata.saved_peers.as_slice())
+        .unwrap_or(&[]);
 
-    let relay_status = configured_peer_pubkey
-        .as_deref()
-        .map(|pubkey| {
-            peer_connect::relay_status_for_configured_peer(
-                &peers,
-                pubkey,
-                &manager_relay_status,
-            )
-        })
-        .unwrap_or_else(|| "not_configured".to_string());
+    let relay_status = peer_connect::relay_status_for_saved_peers(
+        &peers,
+        saved_peers,
+        &manager_relay_status,
+    );
 
-    let has_channel_to_configured_peer = configured_peer_pubkey
-        .as_deref()
-        .map(|pubkey| has_active_or_pending_channel_to_peer(&channels, pubkey))
-        .unwrap_or(false);
+    let saved_peer_entries: Vec<ChannelsSavedPeerEntry> = saved_peers
+        .iter()
+        .map(|peer| build_channels_saved_peer_entry(peer, &peers, &channels))
+        .collect();
+
+    let saved_peers_open_for_channel = saved_peer_entries
+        .iter()
+        .filter(|entry| !entry.has_active_or_pending_channel)
+        .cloned()
+        .collect();
 
     let (on_chain_wallet_ckb, on_chain_wallet_error) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
@@ -201,10 +249,10 @@ pub async fn get_channels_page(
         on_chain_wallet_error,
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
         default_funding_lock_script: Some(node_info.default_funding_lock_script),
-        configured_peer_pubkey,
+        saved_peers: saved_peer_entries,
+        saved_peers_open_for_channel,
         relay_status,
         min_funding_ckb,
-        has_channel_to_configured_peer,
     })
 }
 
@@ -228,9 +276,13 @@ pub async fn open_channel(
     let studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
-    let pubkey = studio_metadata.custom_public_node_pubkey.trim();
+    let pubkey = payload.pubkey.trim();
     if pubkey.is_empty() {
-        return Err("No peer pubkey configured. Complete setup with a public relay or custom node.".to_string());
+        return Err("Peer pubkey is required.".to_string());
+    }
+
+    if !studio_metadata.has_saved_peer(pubkey) {
+        return Err("Channel opens are limited to saved peers.".to_string());
     }
 
     let node_info = rpc::fetch_node_info()
@@ -254,7 +306,10 @@ pub async fn open_channel(
         );
     }
 
-    let saved_multiaddr = studio_metadata.custom_public_node_multiaddr.trim();
+    let saved_multiaddr = studio_metadata
+        .find_saved_peer(pubkey)
+        .map(|peer| peer.multiaddr.as_str())
+        .unwrap_or("");
 
     let connect_status = peer_connect::ensure_peer_connected(pubkey, saved_multiaddr)
         .await

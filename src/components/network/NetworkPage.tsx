@@ -9,10 +9,11 @@ import {
   graphStatusLabel,
   relayStatusBadgeColor,
   relayStatusDotTone,
+  savedPeersStatusLabel,
 } from "../../lib/fnn/network"
 import { useNetworkActions } from "../../lib/fnn/useNetworkActions"
 import { useNetworkPage } from "../../lib/fnn/useNetworkPage"
-import { truncatePubkey, type FiberNetwork } from "../../lib/public-relays"
+import { type FiberNetwork } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
@@ -20,6 +21,7 @@ import { Text } from "../ui/text"
 import { ConnectPeerDialog } from "./ConnectPeerDialog"
 import { ConnectedPeersSection } from "./ConnectedPeersSection"
 import { GraphBrowserSection } from "./GraphBrowserSection"
+import { SavedPeersSection } from "./SavedPeersSection"
 
 export function NetworkPage() {
   const { running, config } = useNodeControlContext()
@@ -28,12 +30,16 @@ export function NetworkPage() {
 
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
   const [disconnectingPubkey, setDisconnectingPubkey] = useState<string | null>(null)
+  const [removingPubkey, setRemovingPubkey] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const network = (data?.network ?? config?.network ?? "testnet") as FiberNetwork
   const connectedPeers = data?.connectedPeers ?? []
+  const savedPeers = data?.savedPeers ?? []
   const relayStatus = data?.relayStatus ?? "not_configured"
   const graphReady = data?.graphReady ?? false
+  const savedPeerConnectedCount = data?.savedPeerConnectedCount ?? 0
+  const savedPeerTotal = data?.savedPeers.length ?? 0
 
   const openConnectDialog = useCallback(() => {
     networkActions.clearActionError()
@@ -48,6 +54,19 @@ export function NetworkPage() {
         await networkActions.handleDisconnectPeer({ pubkey })
       } finally {
         setDisconnectingPubkey(null)
+      }
+    },
+    [networkActions],
+  )
+
+  const handleRemoveSavedPeer = useCallback(
+    async (pubkey: string) => {
+      networkActions.clearActionError()
+      setRemovingPubkey(pubkey)
+      try {
+        await networkActions.handleRemoveSavedPeer({ pubkey })
+      } finally {
+        setRemovingPubkey(null)
       }
     },
     [networkActions],
@@ -81,7 +100,7 @@ export function NetworkPage() {
             Refresh
           </Button>
           <Button onClick={openConnectDialog} disabled={!running}>
-            Connect another peer
+            Add saved peer
           </Button>
         </div>
       </div>
@@ -102,9 +121,7 @@ export function NetworkPage() {
         <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
           <Badge color={relayBadgeColor}>
             <StatusDot tone={relayDotTone} />
-            {data?.configuredPeerPubkey
-              ? `Primary · ${truncatePubkey(data.configuredPeerPubkey)}`
-              : "Primary · not set"}
+            {savedPeersStatusLabel(savedPeerConnectedCount, savedPeerTotal)}
           </Badge>
           <Badge color={graphBadgeColor}>
             <StatusDot tone={graphDotTone} />
@@ -131,15 +148,23 @@ export function NetworkPage() {
         </section>
       ) : (
         <>
+          <SavedPeersSection
+            peers={savedPeers}
+            isActing={networkActions.isActing}
+            removingPubkey={removingPubkey}
+            onAddPeer={openConnectDialog}
+            onRemovePeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
+          />
+
           <ConnectedPeersSection
             peers={connectedPeers}
             isActing={networkActions.isActing}
             disconnectingPubkey={disconnectingPubkey}
+            removingPubkey={removingPubkey}
             onConnectPeer={openConnectDialog}
             onDisconnectPeer={(pubkey) => void handleDisconnectPeer(pubkey)}
+            onRemoveSavedPeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
           />
-
-
 
           <GraphBrowserSection running={running} graphReady={graphReady} />
         </>
@@ -152,7 +177,7 @@ export function NetworkPage() {
         isActing={networkActions.isActing}
         actionError={networkActions.actionError}
         onConnect={async (payload) => {
-          await networkActions.handleConnectPeer(payload)
+          await networkActions.handleAddSavedPeer(payload)
         }}
         onClearError={networkActions.clearActionError}
       />

@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react"
-import {
-  EXAMPLE_CUSTOM_PUBLIC_NODES,
-  type FiberNetwork,
-} from "../../lib/public-relays"
+import type { FiberNetwork } from "../../lib/public-relays"
 import type { ConnectPeerPayload } from "../../lib/fnn/types"
-import { ConnectPeerForm } from "../connect/ConnectPeerForm"
+import {
+  PublicNetworkStep,
+  type ConfiguredPeerFields,
+} from "../setup/steps/PublicNetworkStep"
 import { Button } from "../ui/button"
 import {
   Dialog,
@@ -24,6 +24,14 @@ type ConnectPeerDialogProps = {
   onClearError: () => void
 }
 
+function emptyFields(network: FiberNetwork): ConfiguredPeerFields {
+  return {
+    network,
+    customPublicNodePubkey: "",
+    customPublicNodeMultiaddr: "",
+  }
+}
+
 export function ConnectPeerDialog({
   open,
   onClose,
@@ -33,34 +41,38 @@ export function ConnectPeerDialog({
   onConnect,
   onClearError,
 }: ConnectPeerDialogProps) {
-  const [pubkey, setPubkey] = useState("")
-  const [multiaddr, setMultiaddr] = useState("")
+  const [fields, setFields] = useState<ConfiguredPeerFields>(() =>
+    emptyFields(network),
+  )
 
   useEffect(() => {
-    if (!open) {
-      setPubkey("")
-      setMultiaddr("")
-      onClearError()
-    }
-  }, [onClearError, open])
+    if (!open) return
+    setFields(emptyFields(network))
+    onClearError()
+  }, [network, onClearError, open])
 
   async function handleConnect() {
-    const trimmedPubkey = pubkey.trim()
-    if (!trimmedPubkey) return
+    const pubkey = fields.customPublicNodePubkey.trim()
+    if (!pubkey) return
 
-    await onConnect({
-      pubkey: trimmedPubkey,
-      multiaddr: multiaddr.trim() || undefined,
-    })
-    onClose()
+    try {
+      await onConnect({
+        pubkey,
+        multiaddr: fields.customPublicNodeMultiaddr.trim() || undefined,
+      })
+      onClose()
+    } catch {
+      // Keep dialog open; actionError is set by the hook.
+    }
   }
 
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogTitle>Connect another peer</DialogTitle>
+    <Dialog open={open} onClose={isActing ? () => {} : onClose} size="lg">
+      <DialogTitle>Add saved peer</DialogTitle>
       <DialogDescription>
-        Add a peer connection alongside your existing ones. This does not change
-        your primary peer or which peer channel opens use.
+        Pick a public relay or enter a peer pubkey. This saves the peer and
+        connects immediately. Saved peers reconnect automatically when your
+        node starts.
       </DialogDescription>
       <DialogBody>
         {actionError ? (
@@ -69,22 +81,21 @@ export function ConnectPeerDialog({
           </div>
         ) : null}
 
-        <ConnectPeerForm
-          network={network}
-          publicConnectionMode="custom-public-node"
-          pubkey={pubkey}
-          multiaddr={multiaddr}
-          onPubkeyChange={setPubkey}
-          onMultiaddrChange={setMultiaddr}
-          customPubkeyExample={EXAMPLE_CUSTOM_PUBLIC_NODES[network]}
+        <PublicNetworkStep
+          hideHeading
+          config={fields}
+          onChange={(patch) => setFields((current) => ({ ...current, ...patch }))}
         />
       </DialogBody>
       <DialogActions>
         <Button outline onClick={onClose} disabled={isActing}>
           Cancel
         </Button>
-        <Button onClick={() => void handleConnect()} disabled={!pubkey.trim() || isActing}>
-          {isActing ? "Connecting…" : "Connect"}
+        <Button
+          onClick={() => void handleConnect()}
+          disabled={!fields.customPublicNodePubkey.trim() || isActing}
+        >
+          {isActing ? "Connecting…" : "Add & connect"}
         </Button>
       </DialogActions>
     </Dialog>

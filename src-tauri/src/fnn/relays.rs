@@ -42,14 +42,3 @@ pub fn find_relay_by_pubkey(network: &str, pubkey: &str) -> Option<RelayNode> {
 pub fn is_official_relay_pubkey(network: &str, pubkey: &str) -> bool {
     find_relay_by_pubkey(network, pubkey).is_some()
 }
-
-pub fn connection_mode_for_pubkey(network: &str, pubkey: &str) -> &'static str {
-    if pubkey.trim().is_empty() {
-        return "custom-public-node";
-    }
-    if is_official_relay_pubkey(network, pubkey) {
-        "official-relays"
-    } else {
-        "custom-public-node"
-    }
-}

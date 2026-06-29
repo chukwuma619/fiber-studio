@@ -80,7 +80,7 @@ export function GraphBrowserSection({ running, graphReady }: GraphBrowserSection
       {!graphReady && !graph.isLoading ? (
         <div className="px-5 py-4">
           <Text className="text-xs text-amber-700 dark:text-amber-400">
-            Gossip data appears after your primary peer connects. The lists
+            Gossip data appears after a saved peer connects. The lists
             below load in pages and may be empty at first.
           </Text>
         </div>

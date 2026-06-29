@@ -321,7 +321,7 @@ fn keysend_payment_request<'a>(
 fn build_send_targets(
     peers: &[rpc::PeerInfo],
     channels: &[rpc::Channel],
-    configured_peer_pubkey: Option<&str>,
+    saved_peer_pubkeys: &[String],
     own_pubkey: &str,
 ) -> Vec<WalletSendTarget> {
     let mut targets = Vec::new();
@@ -345,8 +345,12 @@ fn build_send_targets(
         });
     };
 
-    if let Some(pubkey) = configured_peer_pubkey.filter(|value| !value.trim().is_empty()) {
-        push_target(pubkey, "Configured relay".to_string(), "relay");
+    for pubkey in saved_peer_pubkeys {
+        let trimmed = pubkey.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        push_target(trimmed, "Saved peer".to_string(), "relay");
     }
 
     for channel in channels {
@@ -513,21 +517,24 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
     let total_local = sum_local_balances(&channels);
     let in_channel_balance_ckb = (total_local / SHANNONS_PER_CKB) as u64;
 
-    let configured_peer_pubkey = studio_metadata
+    let saved_peer_pubkeys = studio_metadata
         .as_ref()
-        .map(|metadata| metadata.custom_public_node_pubkey.clone())
-        .filter(|pubkey| !pubkey.trim().is_empty());
-
-    let relay_status = configured_peer_pubkey
-        .as_deref()
-        .map(|pubkey| {
-            peer_connect::relay_status_for_configured_peer(
-                &peers,
-                pubkey,
-                &manager_relay_status,
-            )
+        .map(|metadata| {
+            metadata
+                .saved_peers
+                .iter()
+                .map(|peer| peer.pubkey.clone())
+                .collect::<Vec<_>>()
         })
-        .unwrap_or_else(|| "not_configured".to_string());
+        .unwrap_or_default();
+
+    let saved_peers = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.saved_peers.as_slice())
+        .unwrap_or(&[]);
+
+    let relay_status =
+        peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
 
     let (on_chain_wallet_ckb, on_chain_wallet_error) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
@@ -566,7 +573,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
     let send_targets = build_send_targets(
         &peers,
         &channels,
-        configured_peer_pubkey.as_deref(),
+        &saved_peer_pubkeys,
         &node_info.pubkey,
     );
 

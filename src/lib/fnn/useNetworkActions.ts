@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react"
-import { connectPeer, disconnectPeer, setConfiguredPeer } from "./invoke"
+import { connectPeer, disconnectPeer, addSavedPeer, removeSavedPeer } from "./invoke"
 import type {
+  AddSavedPeerPayload,
   ConnectPeerPayload,
   DisconnectPeerPayload,
-  SetConfiguredPeerPayload,
+  RemoveSavedPeerPayload,
 } from "./types"
 
 export function useNetworkActions(onSuccess?: () => void) {
@@ -34,19 +35,37 @@ export function useNetworkActions(onSuccess?: () => void) {
     [onSuccess],
   )
 
-  const handleSetConfiguredPeer = useCallback(
-    async (payload: SetConfiguredPeerPayload) => {
+  const handleAddSavedPeer = useCallback(
+    async (payload: AddSavedPeerPayload) => {
       setIsActing(true)
       setActionError(null)
       try {
-        const result = await setConfiguredPeer(payload)
-        if (result.status === "failed") {
+        const result = await addSavedPeer(payload)
+        if (result.status === "failed" || result.status === "not_configured") {
           throw new Error(
             "Could not connect to peer. Check the pubkey and network, then try again.",
           )
         }
         onSuccess?.()
         return result
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setActionError(message)
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
+  const handleRemoveSavedPeer = useCallback(
+    async (payload: RemoveSavedPeerPayload) => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        await removeSavedPeer(payload)
+        onSuccess?.()
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         setActionError(message)
@@ -84,7 +103,8 @@ export function useNetworkActions(onSuccess?: () => void) {
     isActing,
     actionError,
     handleConnectPeer,
-    handleSetConfiguredPeer,
+    handleAddSavedPeer,
+    handleRemoveSavedPeer,
     handleDisconnectPeer,
     clearActionError,
   }
