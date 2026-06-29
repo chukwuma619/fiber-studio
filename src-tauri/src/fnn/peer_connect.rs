@@ -84,14 +84,22 @@ pub async fn ensure_peer_connected(
     let saved_multiaddr = saved_multiaddr.trim();
 
     if !saved_multiaddr.is_empty() {
-        connect_peer_with_address(pubkey, saved_multiaddr).await?;
+        try_connect_peer_with_address(pubkey, saved_multiaddr).await;
 
         if wait_for_peer(pubkey).await? {
             return Ok(RelayConnectStatus::Connected);
         }
+
+        if let Some(dial_address) = strip_p2p_suffix(saved_multiaddr) {
+            try_connect_peer_with_address(pubkey, &dial_address).await;
+
+            if wait_for_peer(pubkey).await? {
+                return Ok(RelayConnectStatus::Connected);
+            }
+        }
     }
 
-    connect_peer_pubkey_only(pubkey).await?;
+    try_connect_peer_pubkey_only(pubkey).await;
 
     if wait_for_peer(pubkey).await? {
         return Ok(RelayConnectStatus::Connected);
@@ -99,7 +107,7 @@ pub async fn ensure_peer_connected(
 
     let addresses = resolve_graph_addresses(pubkey, saved_multiaddr).await;
     for address in addresses {
-        connect_peer_with_address(pubkey, &address).await?;
+        try_connect_peer_with_address(pubkey, &address).await;
 
         if wait_for_peer(pubkey).await? {
             return Ok(RelayConnectStatus::Connected);
@@ -135,16 +143,30 @@ pub async fn ensure_saved_peers_connected(
     let mut connected_count = 0;
     let mut any_failed = false;
 
+    let mut handles = Vec::with_capacity(total);
     for saved_peer in &metadata.saved_peers {
-        let status = connect_saved_peer(data_dir, &metadata, saved_peer).await?;
-        match status {
-            RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected => {
-                connected_count += 1;
-            }
-            RelayConnectStatus::Failed => {
+        let data_dir = data_dir.to_path_buf();
+        let metadata = metadata.clone();
+        let saved_peer = saved_peer.clone();
+        handles.push(tokio::spawn(async move {
+            connect_saved_peer(&data_dir, &metadata, &saved_peer).await
+        }));
+    }
+
+    for handle in handles {
+        match handle.await {
+            Ok(Ok(status)) => match status {
+                RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected => {
+                    connected_count += 1;
+                }
+                RelayConnectStatus::Failed => {
+                    any_failed = true;
+                }
+                RelayConnectStatus::NotConfigured | RelayConnectStatus::Connecting => {}
+            },
+            Ok(Err(_)) | Err(_) => {
                 any_failed = true;
             }
-            RelayConnectStatus::NotConfigured | RelayConnectStatus::Connecting => {}
         }
     }
 
@@ -252,6 +274,24 @@ async fn is_peer_connected(pubkey: &str) -> Result<bool, RpcError> {
     Ok(peers.iter().any(|peer| pubkeys_equal(&peer.pubkey, pubkey)))
 }
 
+async fn try_connect_peer_with_address(pubkey: &str, address: &str) {
+    let _ = connect_peer_with_address(pubkey, address).await;
+}
+
+async fn try_connect_peer_pubkey_only(pubkey: &str) {
+    let _ = connect_peer_pubkey_only(pubkey).await;
+}
+
+fn strip_p2p_suffix(multiaddr: &str) -> Option<String> {
+    let trimmed = multiaddr.trim();
+    let suffix_start = trimmed.find("/p2p/")?;
+    if suffix_start == 0 {
+        return None;
+    }
+
+    Some(trimmed[..suffix_start].to_string())
+}
+
 async fn connect_peer_with_address(pubkey: &str, address: &str) -> Result<(), RpcError> {
     let params = serde_json::json!([{
         "pubkey": pubkey,
@@ -318,6 +358,15 @@ mod tests {
         ]);
 
         assert_eq!(ranked.len(), 1);
+    }
+
+    #[test]
+    fn strip_p2p_suffix_removes_trailing_peer_id() {
+        let stripped = strip_p2p_suffix(
+            "/ip4/18.163.221.211/tcp/8119/p2p/QmbKyzq9qUmymW2Gi8Zq7kKVpPiNA1XUJ6uMvsUC4F3p89",
+        );
+
+        assert_eq!(stripped, Some("/ip4/18.163.221.211/tcp/8119".into()));
     }
 
     #[test]
