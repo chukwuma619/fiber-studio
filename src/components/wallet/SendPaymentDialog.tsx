@@ -17,6 +17,8 @@ import {
   DialogBody,
   DialogTitle,
 } from "../ui/dialog"
+import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
+import { Input } from "../ui/input"
 import { Text } from "../ui/text"
 
 type Step = "review" | "inflight" | "success" | "failure"
@@ -42,6 +44,7 @@ type SendPaymentDialogProps = {
 
 const PAYMENT_POLL_INTERVAL_MS = 2_000
 const PAYMENT_POLL_TIMEOUT_MS = 120_000
+const DEFAULT_TIMEOUT_SECONDS = 120
 
 function truncateInvoice(invoice: string): string {
   if (invoice.length <= 48) return invoice
@@ -54,6 +57,24 @@ function formatRouteHops(hops: string[]): string {
 
 function isPendingPaymentStatus(status: string): boolean {
   return status === "Created" || status === "Inflight"
+}
+
+function buildSendOptions(maxFeeCkb: string, timeoutSeconds: string) {
+  const parsedMaxFee = Number(maxFeeCkb.trim())
+  const parsedTimeout = Number(timeoutSeconds.trim())
+
+  return {
+    maxFeeCkb:
+      maxFeeCkb.trim() && Number.isFinite(parsedMaxFee) && parsedMaxFee > 0
+        ? parsedMaxFee
+        : undefined,
+    timeoutSeconds:
+      timeoutSeconds.trim() &&
+      Number.isInteger(parsedTimeout) &&
+      parsedTimeout > 0
+        ? parsedTimeout
+        : undefined,
+  }
 }
 
 export function SendPaymentDialog({
@@ -74,15 +95,32 @@ export function SendPaymentDialog({
 }: SendPaymentDialogProps) {
   const [step, setStep] = useState<Step>("review")
   const [result, setResult] = useState<SendPaymentResult | null>(null)
+  const [maxFeeCkb, setMaxFeeCkb] = useState("")
+  const [timeoutSeconds, setTimeoutSeconds] = useState(
+    String(DEFAULT_TIMEOUT_SECONDS),
+  )
   const pollStartedAtRef = useRef<number | null>(null)
 
   useEffect(() => {
     if (!open) {
       setStep("review")
       setResult(null)
+      setMaxFeeCkb("")
+      setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
       pollStartedAtRef.current = null
     }
   }, [open])
+
+  useEffect(() => {
+    if (!open || step !== "review" || !preview?.feeCkb || maxFeeCkb) {
+      return
+    }
+
+    const suggested = preview.feeCkb.replace(/\s*CKB$/i, "").trim()
+    if (suggested) {
+      setMaxFeeCkb(suggested)
+    }
+  }, [maxFeeCkb, open, preview?.feeCkb, step])
 
   useEffect(() => {
     if (step !== "inflight" || !result?.paymentHash) {
@@ -142,11 +180,13 @@ export function SendPaymentDialog({
   const handleConfirm = async () => {
     onClearError()
     pollStartedAtRef.current = null
+    const sendOptions = buildSendOptions(maxFeeCkb, timeoutSeconds)
+
     try {
       const paymentResult =
         mode === "keysend" && keysendPayload
-          ? await onSendKeysendPayment(keysendPayload)
-          : await onSendPayment({ invoice })
+          ? await onSendKeysendPayment({ ...keysendPayload, ...sendOptions })
+          : await onSendPayment({ invoice, ...sendOptions })
       setResult(paymentResult)
 
       if (paymentResult.status === "Success") {
@@ -235,6 +275,38 @@ export function SendPaymentDialog({
                 </dd>
               </div>
             </dl>
+
+            <FieldGroup>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field>
+                  <Label>Max fee (CKB)</Label>
+                  <Input
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={maxFeeCkb}
+                    onChange={(event) => setMaxFeeCkb(event.target.value)}
+                    disabled={isActing}
+                  />
+                  <Description>
+                    Maximum routing fee you are willing to pay
+                  </Description>
+                </Field>
+                <Field>
+                  <Label>Timeout (seconds)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={timeoutSeconds}
+                    onChange={(event) => setTimeoutSeconds(event.target.value)}
+                    disabled={isActing}
+                  />
+                  <Description>
+                    Cancel the payment if not completed in time
+                  </Description>
+                </Field>
+              </div>
+            </FieldGroup>
 
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               Off-chain Fiber payments are irreversible once confirmed.

@@ -118,6 +118,7 @@ export function HomePage() {
 
       <RecentActivitySection
         payments={dashboard?.payments ?? []}
+        incomingInvoices={dashboard?.incomingInvoices ?? []}
         available={available}
       />
     </div>

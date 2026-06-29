@@ -1,16 +1,18 @@
 use std::path::PathBuf;
 
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::fnn::amounts::{self, ckb_from_shannons_hex, format_ckb_amount};
 use crate::fnn::channel::{sum_local_balances, SHANNONS_PER_CKB};
 use crate::fnn::ckb_indexer;
-use crate::fnn::invoices::{self, StoredInvoice};
+use crate::fnn::invoice_display::{self, InvoiceListItem};
+use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
+use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
 use crate::fnn::rpc::{self, CkbScript, CkbInvoice, CkbInvoiceStatus, PaymentKind, SendPaymentRequest};
-use crate::fnn::sent_payments::{self, StoredSentPayment};
+use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
 
@@ -108,6 +110,10 @@ pub struct CreateInvoiceResult {
 #[serde(rename_all = "camelCase")]
 pub struct SendPaymentPayload {
     pub invoice: String,
+    #[serde(default)]
+    pub max_fee_ckb: Option<f64>,
+    #[serde(default)]
+    pub timeout_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,6 +121,10 @@ pub struct SendPaymentPayload {
 pub struct KeysendPaymentPayload {
     pub target_pubkey: String,
     pub amount: f64,
+    #[serde(default)]
+    pub max_fee_ckb: Option<f64>,
+    #[serde(default)]
+    pub timeout_seconds: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -159,26 +169,42 @@ fn wallet_page_unavailable() -> WalletPageResponse {
     }
 }
 
-fn ckb_from_shannons_hex(hex: &str) -> String {
-    let shannons = rpc::parse_hex_u128(hex).unwrap_or(0);
-    format_ckb_amount(shannons)
+fn ckb_to_shannons(amount_ckb: f64) -> Result<u128, String> {
+    amounts::ckb_to_shannons(amount_ckb)
 }
 
-fn format_ckb_amount(shannons: u128) -> String {
-    let whole = shannons / SHANNONS_PER_CKB;
-    let fraction = shannons % SHANNONS_PER_CKB;
-    let fraction_str = format!("{fraction:08}");
-    let trimmed = fraction_str.trim_end_matches('0');
-    if trimmed.is_empty() {
-        return whole.to_string();
+fn resolve_send_limits(
+    max_fee_ckb: Option<f64>,
+    timeout_seconds: Option<u64>,
+) -> Result<(Option<u128>, Option<u64>), String> {
+    let max_fee_amount = amounts::optional_ckb_to_shannons(max_fee_ckb)?;
+    Ok((max_fee_amount, timeout_seconds))
+}
+
+fn to_wallet_invoice(item: InvoiceListItem) -> WalletInvoiceItem {
+    WalletInvoiceItem {
+        payment_hash: item.payment_hash,
+        invoice_address: item.invoice_address,
+        amount_ckb: item.amount_ckb,
+        note: item.note,
+        status: item.status,
+        expires_in: item.expires_in,
     }
-    let decimals: String = trimmed.chars().take(2).collect();
-    let decimals = if decimals.len() < 2 {
-        format!("{decimals}{}", "0".repeat(2 - decimals.len()))
-    } else {
-        decimals
-    };
-    format!("{whole}.{decimals}")
+}
+
+fn to_wallet_payment(item: PaymentListItem) -> WalletPaymentItem {
+    WalletPaymentItem {
+        payment_hash: item.payment_hash,
+        status: item.status,
+        created_at: item.created_at,
+        last_updated_at: item.last_updated_at,
+        failed_error: item.failed_error,
+        fee: item.fee,
+        payment_kind: item.payment_kind,
+        amount_ckb: item.amount_ckb,
+        target_pubkey: item.target_pubkey,
+        route_hops: item.route_hops,
+    }
 }
 
 fn extract_invoice_description(attrs: &[serde_json::Value]) -> Option<String> {
@@ -242,12 +268,17 @@ fn build_parse_invoice_preview(
     }
 }
 
-fn send_payment_request<'a>(invoice: &'a str, dry_run: bool) -> SendPaymentRequest<'a> {
+fn send_payment_request<'a>(
+    invoice: &'a str,
+    dry_run: bool,
+    max_fee_amount: Option<u128>,
+    timeout: Option<u64>,
+) -> SendPaymentRequest<'a> {
     SendPaymentRequest {
         kind: PaymentKind::Invoice { invoice },
         dry_run,
-        max_fee_amount: None,
-        timeout: None,
+        max_fee_amount,
+        timeout,
     }
 }
 
@@ -255,6 +286,8 @@ fn keysend_payment_request<'a>(
     target_pubkey: &'a str,
     amount_shannons: u128,
     dry_run: bool,
+    max_fee_amount: Option<u128>,
+    timeout: Option<u64>,
 ) -> SendPaymentRequest<'a> {
     SendPaymentRequest {
         kind: PaymentKind::Keysend {
@@ -262,8 +295,8 @@ fn keysend_payment_request<'a>(
             amount: amount_shannons,
         },
         dry_run,
-        max_fee_amount: None,
-        timeout: None,
+        max_fee_amount,
+        timeout,
     }
 }
 
@@ -313,51 +346,6 @@ fn build_send_targets(
     targets
 }
 
-fn ckb_to_shannons(amount_ckb: f64) -> Result<u128, String> {
-    if !amount_ckb.is_finite() || amount_ckb <= 0.0 {
-        return Err("Amount must be greater than zero.".to_string());
-    }
-    let shannons = (amount_ckb * SHANNONS_PER_CKB as f64).round() as u128;
-    if shannons == 0 {
-        return Err("Amount is too small.".to_string());
-    }
-    Ok(shannons)
-}
-
-fn invoice_status_label(status: &CkbInvoiceStatus) -> &'static str {
-    match status {
-        CkbInvoiceStatus::Open => "Open",
-        CkbInvoiceStatus::Cancelled => "Cancelled",
-        CkbInvoiceStatus::Expired => "Expired",
-        CkbInvoiceStatus::Received => "Received",
-        CkbInvoiceStatus::Paid => "Paid",
-    }
-}
-
-fn expires_in_label(created_at: &str, expiry_seconds: u64, status: &str) -> Option<String> {
-    if status == "Expired" || status == "Paid" || status == "Cancelled" {
-        return None;
-    }
-
-    let created = DateTime::parse_from_rfc3339(created_at)
-        .map(|value| value.with_timezone(&Utc))
-        .unwrap_or_else(|_| Utc::now());
-    let expires_at = created + chrono::Duration::seconds(expiry_seconds as i64);
-    let remaining = expires_at.signed_duration_since(Utc::now());
-
-    if remaining.num_seconds() <= 0 {
-        return Some("Expired".to_string());
-    }
-
-    let hours = remaining.num_hours();
-    let minutes = remaining.num_minutes() % 60;
-    if hours > 0 {
-        Some(format!("{hours}h {minutes}m"))
-    } else {
-        Some(format!("{minutes}m"))
-    }
-}
-
 async fn fetch_on_chain_balance(
     network: &str,
     lock_script: &CkbScript,
@@ -373,95 +361,6 @@ async fn fetch_on_chain_balance(
             Some(format!("Failed to read on-chain wallet balance: {error}")),
         ),
     }
-}
-
-async fn build_wallet_invoice_items(stored: Vec<StoredInvoice>) -> Vec<WalletInvoiceItem> {
-    let mut items = Vec::with_capacity(stored.len());
-
-    for record in stored {
-        let mut status = "Open".to_string();
-        let mut amount_hex = record.amount_shannons.clone();
-
-        match rpc::get_invoice(&record.payment_hash).await {
-            Ok(live) => {
-                status = invoice_status_label(&live.status).to_string();
-                if let Some(amount) = live.invoice.amount {
-                    amount_hex = amount;
-                }
-            }
-            Err(_) => {
-                // Keep stored status defaults when live lookup fails.
-            }
-        }
-
-        let note = record
-            .description
-            .clone()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "—".to_string());
-
-        items.push(WalletInvoiceItem {
-            payment_hash: record.payment_hash,
-            invoice_address: record.invoice_address,
-            amount_ckb: format!("{} CKB", ckb_from_shannons_hex(&amount_hex)),
-            note,
-            status: status.clone(),
-            expires_in: expires_in_label(&record.created_at, record.expiry_seconds, &status),
-        });
-    }
-
-    items
-}
-
-fn map_wallet_payment(
-    payment: rpc::PaymentSummary,
-    stored: Option<&StoredSentPayment>,
-) -> WalletPaymentItem {
-    let route_from_rpc = route_hops_from_routers(&payment.routers);
-    let route_hops = if route_from_rpc.is_empty() {
-        stored.map(|entry| entry.route_hops.clone()).unwrap_or_default()
-    } else {
-        route_from_rpc
-    };
-
-    let amount_shannons = stored
-        .map(|entry| entry.amount_shannons.as_str())
-        .or_else(|| amount_shannons_from_routers(&payment.routers));
-
-    WalletPaymentItem {
-        payment_hash: payment.payment_hash,
-        status: payment.status,
-        created_at: payment.created_at,
-        last_updated_at: payment.last_updated_at,
-        failed_error: payment.failed_error,
-        fee: payment.fee,
-        payment_kind: stored
-            .map(|entry| entry.kind.clone())
-            .unwrap_or_else(|| "unknown".to_string()),
-        amount_ckb: amount_shannons.map(|hex| format!("{} CKB", ckb_from_shannons_hex(hex))),
-        target_pubkey: stored.and_then(|entry| entry.target_pubkey.clone()),
-        route_hops,
-    }
-}
-
-fn route_hops_from_routers(routers: &[rpc::SessionRoute]) -> Vec<String> {
-    routers
-        .first()
-        .map(|route| route.nodes.iter().map(|node| node.pubkey.clone()).collect())
-        .unwrap_or_default()
-}
-
-fn amount_shannons_from_routers(routers: &[rpc::SessionRoute]) -> Option<&str> {
-    routers.first().and_then(|route| {
-        route
-            .nodes
-            .last()
-            .and_then(|node| node.amount.as_deref())
-    })
-}
-
-fn route_hops_from_payment(result: &rpc::SendPaymentResult) -> Vec<String> {
-    route_hops_from_routers(&result.routers)
 }
 
 fn persist_sent_payment(
@@ -483,7 +382,7 @@ fn persist_sent_payment(
 }
 
 fn send_payment_command_result(result: rpc::SendPaymentResult) -> SendPaymentCommandResult {
-    let route_hops = route_hops_from_payment(&result);
+    let route_hops = payment_display::route_hops_from_payment(&result);
     SendPaymentCommandResult {
         payment_hash: result.payment_hash,
         status: result.status,
@@ -563,7 +462,11 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .as_ref()
         .map(|path| invoices::read_invoices(path).unwrap_or_default())
         .unwrap_or_default();
-    let invoice_items = build_wallet_invoice_items(stored_invoices).await;
+    let invoice_items = invoice_display::build_invoice_list_items(stored_invoices)
+        .await
+        .into_iter()
+        .map(to_wallet_invoice)
+        .collect();
 
     let payments = rpc::fetch_list_payments(WALLET_PAYMENT_LIMIT)
         .await
@@ -580,7 +483,10 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
             let stored = stored_sent_payments
                 .iter()
                 .find(|entry| entry.payment_hash == payment.payment_hash);
-            map_wallet_payment(payment, stored)
+            to_wallet_payment(payment_display::map_payment_list_item(
+                payment,
+                stored,
+            ))
         })
         .collect();
 
@@ -674,11 +580,19 @@ pub async fn preview_send_payment(
         .and_then(rpc::parse_hex_u128)
         .unwrap_or(0);
 
-    let preview = rpc::send_payment(send_payment_request(invoice, true))
+    let (max_fee_amount, timeout) =
+        resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
+
+    let preview = rpc::send_payment(send_payment_request(
+        invoice,
+        true,
+        max_fee_amount,
+        timeout,
+    ))
         .await
         .map_err(|error| error.to_string())?;
 
-    let route_hops = route_hops_from_payment(&preview);
+    let route_hops = payment_display::route_hops_from_payment(&preview);
 
     Ok(PreviewSendPaymentResult {
         fee_shannons: preview.fee.clone(),
@@ -738,11 +652,19 @@ pub async fn send_payment(
         .and_then(rpc::parse_hex_u128)
         .unwrap_or(0);
 
-    let result = rpc::send_payment(send_payment_request(invoice, false))
+    let (max_fee_amount, timeout) =
+        resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
+
+    let result = rpc::send_payment(send_payment_request(
+        invoice,
+        false,
+        max_fee_amount,
+        timeout,
+    ))
         .await
         .map_err(|error| error.to_string())?;
 
-    let route_hops = route_hops_from_payment(&result);
+    let route_hops = payment_display::route_hops_from_payment(&result);
     persist_sent_payment(
         &data_directory,
         &result.payment_hash,
@@ -767,11 +689,15 @@ pub async fn preview_keysend_payment(
 
     let _data_directory = require_running_data_dir(&state).await?;
     let amount_shannons = ckb_to_shannons(payload.amount)?;
+    let (max_fee_amount, timeout) =
+        resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
 
     let preview = rpc::send_payment(keysend_payment_request(
         target_pubkey,
         amount_shannons,
         true,
+        max_fee_amount,
+        timeout,
     ))
     .await
     .map_err(|error| error.to_string())?;
@@ -780,7 +706,7 @@ pub async fn preview_keysend_payment(
         fee_shannons: preview.fee.clone(),
         fee_ckb: format!("{} CKB", ckb_from_shannons_hex(&preview.fee)),
         amount_display: format!("{} CKB", format_ckb_amount(amount_shannons)),
-        route_hops: route_hops_from_payment(&preview),
+        route_hops: payment_display::route_hops_from_payment(&preview),
     })
 }
 
@@ -796,16 +722,20 @@ pub async fn send_keysend_payment(
 
     let data_directory = require_running_data_dir(&state).await?;
     let amount_shannons = ckb_to_shannons(payload.amount)?;
+    let (max_fee_amount, timeout) =
+        resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
 
     let result = rpc::send_payment(keysend_payment_request(
         target_pubkey,
         amount_shannons,
         false,
+        max_fee_amount,
+        timeout,
     ))
     .await
     .map_err(|error| error.to_string())?;
 
-    let route_hops = route_hops_from_payment(&result);
+    let route_hops = payment_display::route_hops_from_payment(&result);
     persist_sent_payment(
         &data_directory,
         &result.payment_hash,
@@ -864,32 +794,33 @@ pub async fn cancel_invoice(
         invoice_address: result.invoice_address,
         amount_ckb: format!("{} CKB", ckb_from_shannons_hex(amount_hex)),
         note: "—".to_string(),
-        status: invoice_status_label(&result.status).to_string(),
+        status: match result.status {
+            CkbInvoiceStatus::Open => "Open",
+            CkbInvoiceStatus::Cancelled => "Cancelled",
+            CkbInvoiceStatus::Expired => "Expired",
+            CkbInvoiceStatus::Received => "Received",
+            CkbInvoiceStatus::Paid => "Paid",
+        }
+        .to_string(),
         expires_in: None,
     })
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::fnn::amounts;
 
     #[test]
     fn format_ckb_amount_handles_fractions() {
-        assert_eq!(format_ckb_amount(200_000_000), "2");
-        assert_eq!(format_ckb_amount(250_000_000), "2.50");
-        assert_eq!(format_ckb_amount(50_000_000), "0.50");
+        assert_eq!(amounts::format_ckb_amount(200_000_000), "2");
+        assert_eq!(amounts::format_ckb_amount(250_000_000), "2.50");
+        assert_eq!(amounts::format_ckb_amount(50_000_000), "0.50");
     }
 
     #[test]
     fn ckb_to_shannons_rejects_invalid_amounts() {
-        assert!(ckb_to_shannons(0.0).is_err());
-        assert!(ckb_to_shannons(-1.0).is_err());
-        assert_eq!(ckb_to_shannons(1.0).unwrap(), 100_000_000);
-    }
-
-    #[test]
-    fn expires_in_label_returns_none_for_terminal_statuses() {
-        assert!(expires_in_label("2026-01-01T00:00:00Z", 3600, "Paid").is_none());
-        assert!(expires_in_label("2026-01-01T00:00:00Z", 3600, "Expired").is_none());
+        assert!(amounts::ckb_to_shannons(0.0).is_err());
+        assert!(amounts::ckb_to_shannons(-1.0).is_err());
+        assert_eq!(amounts::ckb_to_shannons(1.0).unwrap(), 100_000_000);
     }
 }

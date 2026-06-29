@@ -109,6 +109,16 @@ export type HomePayment = {
   lastUpdatedAt: number
   failedError: string | null
   fee: string
+  paymentKind: "invoice" | "keysend" | "unknown" | string
+  amountCkb?: string | null
+  routeHops: string[]
+}
+
+export type HomeIncomingInvoice = {
+  paymentHash: string
+  amountCkb: string
+  note: string
+  status: string
 }
 
 export type RelayConnectionStatus =
@@ -123,6 +133,7 @@ export type HomeDashboardResponse = {
   channels: HomeChannel[]
   peers: HomePeer[]
   payments: HomePayment[]
+  incomingInvoices: HomeIncomingInvoice[]
   activeChannelCount: number
   pendingChannelCount: number
   totalLocalBalance: string
@@ -200,11 +211,15 @@ export type CreateInvoiceResult = {
 
 export type SendPaymentPayload = {
   invoice: string
+  maxFeeCkb?: number
+  timeoutSeconds?: number
 }
 
 export type KeysendPaymentPayload = {
   targetPubkey: string
   amount: number
+  maxFeeCkb?: number
+  timeoutSeconds?: number
 }
 
 export type SendPaymentMode = "invoice" | "keysend"

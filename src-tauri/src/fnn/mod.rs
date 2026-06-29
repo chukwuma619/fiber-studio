@@ -1,11 +1,14 @@
+pub mod amounts;
 pub mod channel;
 pub mod ckb_indexer;
 pub mod invoices;
+pub mod invoice_display;
 pub mod config;
 pub mod keychain;
 pub mod log_store;
 pub mod logs;
 pub mod manager;
+pub mod payment_display;
 pub mod peer_connect;
 pub mod process;
 pub mod provision;

@@ -2,14 +2,19 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 
 use crate::fnn::channel::{self, HomeChannel};
+use crate::fnn::invoice_display::{self, InvoiceListItem};
+use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
+use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
-use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo, PaymentSummary, PeerInfo};
+use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo, PeerInfo};
+use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
 
 const HOME_CHANNEL_LIMIT: usize = 5;
 const HOME_PAYMENT_LIMIT: u32 = 5;
+const HOME_INCOMING_PAID_LIMIT: usize = 5;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -19,6 +24,7 @@ pub struct HomeDashboardResponse {
     pub channels: Vec<HomeChannel>,
     pub peers: Vec<HomePeer>,
     pub payments: Vec<HomePayment>,
+    pub incoming_invoices: Vec<HomeIncomingInvoice>,
     pub active_channel_count: u32,
     pub pending_channel_count: u32,
     pub total_local_balance: String,
@@ -55,6 +61,42 @@ pub struct HomePayment {
     pub last_updated_at: u64,
     pub failed_error: Option<String>,
     pub fee: String,
+    pub payment_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_ckb: Option<String>,
+    pub route_hops: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HomeIncomingInvoice {
+    pub payment_hash: String,
+    pub amount_ckb: String,
+    pub note: String,
+    pub status: String,
+}
+
+fn to_home_payment(item: PaymentListItem) -> HomePayment {
+    HomePayment {
+        payment_hash: item.payment_hash,
+        status: item.status,
+        created_at: item.created_at,
+        last_updated_at: item.last_updated_at,
+        failed_error: item.failed_error,
+        fee: item.fee,
+        payment_kind: item.payment_kind,
+        amount_ckb: item.amount_ckb,
+        route_hops: item.route_hops,
+    }
+}
+
+fn to_home_incoming(item: InvoiceListItem) -> HomeIncomingInvoice {
+    HomeIncomingInvoice {
+        payment_hash: item.payment_hash,
+        amount_ckb: item.amount_ckb,
+        note: item.note,
+        status: item.status,
+    }
 }
 
 #[tauri::command]
@@ -71,6 +113,7 @@ pub async fn get_home_dashboard(
             channels: Vec::new(),
             peers: Vec::new(),
             payments: Vec::new(),
+            incoming_invoices: Vec::new(),
             active_channel_count: 0,
             pending_channel_count: 0,
             total_local_balance: "0".to_string(),
@@ -104,6 +147,24 @@ pub async fn get_home_dashboard(
         .await
         .map_err(|error| error.to_string())?;
 
+    let stored_sent_payments = data_directory
+        .as_ref()
+        .map(|path| sent_payments::read_sent_payments(path).unwrap_or_default())
+        .unwrap_or_default();
+
+    let stored_invoices = data_directory
+        .as_ref()
+        .map(|path| invoices::read_invoices(path).unwrap_or_default())
+        .unwrap_or_default();
+    let invoice_items = invoice_display::build_invoice_list_items(stored_invoices).await;
+    let incoming_invoices = invoice_display::select_incoming_invoices(
+        &invoice_items,
+        HOME_INCOMING_PAID_LIMIT,
+    )
+    .into_iter()
+    .map(to_home_incoming)
+    .collect();
+
     let active_channel_count = channel::count_active_channels(&channels);
     let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
@@ -124,7 +185,19 @@ pub async fn get_home_dashboard(
         node_info: Some(to_home_node_info(node_info)),
         channels: home_channels,
         peers: peers.into_iter().map(to_home_peer).collect(),
-        payments: payments.into_iter().map(to_home_payment).collect(),
+        payments: payments
+            .into_iter()
+            .map(|payment| {
+                let stored = stored_sent_payments
+                    .iter()
+                    .find(|entry| entry.payment_hash == payment.payment_hash);
+                to_home_payment(payment_display::map_payment_list_item(
+                    payment,
+                    stored,
+                ))
+            })
+            .collect(),
+        incoming_invoices,
         active_channel_count,
         pending_channel_count,
         total_local_balance: total_local_balance.to_string(),
@@ -169,16 +242,5 @@ fn to_home_peer(peer: PeerInfo) -> HomePeer {
     HomePeer {
         pubkey: peer.pubkey,
         address: peer.address,
-    }
-}
-
-fn to_home_payment(payment: PaymentSummary) -> HomePayment {
-    HomePayment {
-        payment_hash: payment.payment_hash,
-        status: payment.status,
-        created_at: payment.created_at,
-        last_updated_at: payment.last_updated_at,
-        failed_error: payment.failed_error,
-        fee: payment.fee,
     }
 }

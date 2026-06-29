@@ -15,6 +15,7 @@ export function useHomeDashboard(running: boolean, pollIntervalMs = 10_000) {
         channels: [],
         peers: [],
         payments: [],
+        incomingInvoices: [],
         activeChannelCount: 0,
         pendingChannelCount: 0,
         totalLocalBalance: "0",

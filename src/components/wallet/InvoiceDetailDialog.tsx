@@ -127,8 +127,7 @@ export function InvoiceDetailDialog({
                 <Text className="mt-1 text-xs text-amber-800 dark:text-amber-300">
                   A payer has started paying this invoice. Fiber is settling the
                   off-chain payment — refresh or wait for status to change to
-                  Paid. For hold invoices, settlement requires the payment
-                  preimage via FNN settle_invoice.
+                  Paid.
                 </Text>
               </div>
             ) : null}

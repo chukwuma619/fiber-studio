@@ -216,6 +216,28 @@ export function paymentKindLabel(kind: string): string {
   }
 }
 
+export type InvoiceListFilter = "active" | "paid" | "all"
+
+export function filterInvoices<T extends { status: string }>(
+  invoices: T[],
+  filter: InvoiceListFilter,
+): T[] {
+  switch (filter) {
+    case "active":
+      return invoices.filter(
+        (invoice) => invoice.status === "Open" || invoice.status === "Received",
+      )
+    case "paid":
+      return invoices.filter((invoice) => invoice.status === "Paid")
+    case "all":
+      return invoices
+    default: {
+      const exhaustive: never = filter
+      return exhaustive
+    }
+  }
+}
+
 export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
   if (hops.length === 0) return "—"
   const truncated = hops.map((pubkey) =>

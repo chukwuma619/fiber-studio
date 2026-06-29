@@ -7,6 +7,8 @@ import {
   invoiceCurrencyLabel,
   invoiceStatusDisplayLabel,
   truncateLockScriptArgs,
+  filterInvoices,
+  type InvoiceListFilter,
 } from "../../lib/fnn/format"
 import { useWalletActions } from "../../lib/fnn/useWalletActions"
 import { useWalletPage } from "../../lib/fnn/useWalletPage"
@@ -74,6 +76,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   } = useWalletActions(refresh)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
   const [selectedInvoice, setSelectedInvoice] = useState<WalletInvoiceItem | null>(
     null,
   )
@@ -84,6 +87,22 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   const sendTargets = data?.sendTargets ?? []
   const invoiceCurrency = invoiceCurrencyLabel(data?.network)
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
+  const filteredInvoices = filterInvoices(invoices, invoiceFilter)
+
+  useEffect(() => {
+    if (!selectedInvoice) return
+    const updated = invoices.find(
+      (item) => item.paymentHash === selectedInvoice.paymentHash,
+    )
+    if (
+      updated &&
+      (updated.status !== selectedInvoice.status ||
+        updated.expiresIn !== selectedInvoice.expiresIn ||
+        updated.amountCkb !== selectedInvoice.amountCkb)
+    ) {
+      setSelectedInvoice(updated)
+    }
+  }, [invoices, selectedInvoice])
 
   useEffect(() => {
     if (initialAction === "create-invoice") {
@@ -217,15 +236,56 @@ export function WalletPage({ initialAction }: WalletPageProps) {
             </Button>
           </div>
 
+          {available && invoices.length > 0 ? (
+            <div className="flex gap-1 border-b border-zinc-200 px-5 py-3 dark:border-zinc-800">
+              {(
+                [
+                  ["active", "Active"],
+                  ["paid", "Paid"],
+                  ["all", "All"],
+                ] as const
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    invoiceFilter === value
+                      ? "bg-zinc-100 text-zinc-950 dark:bg-zinc-800 dark:text-white"
+                      : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+                  }`}
+                  onClick={() => setInvoiceFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
+
           {!available ? (
             <HomeEmptyState
               title="No invoices yet"
               description="Start your node to create and manage invoices."
             />
-          ) : invoices.length === 0 ? (
+          ) : filteredInvoices.length === 0 ? (
             <HomeEmptyState
-              title="No invoices yet"
-              description={`Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`}
+              title={
+                invoiceFilter === "active"
+                  ? "No active invoices"
+                  : invoiceFilter === "paid"
+                    ? "No paid invoices"
+                    : "No invoices yet"
+              }
+              description={
+                invoiceFilter === "active"
+                  ? `Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`
+                  : invoiceFilter === "paid"
+                    ? "Paid invoices appear here after someone pays you."
+                    : `Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`
+              }
+              actionLabel={invoiceFilter === "paid" ? undefined : "Create invoice"}
+              onAction={
+                invoiceFilter === "paid" ? undefined : () => setCreateDialogOpen(true)
+              }
             />
           ) : (
             <Table dense>
@@ -238,7 +298,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {invoices.map((item) => (
+                {filteredInvoices.map((item) => (
                   <TableRow
                     key={item.paymentHash}
                     className="cursor-pointer"
