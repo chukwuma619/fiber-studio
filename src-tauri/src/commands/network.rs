@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
+use crate::fnn::bootnodes;
 use crate::fnn::channel::{
     self, has_active_or_pending_channel_to_peer, min_funding_ckb_for_open,
 };
@@ -20,6 +21,7 @@ pub struct NetworkConnectedPeer {
     pub address: String,
     pub is_configured: bool,
     pub is_official_relay: bool,
+    pub is_bootnode: bool,
     pub channel_count: u32,
 }
 
@@ -286,6 +288,7 @@ pub async fn get_network_page(
         .iter()
         .map(|peer| {
             let is_official_relay = relays::is_official_relay_pubkey(network, &peer.pubkey);
+            let is_bootnode = bootnodes::is_bootnode_peer(network, &peer.address);
             let is_configured = configured_peer_pubkey
                 .as_deref()
                 .map(|pubkey| peer_connect::pubkeys_equal(pubkey, &peer.pubkey))
@@ -295,6 +298,7 @@ pub async fn get_network_page(
                 address: peer.address.clone(),
                 is_configured,
                 is_official_relay,
+                is_bootnode,
                 channel_count: count_channels_to_peer(&channels, &peer.pubkey),
             }
         })
@@ -373,7 +377,7 @@ pub async fn set_configured_peer(
         return Err("Peer pubkey is required.".to_string());
     }
 
-    let mut manager = state.fnn.lock().await;
+    let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
         return Err(
@@ -385,9 +389,23 @@ pub async fn set_configured_peer(
         .data_directory()
         .cloned()
         .ok_or_else(|| "Data directory is not configured.".to_string())?;
+    drop(manager);
 
     let mut studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+
+    let peers = rpc::fetch_list_peers()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if bootnodes::is_bootnode_pubkey(&studio_metadata.network, &peers, pubkey) {
+        return Err(
+            "Bootnodes are for network discovery only and cannot be set as your primary peer."
+                .to_string(),
+        );
+    }
+
+    let mut manager = state.fnn.lock().await;
 
     studio_metadata.custom_public_node_pubkey = pubkey.to_string();
     studio_metadata.custom_public_node_multiaddr = payload
@@ -426,7 +444,26 @@ pub async fn disconnect_peer(
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
         return Err("Node is not running. Start your node before disconnecting a peer.".to_string());
     }
+
+    let data_directory = manager
+        .data_directory()
+        .cloned()
+        .ok_or_else(|| "Data directory is not configured.".to_string())?;
     drop(manager);
+
+    let studio_metadata = studio::read_studio_metadata(&data_directory)
+        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+
+    let peers = rpc::fetch_list_peers()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if bootnodes::is_bootnode_pubkey(&studio_metadata.network, &peers, pubkey) {
+        return Err(
+            "Bootnodes are auto-connected for discovery and cannot be disconnected from Studio."
+                .to_string(),
+        );
+    }
 
     rpc::disconnect_peer(pubkey)
         .await

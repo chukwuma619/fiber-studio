@@ -278,6 +278,7 @@ export type NetworkConnectedPeer = {
   address: string
   isConfigured: boolean
   isOfficialRelay: boolean
+  isBootnode: boolean
   channelCount: number
 }
 

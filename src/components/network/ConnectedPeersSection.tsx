@@ -20,10 +20,36 @@ function peerRoleBadge(peer: NetworkConnectedPeer) {
   if (peer.isConfigured) {
     return <Badge color="blue">Primary</Badge>
   }
+  if (peer.isBootnode) {
+    return <Badge color="amber">Bootnode</Badge>
+  }
   if (peer.isOfficialRelay) {
     return <Badge color="zinc">Official relay</Badge>
   }
   return <Badge color="zinc">Additional</Badge>
+}
+
+function peerActions(peer: NetworkConnectedPeer) {
+  if (peer.isConfigured) {
+    return (
+      <span className="text-xs text-zinc-500 dark:text-zinc-400">
+        Primary peer
+      </span>
+    )
+  }
+
+  if (peer.isBootnode) {
+    return (
+      <span
+        className="max-w-40 text-right text-xs text-zinc-500 dark:text-zinc-400"
+        title="Bootnodes are auto-connected by fnn for peer discovery. They cannot be used for channel opens."
+      >
+        Discovery only
+      </span>
+    )
+  }
+
+  return null
 }
 
 export function ConnectedPeersSection({
@@ -39,13 +65,15 @@ export function ConnectedPeersSection({
         <Subheading level={2}>Connected peers</Subheading>
         <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
           Active peer connections. One primary peer is used for channel opens.
+          Bootnodes are listed for visibility — they are auto-connected for
+          discovery and are not channel partners.
         </Text>
       </div>
 
       {peers.length === 0 ? (
         <HomeEmptyState
           title="No peers connected yet"
-          description="Set a primary peer from the header, or connect another peer manually."
+          description="Set a primary peer during setup, or connect another peer from the header."
           actionLabel="Connect another peer"
           onAction={onConnectPeer}
         />
@@ -102,18 +130,19 @@ export function ConnectedPeersSection({
                     channel{peer.channelCount === 1 ? "" : "s"}
                   </p>
                 </div>
-                {!peer.isConfigured ? (
-                  <Button
-                    outline
-                    className="text-xs text-red-600 dark:text-red-400"
-                    disabled={isActing && disconnectingPubkey === peer.pubkey}
-                    onClick={() => onDisconnectPeer(peer.pubkey)}
-                  >
-                    {isActing && disconnectingPubkey === peer.pubkey
-                      ? "Disconnecting…"
-                      : "Disconnect"}
-                  </Button>
-                ) : null}
+                {peerActions(peer) ??
+                  (!peer.isConfigured ? (
+                    <Button
+                      outline
+                      className="text-xs text-red-600 dark:text-red-400"
+                      disabled={isActing && disconnectingPubkey === peer.pubkey}
+                      onClick={() => onDisconnectPeer(peer.pubkey)}
+                    >
+                      {isActing && disconnectingPubkey === peer.pubkey
+                        ? "Disconnecting…"
+                        : "Disconnect"}
+                    </Button>
+                  ) : null)}
               </div>
             </li>
           ))}
