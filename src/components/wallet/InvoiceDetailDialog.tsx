@@ -119,6 +119,20 @@ export function InvoiceDetailDialog({
               </div>
             ) : null}
 
+            {invoice.status === "Received" ? (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-900/50 dark:bg-amber-950/30">
+                <Text className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                  Payment incoming
+                </Text>
+                <Text className="mt-1 text-xs text-amber-800 dark:text-amber-300">
+                  A payer has started paying this invoice. Fiber is settling the
+                  off-chain payment — refresh or wait for status to change to
+                  Paid. For hold invoices, settlement requires the payment
+                  preimage via FNN settle_invoice.
+                </Text>
+              </div>
+            ) : null}
+
             <DescriptionList className="sm:grid-cols-[min(40%,9rem)_minmax(0,1fr)]">
               <DescriptionTerm>Amount</DescriptionTerm>
               <DescriptionDetails className="min-w-0 tabular-nums font-medium">

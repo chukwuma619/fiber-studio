@@ -148,6 +148,10 @@ export type WalletPaymentItem = {
   lastUpdatedAt: number
   failedError: string | null
   fee: string
+  paymentKind: "invoice" | "keysend" | "unknown" | string
+  amountCkb?: string | null
+  targetPubkey?: string | null
+  routeHops: string[]
 }
 
 export type WalletSendTarget = {

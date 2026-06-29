@@ -28,6 +28,7 @@ import {
   TableRow,
 } from "../ui/table"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
+import { IncomingPaymentsSection } from "./IncomingPaymentsSection"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
@@ -82,6 +83,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   const payments = data?.payments ?? []
   const sendTargets = data?.sendTargets ?? []
   const invoiceCurrency = invoiceCurrencyLabel(data?.network)
+  const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
 
   useEffect(() => {
     if (initialAction === "create-invoice") {
@@ -159,6 +161,15 @@ export function WalletPage({ initialAction }: WalletPageProps) {
       {error ? (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
           Failed to load wallet: {error}
+        </div>
+      ) : null}
+
+      {available && receivedInvoiceCount > 0 ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          {receivedInvoiceCount === 1
+            ? "1 invoice has an incoming payment settling."
+            : `${receivedInvoiceCount} invoices have incoming payments settling.`}{" "}
+          Check Incoming payments below — status updates every few seconds.
         </div>
       ) : null}
 
@@ -272,6 +283,12 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           onClearError={clearActionError}
         />
       </div>
+
+      <IncomingPaymentsSection
+        invoices={invoices}
+        available={available}
+        onSelectInvoice={setSelectedInvoice}
+      />
 
       <SentPaymentsSection payments={payments} available={available} />
 

@@ -10,6 +10,7 @@ pub mod peer_connect;
 pub mod process;
 pub mod provision;
 pub mod rpc;
+pub mod sent_payments;
 pub mod spawn;
 pub mod studio;
 

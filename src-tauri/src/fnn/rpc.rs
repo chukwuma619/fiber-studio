@@ -142,6 +142,20 @@ struct GraphNodesResult {
     last_cursor: Option<serde_json::Value>,
 }
 
+/// Node hop in a payment route from FNN (when exposed by the node build).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionRouteNode {
+    pub pubkey: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub amount: Option<String>,
+}
+
+/// Route taken by a payment session (when exposed by the node build).
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SessionRoute {
+    pub nodes: Vec<SessionRouteNode>,
+}
+
 /// Payment summary from `list_payments`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PaymentSummary {
@@ -152,6 +166,8 @@ pub struct PaymentSummary {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_error: Option<String>,
     pub fee: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub routers: Vec<SessionRoute>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -337,16 +353,6 @@ pub struct GetInvoiceResult {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct ParseInvoiceResult {
     pub invoice: CkbInvoice,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct SessionRouteNode {
-    pub pubkey: String,
-}
-
-#[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
-pub struct SessionRoute {
-    pub nodes: Vec<SessionRouteNode>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]

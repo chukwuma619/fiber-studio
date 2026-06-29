@@ -10,6 +10,7 @@ use crate::fnn::invoices::{self, StoredInvoice};
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
 use crate::fnn::rpc::{self, CkbScript, CkbInvoice, CkbInvoiceStatus, PaymentKind, SendPaymentRequest};
+use crate::fnn::sent_payments::{self, StoredSentPayment};
 use crate::fnn::studio;
 use crate::state::AppState;
 
@@ -60,6 +61,12 @@ pub struct WalletPaymentItem {
     pub last_updated_at: u64,
     pub failed_error: Option<String>,
     pub fee: String,
+    pub payment_kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub amount_ckb: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_pubkey: Option<String>,
+    pub route_hops: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -406,7 +413,21 @@ async fn build_wallet_invoice_items(stored: Vec<StoredInvoice>) -> Vec<WalletInv
     items
 }
 
-fn map_wallet_payment(payment: rpc::PaymentSummary) -> WalletPaymentItem {
+fn map_wallet_payment(
+    payment: rpc::PaymentSummary,
+    stored: Option<&StoredSentPayment>,
+) -> WalletPaymentItem {
+    let route_from_rpc = route_hops_from_routers(&payment.routers);
+    let route_hops = if route_from_rpc.is_empty() {
+        stored.map(|entry| entry.route_hops.clone()).unwrap_or_default()
+    } else {
+        route_from_rpc
+    };
+
+    let amount_shannons = stored
+        .map(|entry| entry.amount_shannons.as_str())
+        .or_else(|| amount_shannons_from_routers(&payment.routers));
+
     WalletPaymentItem {
         payment_hash: payment.payment_hash,
         status: payment.status,
@@ -414,15 +435,51 @@ fn map_wallet_payment(payment: rpc::PaymentSummary) -> WalletPaymentItem {
         last_updated_at: payment.last_updated_at,
         failed_error: payment.failed_error,
         fee: payment.fee,
+        payment_kind: stored
+            .map(|entry| entry.kind.clone())
+            .unwrap_or_else(|| "unknown".to_string()),
+        amount_ckb: amount_shannons.map(|hex| format!("{} CKB", ckb_from_shannons_hex(hex))),
+        target_pubkey: stored.and_then(|entry| entry.target_pubkey.clone()),
+        route_hops,
     }
 }
 
-fn route_hops_from_payment(result: &rpc::SendPaymentResult) -> Vec<String> {
-    result
-        .routers
+fn route_hops_from_routers(routers: &[rpc::SessionRoute]) -> Vec<String> {
+    routers
         .first()
         .map(|route| route.nodes.iter().map(|node| node.pubkey.clone()).collect())
         .unwrap_or_default()
+}
+
+fn amount_shannons_from_routers(routers: &[rpc::SessionRoute]) -> Option<&str> {
+    routers.first().and_then(|route| {
+        route
+            .nodes
+            .last()
+            .and_then(|node| node.amount.as_deref())
+    })
+}
+
+fn route_hops_from_payment(result: &rpc::SendPaymentResult) -> Vec<String> {
+    route_hops_from_routers(&result.routers)
+}
+
+fn persist_sent_payment(
+    data_directory: &PathBuf,
+    payment_hash: &str,
+    kind: &str,
+    amount_shannons: u128,
+    target_pubkey: Option<String>,
+    route_hops: Vec<String>,
+) {
+    let stored = sent_payments::new_stored_sent_payment(
+        payment_hash.to_string(),
+        kind,
+        amount_shannons,
+        target_pubkey,
+        route_hops,
+    );
+    let _ = sent_payments::upsert_sent_payment(data_directory, stored);
 }
 
 fn send_payment_command_result(result: rpc::SendPaymentResult) -> SendPaymentCommandResult {
@@ -510,9 +567,21 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
 
     let payments = rpc::fetch_list_payments(WALLET_PAYMENT_LIMIT)
         .await
-        .map_err(|error| error.to_string())?
+        .map_err(|error| error.to_string())?;
+
+    let stored_sent_payments = data_directory
+        .as_ref()
+        .map(|path| sent_payments::read_sent_payments(path).unwrap_or_default())
+        .unwrap_or_default();
+
+    let payment_items = payments
         .into_iter()
-        .map(map_wallet_payment)
+        .map(|payment| {
+            let stored = stored_sent_payments
+                .iter()
+                .find(|entry| entry.payment_hash == payment.payment_hash);
+            map_wallet_payment(payment, stored)
+        })
         .collect();
 
     let send_targets = build_send_targets(
@@ -531,7 +600,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         on_chain_wallet_error,
         lock_script: Some(node_info.default_funding_lock_script),
         invoices: invoice_items,
-        payments,
+        payments: payment_items,
         send_targets,
         relay_status,
     })
@@ -657,11 +726,31 @@ pub async fn send_payment(
         return Err("Invoice string is required.".to_string());
     }
 
-    let _data_directory = require_running_data_dir(&state).await?;
+    let data_directory = require_running_data_dir(&state).await?;
+
+    let parsed = rpc::parse_invoice(invoice)
+        .await
+        .map_err(|error| format!("Invalid invoice: {error}"))?;
+    let amount_shannons = parsed
+        .invoice
+        .amount
+        .as_deref()
+        .and_then(rpc::parse_hex_u128)
+        .unwrap_or(0);
 
     let result = rpc::send_payment(send_payment_request(invoice, false))
         .await
         .map_err(|error| error.to_string())?;
+
+    let route_hops = route_hops_from_payment(&result);
+    persist_sent_payment(
+        &data_directory,
+        &result.payment_hash,
+        "invoice",
+        amount_shannons,
+        None,
+        route_hops,
+    );
 
     Ok(send_payment_command_result(result))
 }
@@ -705,7 +794,7 @@ pub async fn send_keysend_payment(
         return Err("Target pubkey is required.".to_string());
     }
 
-    let _data_directory = require_running_data_dir(&state).await?;
+    let data_directory = require_running_data_dir(&state).await?;
     let amount_shannons = ckb_to_shannons(payload.amount)?;
 
     let result = rpc::send_payment(keysend_payment_request(
@@ -715,6 +804,16 @@ pub async fn send_keysend_payment(
     ))
     .await
     .map_err(|error| error.to_string())?;
+
+    let route_hops = route_hops_from_payment(&result);
+    persist_sent_payment(
+        &data_directory,
+        &result.payment_hash,
+        "keysend",
+        amount_shannons,
+        Some(target_pubkey.to_string()),
+        route_hops,
+    );
 
     Ok(send_payment_command_result(result))
 }

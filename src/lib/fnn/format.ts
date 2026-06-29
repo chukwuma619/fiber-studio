@@ -204,3 +204,25 @@ export function paymentRouteTitle(hopCount: number): string {
 export function paymentRouteBadgeLabel(hopCount: number): string {
   return hopCount > 1 ? "Multi-hop" : "Direct"
 }
+
+export function paymentKindLabel(kind: string): string {
+  switch (kind) {
+    case "invoice":
+      return "Invoice"
+    case "keysend":
+      return "Keysend"
+    default:
+      return "Payment"
+  }
+}
+
+export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
+  if (hops.length === 0) return "—"
+  const truncated = hops.map((pubkey) =>
+    pubkey.length > 12 ? `${pubkey.slice(0, 6)}…${pubkey.slice(-4)}` : pubkey,
+  )
+  if (truncated.length <= maxHops) {
+    return truncated.join(" → ")
+  }
+  return `${truncated.slice(0, maxHops).join(" → ")} → …`
+}

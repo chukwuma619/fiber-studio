@@ -25,6 +25,10 @@ function hasPendingPayments(payments: WalletPageResponse["payments"]): boolean {
   )
 }
 
+function hasIncomingInvoices(invoices: WalletPageResponse["invoices"]): boolean {
+  return invoices.some((invoice) => invoice.status === "Received")
+}
+
 export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
   const [data, setData] = useState<WalletPageResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -32,7 +36,8 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
   const [error, setError] = useState<string | null>(null)
 
   const effectivePollIntervalMs =
-    data && hasPendingPayments(data.payments)
+    data &&
+    (hasPendingPayments(data.payments) || hasIncomingInvoices(data.invoices))
       ? PENDING_PAYMENT_POLL_INTERVAL_MS
       : pollIntervalMs
 
