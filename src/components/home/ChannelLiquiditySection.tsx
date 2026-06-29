@@ -60,7 +60,7 @@ export function ChannelLiquiditySection({
               <TableHeader className="w-10">S/N</TableHeader>
               <TableHeader>Peer</TableHeader>
               <TableHeader>Capacity</TableHeader>
-              <TableHeader>Local balance</TableHeader>
+              <TableHeader>Liquidity</TableHeader>
               <TableHeader>Status</TableHeader>
             </TableRow>
           </TableHead>

@@ -9,7 +9,7 @@ use crate::fnn::ckb_indexer;
 use crate::fnn::invoices::{self, StoredInvoice};
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
-use crate::fnn::rpc::{self, CkbScript, CkbInvoiceStatus};
+use crate::fnn::rpc::{self, CkbScript, CkbInvoice, CkbInvoiceStatus, PaymentKind, SendPaymentRequest};
 use crate::fnn::studio;
 use crate::state::AppState;
 
@@ -28,7 +28,16 @@ pub struct WalletPageResponse {
     pub lock_script: Option<CkbScript>,
     pub invoices: Vec<WalletInvoiceItem>,
     pub payments: Vec<WalletPaymentItem>,
+    pub send_targets: Vec<WalletSendTarget>,
     pub relay_status: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct WalletSendTarget {
+    pub pubkey: String,
+    pub label: String,
+    pub kind: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -56,10 +65,29 @@ pub struct WalletPaymentItem {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateInvoicePayload {
-    pub amount_ckb: f64,
+    pub amount: f64,
     pub expiry_hours: u64,
     #[serde(default)]
     pub description: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParseInvoicePayload {
+    pub invoice: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ParseInvoicePreview {
+    pub amount_display: String,
+    pub currency: String,
+    pub payment_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub network_match: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub network_warning: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -77,6 +105,13 @@ pub struct SendPaymentPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct KeysendPaymentPayload {
+    pub target_pubkey: String,
+    pub amount: f64,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct PaymentHashPayload {
     pub payment_hash: String,
 }
@@ -86,7 +121,7 @@ pub struct PaymentHashPayload {
 pub struct PreviewSendPaymentResult {
     pub fee_shannons: String,
     pub fee_ckb: String,
-    pub amount_ckb: String,
+    pub amount_display: String,
     pub route_hops: Vec<String>,
 }
 
@@ -112,6 +147,7 @@ fn wallet_page_unavailable() -> WalletPageResponse {
         lock_script: None,
         invoices: Vec::new(),
         payments: Vec::new(),
+        send_targets: Vec::new(),
         relay_status: "not_configured".to_string(),
     }
 }
@@ -136,6 +172,138 @@ fn format_ckb_amount(shannons: u128) -> String {
         decimals
     };
     format!("{whole}.{decimals}")
+}
+
+fn extract_invoice_description(attrs: &[serde_json::Value]) -> Option<String> {
+    for attr in attrs {
+        if let Some(description) = attr.get("description").and_then(|value| value.as_str()) {
+            if !description.trim().is_empty() {
+                return Some(description.to_string());
+            }
+        }
+        if let Some(description) = attr
+            .get("Description")
+            .and_then(|value| value.as_str())
+        {
+            if !description.trim().is_empty() {
+                return Some(description.to_string());
+            }
+        }
+    }
+    None
+}
+
+fn expected_currency_for_network(network: &str) -> &'static str {
+    match network {
+        "mainnet" => "Fibb",
+        _ => "Fibt",
+    }
+}
+
+fn build_parse_invoice_preview(
+    invoice: &CkbInvoice,
+    network: Option<&str>,
+) -> ParseInvoicePreview {
+    let amount_shannons = invoice
+        .amount
+        .as_deref()
+        .and_then(rpc::parse_hex_u128)
+        .unwrap_or(0);
+    let currency = invoice
+        .currency
+        .clone()
+        .unwrap_or_else(|| "Fibt".to_string());
+    let network_match = network.is_none_or(|value| {
+        expected_currency_for_network(value).eq_ignore_ascii_case(&currency)
+    });
+    let network_warning = if network_match {
+        None
+    } else {
+        Some(format!(
+            "Invoice currency is {currency}; your node is on {}.",
+            network.unwrap_or("unknown")
+        ))
+    };
+
+    ParseInvoicePreview {
+        amount_display: format!("{} CKB", format_ckb_amount(amount_shannons)),
+        currency,
+        payment_hash: invoice.data.payment_hash.clone(),
+        description: extract_invoice_description(&invoice.data.attrs),
+        network_match,
+        network_warning,
+    }
+}
+
+fn send_payment_request<'a>(invoice: &'a str, dry_run: bool) -> SendPaymentRequest<'a> {
+    SendPaymentRequest {
+        kind: PaymentKind::Invoice { invoice },
+        dry_run,
+        max_fee_amount: None,
+        timeout: None,
+    }
+}
+
+fn keysend_payment_request<'a>(
+    target_pubkey: &'a str,
+    amount_shannons: u128,
+    dry_run: bool,
+) -> SendPaymentRequest<'a> {
+    SendPaymentRequest {
+        kind: PaymentKind::Keysend {
+            target_pubkey,
+            amount: amount_shannons,
+        },
+        dry_run,
+        max_fee_amount: None,
+        timeout: None,
+    }
+}
+
+fn build_send_targets(
+    peers: &[rpc::PeerInfo],
+    channels: &[rpc::Channel],
+    configured_peer_pubkey: Option<&str>,
+    own_pubkey: &str,
+) -> Vec<WalletSendTarget> {
+    let mut targets = Vec::new();
+
+    let mut push_target = |pubkey: &str, label: String, kind: &str| {
+        if pubkey.trim().is_empty() || peer_connect::pubkeys_equal(pubkey, own_pubkey) {
+            return;
+        }
+        if targets
+            .iter()
+            .any(|target: &WalletSendTarget| {
+                peer_connect::pubkeys_equal(&target.pubkey, pubkey)
+            })
+        {
+            return;
+        }
+        targets.push(WalletSendTarget {
+            pubkey: pubkey.to_string(),
+            label,
+            kind: kind.to_string(),
+        });
+    };
+
+    if let Some(pubkey) = configured_peer_pubkey.filter(|value| !value.trim().is_empty()) {
+        push_target(pubkey, "Configured relay".to_string(), "relay");
+    }
+
+    for channel in channels {
+        push_target(
+            &channel.pubkey,
+            "Channel peer".to_string(),
+            "channel",
+        );
+    }
+
+    for peer in peers {
+        push_target(&peer.pubkey, "Connected peer".to_string(), "peer");
+    }
+
+    targets
 }
 
 fn ckb_to_shannons(amount_ckb: f64) -> Result<u128, String> {
@@ -200,9 +368,7 @@ async fn fetch_on_chain_balance(
     }
 }
 
-async fn build_wallet_invoice_items(
-    stored: Vec<StoredInvoice>,
-) -> Vec<WalletInvoiceItem> {
+async fn build_wallet_invoice_items(stored: Vec<StoredInvoice>) -> Vec<WalletInvoiceItem> {
     let mut items = Vec::with_capacity(stored.len());
 
     for record in stored {
@@ -349,6 +515,13 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .map(map_wallet_payment)
         .collect();
 
+    let send_targets = build_send_targets(
+        &peers,
+        &channels,
+        configured_peer_pubkey.as_deref(),
+        &node_info.pubkey,
+    );
+
     Ok(WalletPageResponse {
         available: true,
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
@@ -359,6 +532,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         lock_script: Some(node_info.default_funding_lock_script),
         invoices: invoice_items,
         payments,
+        send_targets,
         relay_status,
     })
 }
@@ -376,7 +550,7 @@ pub async fn create_invoice(
     let studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
-    let amount_shannons = ckb_to_shannons(payload.amount_ckb)?;
+    let amount_shannons = ckb_to_shannons(payload.amount)?;
     let expiry_seconds = payload.expiry_hours.saturating_mul(3600);
     let currency = rpc::currency_for_network(&studio_metadata.network);
 
@@ -423,6 +597,7 @@ pub async fn preview_send_payment(
         .await
         .map_err(|error| format!("Invalid invoice: {error}"))?;
 
+    let parse_preview = build_parse_invoice_preview(&parsed.invoice, None);
     let amount_shannons = parsed
         .invoice
         .amount
@@ -430,7 +605,7 @@ pub async fn preview_send_payment(
         .and_then(rpc::parse_hex_u128)
         .unwrap_or(0);
 
-    let preview = rpc::send_payment(invoice, true)
+    let preview = rpc::send_payment(send_payment_request(invoice, true))
         .await
         .map_err(|error| error.to_string())?;
 
@@ -439,9 +614,37 @@ pub async fn preview_send_payment(
     Ok(PreviewSendPaymentResult {
         fee_shannons: preview.fee.clone(),
         fee_ckb: format!("{} CKB", ckb_from_shannons_hex(&preview.fee)),
-        amount_ckb: format!("{} CKB", format_ckb_amount(amount_shannons)),
+        amount_display: if parse_preview.amount_display.is_empty() {
+            format!("{} CKB", format_ckb_amount(amount_shannons))
+        } else {
+            parse_preview.amount_display
+        },
         route_hops,
     })
+}
+
+#[tauri::command]
+pub async fn parse_invoice_preview(
+    state: State<'_, AppState>,
+    payload: ParseInvoicePayload,
+) -> Result<ParseInvoicePreview, String> {
+    let invoice = payload.invoice.trim();
+    if invoice.is_empty() {
+        return Err("Invoice string is required.".to_string());
+    }
+
+    let data_directory = require_running_data_dir(&state).await?;
+    let studio_metadata = studio::read_studio_metadata(&data_directory)
+        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+
+    let parsed = rpc::parse_invoice(invoice)
+        .await
+        .map_err(|error| format!("Invalid invoice: {error}"))?;
+
+    Ok(build_parse_invoice_preview(
+        &parsed.invoice,
+        Some(studio_metadata.network.as_str()),
+    ))
 }
 
 #[tauri::command]
@@ -456,9 +659,62 @@ pub async fn send_payment(
 
     let _data_directory = require_running_data_dir(&state).await?;
 
-    let result = rpc::send_payment(invoice, false)
+    let result = rpc::send_payment(send_payment_request(invoice, false))
         .await
         .map_err(|error| error.to_string())?;
+
+    Ok(send_payment_command_result(result))
+}
+
+#[tauri::command]
+pub async fn preview_keysend_payment(
+    state: State<'_, AppState>,
+    payload: KeysendPaymentPayload,
+) -> Result<PreviewSendPaymentResult, String> {
+    let target_pubkey = payload.target_pubkey.trim();
+    if target_pubkey.is_empty() {
+        return Err("Target pubkey is required.".to_string());
+    }
+
+    let _data_directory = require_running_data_dir(&state).await?;
+    let amount_shannons = ckb_to_shannons(payload.amount)?;
+
+    let preview = rpc::send_payment(keysend_payment_request(
+        target_pubkey,
+        amount_shannons,
+        true,
+    ))
+    .await
+    .map_err(|error| error.to_string())?;
+
+    Ok(PreviewSendPaymentResult {
+        fee_shannons: preview.fee.clone(),
+        fee_ckb: format!("{} CKB", ckb_from_shannons_hex(&preview.fee)),
+        amount_display: format!("{} CKB", format_ckb_amount(amount_shannons)),
+        route_hops: route_hops_from_payment(&preview),
+    })
+}
+
+#[tauri::command]
+pub async fn send_keysend_payment(
+    state: State<'_, AppState>,
+    payload: KeysendPaymentPayload,
+) -> Result<SendPaymentCommandResult, String> {
+    let target_pubkey = payload.target_pubkey.trim();
+    if target_pubkey.is_empty() {
+        return Err("Target pubkey is required.".to_string());
+    }
+
+    let _data_directory = require_running_data_dir(&state).await?;
+    let amount_shannons = ckb_to_shannons(payload.amount)?;
+
+    let result = rpc::send_payment(keysend_payment_request(
+        target_pubkey,
+        amount_shannons,
+        false,
+    ))
+    .await
+    .map_err(|error| error.to_string())?;
 
     Ok(send_payment_command_result(result))
 }

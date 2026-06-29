@@ -75,7 +75,7 @@ function openButtonLabel(
 ): string {
   if (!isActing) return "Open channel"
   if (relayStatus !== "connected") {
-    return "Connecting to peer…"
+    return "Connecting to relay…"
   }
   return "Opening channel…"
 }
@@ -196,14 +196,14 @@ export function OpenChannelDialog({
       <DialogTitle>Open channel</DialogTitle>
       <DialogDescription>
         {peerPubkey
-          ? "Open a public channel with your configured peer for multi-hop routing."
+          ? "Open a public channel with your configured relay for routing on the Fiber network."
           : "Complete setup with a public relay or custom node before opening a channel."}
       </DialogDescription>
 
       <DialogBody>
         <FieldGroup>
           <Field>
-            <Label>Peer pubkey</Label>
+            <Label>Relay pubkey</Label>
             {peerPubkey ? (
               <div className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
                 <span
@@ -226,7 +226,7 @@ export function OpenChannelDialog({
 
           {peerPubkey ? (
             <Field>
-              <Label>Peer connection</Label>
+              <Label>Relay connection</Label>
               <div className="flex items-center gap-2">
                 <Badge color={relayStatusBadgeColor(relayStatus)}>
                   {formatRelayStatusLabel(relayStatus)}
@@ -234,8 +234,8 @@ export function OpenChannelDialog({
                 {relayStatus !== "connected" && !isActing ? (
                   <Text className="text-xs text-zinc-500 dark:text-zinc-400">
                     {relayStatus === "connecting"
-                      ? "Waiting for the peer connection before a channel can be opened."
-                      : "Connect to the peer first — restart the node or try another public relay in setup."}
+                      ? "Waiting for the relay connection before a channel can be opened."
+                      : "Connect to your relay first — restart the node or try another public relay in setup."}
                   </Text>
                 ) : null}
               </div>
@@ -260,8 +260,8 @@ export function OpenChannelDialog({
         {peerNotConnected && peerPubkey ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
             {relayStatus === "connecting"
-              ? "Peer connection is still in progress. Wait until the status shows Connected to peer."
-              : "Peer is not connected. Restart your node or switch to another public relay (e.g. node2) in setup."}
+              ? "Relay connection is still in progress. Wait until the status shows Connected to peer."
+              : "Relay is not connected. Restart your node or switch to another public relay (e.g. node2) in setup."}
           </Text>
         ) : null}
         {hasChannelToConfiguredPeer ? (

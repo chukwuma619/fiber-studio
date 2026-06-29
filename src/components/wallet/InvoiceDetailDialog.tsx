@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { invoiceStatusTone } from "../../lib/fnn/format"
+import { invoiceStatusTone, invoiceStatusDisplayLabel, invoiceStatusDescription } from "../../lib/fnn/format"
 import type { WalletInvoiceItem } from "../../lib/fnn/types"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
@@ -18,6 +18,7 @@ import {
 } from "../ui/dialog"
 import { Button } from "../ui/button"
 import { Text } from "../ui/text"
+import { InvoiceQrCode } from "./InvoiceQrCode"
 
 type InvoiceDetailDialogProps = {
   open: boolean
@@ -44,6 +45,30 @@ function invoiceStatusDotTone(
     default:
       return "info"
   }
+}
+
+function CopyableValue({
+  value,
+  copyLabel,
+}: {
+  value: string
+  copyLabel?: string
+}) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <code
+        className="min-w-0 flex-1 truncate rounded-md bg-zinc-100 px-3 py-2 font-mono text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+        title={value}
+      >
+        {value}
+      </code>
+      <CopyButton value={value} label={copyLabel} className="shrink-0" />
+    </div>
+  )
+}
+
+function isPayableInvoiceStatus(status: string): boolean {
+  return status === "Open" || status === "Received"
 }
 
 export function InvoiceDetailDialog({
@@ -77,50 +102,66 @@ export function InvoiceDetailDialog({
   }
 
   return (
-    <Dialog open={open} onClose={handleClose} size="lg">
+    <Dialog open={open} onClose={handleClose} size="xl">
       <DialogTitle>Invoice details</DialogTitle>
       <DialogDescription>
-        Invoices you create are stored locally — FNN has no list-invoices API.
+        Details for invoices you created in Fiber Studio.
       </DialogDescription>
       <DialogBody>
         {invoice ? (
           <div className="space-y-6">
-            <DescriptionList>
+            {isPayableInvoiceStatus(invoice.status) ? (
+              <div className="flex flex-col items-center gap-2 rounded-lg bg-zinc-50 px-4 py-5 dark:bg-zinc-800/50">
+                <InvoiceQrCode value={invoice.invoiceAddress} />
+                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                  Scan to pay this invoice
+                </Text>
+              </div>
+            ) : null}
+
+            <DescriptionList className="sm:grid-cols-[min(40%,9rem)_minmax(0,1fr)]">
               <DescriptionTerm>Amount</DescriptionTerm>
-              <DescriptionDetails className="tabular-nums font-medium">
+              <DescriptionDetails className="min-w-0 tabular-nums font-medium">
                 {invoice.amountCkb}
               </DescriptionDetails>
 
               <DescriptionTerm>Note</DescriptionTerm>
-              <DescriptionDetails>{invoice.note}</DescriptionDetails>
+              <DescriptionDetails className="min-w-0 break-words">
+                {invoice.note}
+              </DescriptionDetails>
 
               <DescriptionTerm>Status</DescriptionTerm>
-              <DescriptionDetails>
+              <DescriptionDetails className="min-w-0">
                 <Badge color={invoiceStatusTone(invoice.status)}>
                   <StatusDot tone={invoiceStatusDotTone(invoice.status)} />
-                  {invoice.status}
+                  {invoiceStatusDisplayLabel(invoice.status)}
                 </Badge>
+                {invoiceStatusDescription(invoice.status) ? (
+                  <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                    {invoiceStatusDescription(invoice.status)}
+                  </Text>
+                ) : null}
               </DescriptionDetails>
 
               <DescriptionTerm>Expires</DescriptionTerm>
-              <DescriptionDetails>
+              <DescriptionDetails className="min-w-0">
                 {invoice.expiresIn ?? "—"}
               </DescriptionDetails>
 
               <DescriptionTerm>Payment hash</DescriptionTerm>
-              <DescriptionDetails className="flex items-center gap-2 font-mono text-xs">
-                <span className="min-w-0 truncate">{invoice.paymentHash}</span>
-                <CopyButton value={invoice.paymentHash} />
+              <DescriptionDetails className="min-w-0">
+                <CopyableValue
+                  value={invoice.paymentHash}
+                  copyLabel="Copy payment hash"
+                />
               </DescriptionDetails>
 
               <DescriptionTerm>Invoice string</DescriptionTerm>
-              <DescriptionDetails>
-                <div className="flex items-start gap-2">
-                  <code className="min-w-0 flex-1 break-all rounded-md bg-zinc-100 px-3 py-2 font-mono text-xs text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                    {invoice.invoiceAddress}
-                  </code>
-                  <CopyButton value={invoice.invoiceAddress} />
-                </div>
+              <DescriptionDetails className="min-w-0">
+                <CopyableValue
+                  value={invoice.invoiceAddress}
+                  copyLabel="Copy invoice"
+                />
               </DescriptionDetails>
             </DescriptionList>
 

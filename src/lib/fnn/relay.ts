@@ -55,11 +55,11 @@ export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
     case "failed":
       return "Connection failed — ensure the peer is online"
     case "connecting":
-      return "Connecting to peer…"
+      return "Connecting to relay…"
     case "not_configured":
-      return "No peer configured in setup"
+      return "No relay configured in setup"
     case "connected":
-      return "Connected to peer"
+      return "Connected to relay"
     default: {
       const _exhaustive: never = status
       return _exhaustive
@@ -79,9 +79,9 @@ export function formatRelayStatus(
     case "connecting":
       return `Connecting…`
     case "not_configured":
-      return "No peer configured in setup"
+      return "No relay configured in setup"
     case "connected":
-      return `Connected (outbound)`
+      return "Relay connected (outbound)"
     default:
       return `Not connected`
   }

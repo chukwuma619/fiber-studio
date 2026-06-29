@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react"
-import { CopyButton } from "../ui/copy-button"
 import { Button } from "../ui/button"
 import {
   Dialog,
@@ -13,6 +12,7 @@ import { Input } from "../ui/input"
 import { Text } from "../ui/text"
 import type { CreateInvoicePayload } from "../../lib/fnn/types"
 import { invoiceCurrencyLabel } from "../../lib/fnn/format"
+import { InvoiceSharePanel } from "./InvoiceSharePanel"
 
 type CreateInvoiceDialogProps = {
   open: boolean
@@ -76,7 +76,7 @@ export function CreateInvoiceDialog({
 
     try {
       const result = await onCreateInvoice({
-        amountCkb: parsedAmount,
+        amount: parsedAmount,
         expiryHours: parsedExpiry,
         description: note.trim() || undefined,
       })
@@ -140,20 +140,10 @@ export function CreateInvoiceDialog({
           ) : null}
 
           {invoiceAddress ? (
-            <div className="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
-              <Text className="text-center text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                Invoice ({currency})
-              </Text>
-              <Text className="mt-1 text-center text-xs text-zinc-500 dark:text-zinc-400">
-                Share this Bech32m string with the payer
-              </Text>
-              <div className="mt-4 flex items-center gap-2">
-                <code className="min-w-0 flex-1 truncate rounded-md bg-white px-3 py-2 font-mono text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
-                  {invoiceAddress}
-                </code>
-                <CopyButton value={invoiceAddress} />
-              </div>
-            </div>
+            <InvoiceSharePanel
+              invoiceAddress={invoiceAddress}
+              currency={currency}
+            />
           ) : null}
         </FieldGroup>
       </DialogBody>

@@ -34,7 +34,7 @@ export const NAV_ITEMS: NavItem[] = [
     label: "Wallet",
     href: "/wallet",
     icon: Wallet,
-    description: "Send payments, create invoices, and manage your CKB address.",
+    description: "Send payments, create invoices, and view channel balances.",
   },
   {
     id: "channels",

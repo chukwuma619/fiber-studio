@@ -1,6 +1,12 @@
 import { useEffect, useRef, useState } from "react"
 import { formatCkb, parseHexU128, paymentRouteBadgeLabel } from "../../lib/fnn/format"
-import type { PreviewSendPaymentResult, SendPaymentResult } from "../../lib/fnn/types"
+import type {
+  KeysendPaymentPayload,
+  PreviewSendPaymentResult,
+  SendPaymentMode,
+  SendPaymentPayload,
+  SendPaymentResult,
+} from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
@@ -18,11 +24,17 @@ type Step = "review" | "inflight" | "success" | "failure"
 type SendPaymentDialogProps = {
   open: boolean
   onClose: () => void
+  mode: SendPaymentMode
   invoice: string
+  targetPubkey: string
+  keysendPayload?: KeysendPaymentPayload
   preview: PreviewSendPaymentResult | null
   isActing: boolean
   actionError: string | null
-  onSendPayment: (invoice: string) => Promise<SendPaymentResult>
+  onSendPayment: (payload: SendPaymentPayload) => Promise<SendPaymentResult>
+  onSendKeysendPayment: (
+    payload: KeysendPaymentPayload,
+  ) => Promise<SendPaymentResult>
   onGetPayment: (paymentHash: string) => Promise<SendPaymentResult>
   onPaymentSettled: () => void
   onClearError: () => void
@@ -47,11 +59,15 @@ function isPendingPaymentStatus(status: string): boolean {
 export function SendPaymentDialog({
   open,
   onClose,
+  mode,
   invoice,
+  targetPubkey,
+  keysendPayload,
   preview,
   isActing,
   actionError,
   onSendPayment,
+  onSendKeysendPayment,
   onGetPayment,
   onPaymentSettled,
   onClearError,
@@ -127,7 +143,10 @@ export function SendPaymentDialog({
     onClearError()
     pollStartedAtRef.current = null
     try {
-      const paymentResult = await onSendPayment(invoice)
+      const paymentResult =
+        mode === "keysend" && keysendPayload
+          ? await onSendKeysendPayment(keysendPayload)
+          : await onSendPayment({ invoice })
       setResult(paymentResult)
 
       if (paymentResult.status === "Success") {
@@ -146,17 +165,20 @@ export function SendPaymentDialog({
     }
   }
 
-  const displayAmount = preview?.amountCkb ?? "—"
+  const displayAmount = preview?.amountDisplay ?? "—"
   const displayFee = preview?.feeCkb ?? "—"
   const hopCount = preview?.routeHops.length ?? result?.routeHops.length ?? 0
   const routeBadge = paymentRouteBadgeLabel(hopCount)
   const displayRoute = hopCount > 0
     ? formatRouteHops(preview?.routeHops ?? result?.routeHops ?? [])
     : "—"
+  const isKeysend = mode === "keysend"
 
   const title =
     step === "review"
-      ? "Review payment"
+      ? isKeysend
+        ? "Review keysend"
+        : "Review payment"
       : step === "inflight"
         ? "Payment in progress"
         : step === "success"
@@ -172,7 +194,7 @@ export function SendPaymentDialog({
             <div className="flex items-center gap-2">
               <Badge color="sky">{routeBadge}</Badge>
               <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                Off-chain via Fiber
+                {isKeysend ? "Keysend via Fiber" : "Off-chain via Fiber"}
               </Text>
             </div>
 
@@ -183,12 +205,21 @@ export function SendPaymentDialog({
                   {displayAmount}
                 </dd>
               </div>
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-sm text-zinc-500 dark:text-zinc-400">Invoice</dt>
-                <dd className="max-w-[70%] text-right font-mono text-xs text-zinc-700 dark:text-zinc-300">
-                  {truncateInvoice(invoice)}
-                </dd>
-              </div>
+              {isKeysend ? (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">To</dt>
+                  <dd className="max-w-[70%] text-right font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                    {truncatePubkey(targetPubkey)}
+                  </dd>
+                </div>
+              ) : (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">Invoice</dt>
+                  <dd className="max-w-[70%] text-right font-mono text-xs text-zinc-700 dark:text-zinc-300">
+                    {truncateInvoice(invoice)}
+                  </dd>
+                </div>
+              )}
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-sm text-zinc-500 dark:text-zinc-400">
                   Est. route fee
@@ -270,7 +301,9 @@ export function SendPaymentDialog({
                 actionError ??
                 (isPendingPaymentStatus(result?.status ?? "")
                   ? "Payment timed out while waiting for confirmation."
-                  : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")}
+                  : isKeysend
+                    ? "Failed to route keysend. Try your configured relay or a direct channel peer."
+                    : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")}
             </Text>
             <div className="mt-3">
               <Badge color="red">

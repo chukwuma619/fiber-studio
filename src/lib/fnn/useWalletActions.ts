@@ -3,11 +3,17 @@ import {
   cancelInvoice,
   createInvoice,
   getPayment,
+  parseInvoicePreview,
+  previewKeysendPayment,
   previewSendPayment,
+  sendKeysendPayment,
   sendPayment,
 } from "./invoke"
 import type {
   CreateInvoicePayload,
+  KeysendPaymentPayload,
+  ParseInvoicePayload,
+  ParseInvoicePreview,
   PaymentHashPayload,
   PreviewSendPaymentResult,
   SendPaymentPayload,
@@ -97,6 +103,50 @@ export function useWalletActions(onSuccess?: () => void) {
     [onSuccess],
   )
 
+  const handleParseInvoicePreview = useCallback(
+    async (payload: ParseInvoicePayload): Promise<ParseInvoicePreview> => {
+      setActionError(null)
+      try {
+        return await parseInvoicePreview(payload)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setActionError(message)
+        throw error
+      }
+    },
+    [],
+  )
+
+  const handleSendKeysendPayment = useCallback(
+    async (payload: KeysendPaymentPayload): Promise<SendPaymentResult> => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        return await sendKeysendPayment(payload)
+      } catch (error) {
+        setActionError(error instanceof Error ? error.message : String(error))
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [],
+  )
+
+  const handlePreviewKeysendPayment = useCallback(
+    async (payload: KeysendPaymentPayload): Promise<PreviewSendPaymentResult> => {
+      setActionError(null)
+      try {
+        return await previewKeysendPayment(payload)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setActionError(message)
+        throw error
+      }
+    },
+    [],
+  )
+
   const clearActionError = useCallback(() => {
     setActionError(null)
   }, [])
@@ -107,8 +157,11 @@ export function useWalletActions(onSuccess?: () => void) {
     createInvoice: handleCreateInvoice,
     previewSendPayment: handlePreviewSendPayment,
     sendPayment: handleSendPayment,
+    previewKeysendPayment: handlePreviewKeysendPayment,
+    sendKeysendPayment: handleSendKeysendPayment,
     getPayment: handleGetPayment,
     cancelInvoice: handleCancelInvoice,
+    parseInvoicePreview: handleParseInvoicePreview,
     clearActionError,
   }
 }

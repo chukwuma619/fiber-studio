@@ -9,6 +9,7 @@ type PaymentRoutePreviewProps = {
   isLoading?: boolean
   error?: string | null
   compact?: boolean
+  emptyHint?: string
 }
 
 export function PaymentRoutePreview({
@@ -16,6 +17,7 @@ export function PaymentRoutePreview({
   isLoading = false,
   error = null,
   compact = false,
+  emptyHint = "Enter payment details to preview the route",
 }: PaymentRoutePreviewProps) {
   if (isLoading) {
     return (
@@ -51,7 +53,7 @@ export function PaymentRoutePreview({
         }`}
       >
         <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-          Paste an invoice to preview the route
+          {emptyHint}
         </Text>
       </div>
     )

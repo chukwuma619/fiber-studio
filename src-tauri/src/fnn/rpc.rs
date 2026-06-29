@@ -290,12 +290,35 @@ pub enum CkbInvoiceStatus {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct InvoiceData {
     pub payment_hash: String,
+    #[serde(default)]
+    pub attrs: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub struct CkbInvoice {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
     pub amount: Option<String>,
     pub data: InvoiceData,
+}
+
+/// Payment target for FNN `send_payment`.
+pub enum PaymentKind<'a> {
+    Invoice {
+        invoice: &'a str,
+    },
+    Keysend {
+        target_pubkey: &'a str,
+        amount: u128,
+    },
+}
+
+/// Options for FNN `send_payment`.
+pub struct SendPaymentRequest<'a> {
+    pub kind: PaymentKind<'a>,
+    pub dry_run: bool,
+    pub max_fee_amount: Option<u128>,
+    pub timeout: Option<u64>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -377,12 +400,34 @@ pub async fn parse_invoice(invoice: &str) -> Result<ParseInvoiceResult, RpcError
 }
 
 /// Sends or previews a payment via FNN `send_payment`.
-pub async fn send_payment(invoice: &str, dry_run: bool) -> Result<SendPaymentResult, RpcError> {
-    let params = serde_json::json!([{
-        "invoice": invoice,
-        "dry_run": dry_run,
-    }]);
-    call_rpc("send_payment", params).await
+pub async fn send_payment(request: SendPaymentRequest<'_>) -> Result<SendPaymentResult, RpcError> {
+    let mut params = serde_json::json!({
+        "dry_run": request.dry_run,
+    });
+
+    match request.kind {
+        PaymentKind::Invoice { invoice } => {
+            params["invoice"] = serde_json::Value::String(invoice.to_string());
+        }
+        PaymentKind::Keysend {
+            target_pubkey,
+            amount,
+        } => {
+            params["target_pubkey"] = serde_json::Value::String(target_pubkey.to_string());
+            params["amount"] = serde_json::Value::String(format!("0x{amount:x}"));
+            params["keysend"] = serde_json::Value::Bool(true);
+        }
+    }
+
+    if let Some(max_fee) = request.max_fee_amount {
+        params["max_fee_amount"] = serde_json::Value::String(format!("0x{max_fee:x}"));
+    }
+
+    if let Some(timeout) = request.timeout {
+        params["timeout"] = serde_json::Value::String(format!("0x{timeout:x}"));
+    }
+
+    call_rpc("send_payment", serde_json::json!([params])).await
 }
 
 /// Retrieves a payment by hash via FNN `get_payment`.

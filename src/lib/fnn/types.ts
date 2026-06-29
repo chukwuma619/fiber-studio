@@ -123,6 +123,8 @@ export type HomeDashboardResponse = {
   channels: HomeChannel[]
   peers: HomePeer[]
   payments: HomePayment[]
+  activeChannelCount: number
+  pendingChannelCount: number
   totalLocalBalance: string
   configuredRelayPubkey: string | null
   configuredRelayMultiaddr: string | null
@@ -148,6 +150,12 @@ export type WalletPaymentItem = {
   fee: string
 }
 
+export type WalletSendTarget = {
+  pubkey: string
+  label: string
+  kind: "relay" | "channel" | "peer" | string
+}
+
 export type WalletPageResponse = {
   available: boolean
   network: string | null
@@ -158,13 +166,27 @@ export type WalletPageResponse = {
   lockScript: CkbScript | null
   invoices: WalletInvoiceItem[]
   payments: WalletPaymentItem[]
+  sendTargets: WalletSendTarget[]
   relayStatus: RelayConnectionStatus
 }
 
 export type CreateInvoicePayload = {
-  amountCkb: number
+  amount: number
   expiryHours: number
   description?: string
+}
+
+export type ParseInvoicePayload = {
+  invoice: string
+}
+
+export type ParseInvoicePreview = {
+  amountDisplay: string
+  currency: string
+  paymentHash: string
+  description?: string | null
+  networkMatch: boolean
+  networkWarning?: string | null
 }
 
 export type CreateInvoiceResult = {
@@ -176,10 +198,17 @@ export type SendPaymentPayload = {
   invoice: string
 }
 
+export type KeysendPaymentPayload = {
+  targetPubkey: string
+  amount: number
+}
+
+export type SendPaymentMode = "invoice" | "keysend"
+
 export type PreviewSendPaymentResult = {
   feeShannons: string
   feeCkb: string
-  amountCkb: string
+  amountDisplay: string
   routeHops: string[]
 }
 

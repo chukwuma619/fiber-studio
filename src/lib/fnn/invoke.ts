@@ -11,6 +11,9 @@ import type {
   NodeStatusResponse,
   OpenChannelPayload,
   OpenChannelResult,
+  KeysendPaymentPayload,
+  ParseInvoicePayload,
+  ParseInvoicePreview,
   PreviewSendPaymentResult,
   SendPaymentPayload,
   SendPaymentResult,
@@ -103,6 +106,12 @@ export async function createInvoice(
   return invoke<CreateInvoiceResult>("create_invoice", { payload })
 }
 
+export async function parseInvoicePreview(
+  payload: ParseInvoicePayload,
+): Promise<ParseInvoicePreview> {
+  return invoke<ParseInvoicePreview>("parse_invoice_preview", { payload })
+}
+
 export async function previewSendPayment(
   payload: SendPaymentPayload,
 ): Promise<PreviewSendPaymentResult> {
@@ -113,6 +122,18 @@ export async function sendPayment(
   payload: SendPaymentPayload,
 ): Promise<SendPaymentResult> {
   return invoke<SendPaymentResult>("send_payment", { payload })
+}
+
+export async function previewKeysendPayment(
+  payload: KeysendPaymentPayload,
+): Promise<PreviewSendPaymentResult> {
+  return invoke<PreviewSendPaymentResult>("preview_keysend_payment", { payload })
+}
+
+export async function sendKeysendPayment(
+  payload: KeysendPaymentPayload,
+): Promise<SendPaymentResult> {
+  return invoke<SendPaymentResult>("send_keysend_payment", { payload })
 }
 
 export async function getPayment(

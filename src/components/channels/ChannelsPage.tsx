@@ -145,7 +145,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         <div>
           <Heading level={1}>Channels</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Open public channels for multi-hop routing.
+            Open channels for routing on the Fiber network.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">

@@ -12,6 +12,7 @@ const EMPTY_RESPONSE: WalletPageResponse = {
   lockScript: null,
   invoices: [],
   payments: [],
+  sendTargets: [],
   relayStatus: "not_configured",
 }
 

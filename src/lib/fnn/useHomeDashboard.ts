@@ -15,6 +15,8 @@ export function useHomeDashboard(running: boolean, pollIntervalMs = 10_000) {
         channels: [],
         peers: [],
         payments: [],
+        activeChannelCount: 0,
+        pendingChannelCount: 0,
         totalLocalBalance: "0",
         configuredRelayPubkey: null,
         configuredRelayMultiaddr: null,

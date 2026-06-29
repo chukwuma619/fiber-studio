@@ -1,6 +1,5 @@
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { formatCkb } from "../../lib/fnn/format"
-import { formatRelayStatus } from "../../lib/fnn/relay"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
@@ -9,6 +8,13 @@ import { ChannelLiquiditySection } from "./ChannelLiquiditySection"
 import { NodeStatusPanel } from "./NodeStatusPanel"
 import { RecentActivitySection } from "./RecentActivitySection"
 import { StatCard } from "./StatCard"
+
+function peerConnectionsSubtext(count: number): string {
+  if (count === 1) {
+    return "1 peer connection"
+  }
+  return `${count} peer connections`
+}
 
 export function HomePage() {
   const {
@@ -24,23 +30,25 @@ export function HomePage() {
   const nodeInfo = dashboard?.nodeInfo
   const isLoading = isNodeLoading || (running && isDashboardLoading)
 
+  const activeChannelCount = dashboard?.activeChannelCount ?? 0
+  const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
+  const peersCountValue = nodeInfo?.peersCount ?? 0
+
   const localBalance = available
     ? formatCkb(BigInt(dashboard?.totalLocalBalance ?? "0"))
     : "—"
-  const activeChannels = available ? String(nodeInfo?.channelCount ?? 0) : "—"
-  const peersCount = available ? String(nodeInfo?.peersCount ?? 0) : "—"
-  const pendingChannels = available
-    ? String(nodeInfo?.pendingChannelCount ?? 0)
-    : "—"
+  const activeChannels = available ? String(activeChannelCount) : "—"
+  const peersCount = available ? String(peersCountValue) : "—"
+  const pendingChannels = available ? String(pendingChannelCount) : "—"
 
-  const relaySubtext = available
-    ? formatRelayStatus( dashboard, config)
+  const peersSubtext = available
+    ? peerConnectionsSubtext(peersCountValue)
     : running
-      ? "Loading peer status…"
+      ? "Loading…"
       : "Start node to connect"
 
   const channelSubtext = available
-    ? `${nodeInfo?.channelCount ?? 0} active · ${nodeInfo?.pendingChannelCount ?? 0} pending`
+    ? `${activeChannelCount} active · ${pendingChannelCount} pending`
     : "Start node to view channels"
 
   return (
@@ -49,7 +57,7 @@ export function HomePage() {
         <div>
           <Heading level={1}>Home</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Multi-hop payments via Fiber&apos;s public relay network.
+            Off-chain CKB payments on the Fiber network.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -81,13 +89,13 @@ export function HomePage() {
         <StatCard
           label="Connected peers"
           value={isLoading && running ? "…" : peersCount}
-          subtext={relaySubtext}
+          subtext={peersSubtext}
         />
         <StatCard
           label="Pending channels"
           value={isLoading && running ? "…" : pendingChannels}
           subtext={
-            available && (nodeInfo?.pendingChannelCount ?? 0) > 0
+            available && pendingChannelCount > 0
               ? "Opening in progress"
               : "No channels opening"
           }

@@ -35,7 +35,10 @@ pub fn run() {
             commands::wallet::get_wallet_page,
             commands::wallet::create_invoice,
             commands::wallet::preview_send_payment,
+            commands::wallet::parse_invoice_preview,
             commands::wallet::send_payment,
+            commands::wallet::preview_keysend_payment,
+            commands::wallet::send_keysend_payment,
             commands::wallet::get_payment,
             commands::wallet::cancel_invoice,
         ])

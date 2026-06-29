@@ -49,7 +49,7 @@ export function SentPaymentsSection({
       <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <Subheading level={3}>Sent payments</Subheading>
         <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          Outbound payment history from FNN list_payments
+          Outbound payments you sent via invoice or keysend
         </Text>
       </div>
 
@@ -68,7 +68,7 @@ export function SentPaymentsSection({
             No payments yet
           </p>
           <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            Payments appear here after you send an invoice.
+            Payments appear here after you send one (invoice or keysend).
           </Text>
         </div>
       ) : (

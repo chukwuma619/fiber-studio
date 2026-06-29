@@ -42,7 +42,7 @@ export function RecentActivitySection({
       ) : payments.length === 0 ? (
         <HomeEmptyState
           title="No payments yet"
-          description="Send or receive a payment to see activity here."
+          description="Send a payment to see activity here."
         />
       ) : (
         <ul className="divide-y divide-zinc-200 dark:divide-zinc-800">

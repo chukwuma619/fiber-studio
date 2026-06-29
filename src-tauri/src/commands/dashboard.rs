@@ -19,6 +19,8 @@ pub struct HomeDashboardResponse {
     pub channels: Vec<HomeChannel>,
     pub peers: Vec<HomePeer>,
     pub payments: Vec<HomePayment>,
+    pub active_channel_count: u32,
+    pub pending_channel_count: u32,
     pub total_local_balance: String,
     pub configured_relay_pubkey: Option<String>,
     pub configured_relay_multiaddr: Option<String>,
@@ -69,6 +71,8 @@ pub async fn get_home_dashboard(
             channels: Vec::new(),
             peers: Vec::new(),
             payments: Vec::new(),
+            active_channel_count: 0,
+            pending_channel_count: 0,
             total_local_balance: "0".to_string(),
             configured_relay_pubkey: None,
             configured_relay_multiaddr: None,
@@ -100,6 +104,8 @@ pub async fn get_home_dashboard(
         .await
         .map_err(|error| error.to_string())?;
 
+    let active_channel_count = channel::count_active_channels(&channels);
+    let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
     let home_channels = select_home_channels(channels);
 
@@ -119,6 +125,8 @@ pub async fn get_home_dashboard(
         channels: home_channels,
         peers: peers.into_iter().map(to_home_peer).collect(),
         payments: payments.into_iter().map(to_home_payment).collect(),
+        active_channel_count,
+        pending_channel_count,
         total_local_balance: total_local_balance.to_string(),
         configured_relay_pubkey: studio_metadata
             .as_ref()

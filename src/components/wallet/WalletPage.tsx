@@ -5,20 +5,19 @@ import { StatusDot } from "../layout/StatusDot"
 import {
   invoiceStatusTone,
   invoiceCurrencyLabel,
+  invoiceStatusDisplayLabel,
   truncateLockScriptArgs,
 } from "../../lib/fnn/format"
 import { useWalletActions } from "../../lib/fnn/useWalletActions"
 import { useWalletPage } from "../../lib/fnn/useWalletPage"
-import type { PreviewSendPaymentResult, WalletInvoiceItem } from "../../lib/fnn/types"
+import type { WalletInvoiceItem } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatCard } from "../home/StatCard"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
-import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Heading, Subheading } from "../ui/heading"
-import { Input } from "../ui/input"
 import { Text } from "../ui/text"
 import {
   Table,
@@ -30,8 +29,7 @@ import {
 } from "../ui/table"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
-import { PaymentRoutePreview } from "./PaymentRoutePreview"
-import { SendPaymentDialog } from "./SendPaymentDialog"
+import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
 
 export type WalletInitialAction = "create-invoice" | "send"
@@ -57,8 +55,6 @@ function invoiceStatusDotTone(
   }
 }
 
-const PREVIEW_DEBOUNCE_MS = 500
-
 export function WalletPage({ initialAction }: WalletPageProps) {
   const { running } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useWalletPage(running)
@@ -67,66 +63,39 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     actionError,
     createInvoice,
     previewSendPayment,
+    parseInvoicePreview,
+    previewKeysendPayment,
     sendPayment,
+    sendKeysendPayment,
     getPayment,
     cancelInvoice,
     clearActionError,
   } = useWalletActions(refresh)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
-  const [sendDialogOpen, setSendDialogOpen] = useState(false)
   const [selectedInvoice, setSelectedInvoice] = useState<WalletInvoiceItem | null>(
     null,
   )
-  const [invoice, setInvoice] = useState("")
-  const [routePreview, setRoutePreview] = useState<PreviewSendPaymentResult | null>(
-    null,
-  )
-  const [previewLoading, setPreviewLoading] = useState(false)
-  const [previewError, setPreviewError] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const payments = data?.payments ?? []
+  const sendTargets = data?.sendTargets ?? []
   const invoiceCurrency = invoiceCurrencyLabel(data?.network)
 
   useEffect(() => {
     if (initialAction === "create-invoice") {
       setCreateDialogOpen(true)
     }
+    if (initialAction === "send") {
+      window.requestAnimationFrame(() => {
+        document.getElementById("send-payment-panel")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        })
+      })
+    }
   }, [initialAction])
-
-  useEffect(() => {
-    const trimmed = invoice.trim()
-    if (!trimmed || !running || !available) {
-      setRoutePreview(null)
-      setPreviewError(null)
-      setPreviewLoading(false)
-      return
-    }
-
-    setPreviewLoading(true)
-    setPreviewError(null)
-
-    const timeout = window.setTimeout(() => {
-      void previewSendPayment({ invoice: trimmed })
-        .then((preview) => {
-          setRoutePreview(preview)
-          setPreviewError(null)
-        })
-        .catch((err) => {
-          setRoutePreview(null)
-          setPreviewError(err instanceof Error ? err.message : String(err))
-        })
-        .finally(() => {
-          setPreviewLoading(false)
-        })
-    }, PREVIEW_DEBOUNCE_MS)
-
-    return () => {
-      window.clearTimeout(timeout)
-    }
-  }, [available, invoice, previewSendPayment, running])
 
   const inChannelBalance = available
     ? data?.inChannelBalanceCkb.toFixed(2) ?? "0"
@@ -141,26 +110,14 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     if (!available) return "Start node to view balance"
     if (data?.onChainWalletError) return data.onChainWalletError
     if (data?.lockScript) {
-      return `${truncateLockScriptArgs(data.lockScript.args)} · from ckb/key`
+      return `${truncateLockScriptArgs(data.lockScript.args)} · L1 funding wallet (not Fiber spendable)`
     }
-    return "On-chain CKB wallet"
+    return "On-chain CKB for channel funding — not spendable via Fiber invoices"
   }, [available, data?.lockScript, data?.onChainWalletError])
 
-  const canReviewPayment =
-    invoice.trim().length > 0 &&
-    !previewLoading &&
-    routePreview !== null &&
-    previewError === null
-
-  const handleReviewPayment = useCallback(() => {
-    if (!canReviewPayment) return
-    clearActionError()
-    setSendDialogOpen(true)
-  }, [canReviewPayment, clearActionError])
-
-  const handleSendPayment = useCallback(
-    async (invoiceString: string) => sendPayment({ invoice: invoiceString }),
-    [sendPayment],
+  const handleParseInvoicePreview = useCallback(
+    (invoice: string) => parseInvoicePreview({ invoice }),
+    [parseInvoicePreview],
   )
 
   const handleGetPayment = useCallback(
@@ -181,25 +138,22 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         <div>
           <Heading level={1}>Wallet</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send and receive CKB off-chain via {invoiceCurrency} invoices on the
-            Fiber network.
+            Send CKB off-chain via invoice or keysend, and receive via{" "}
+            {invoiceCurrency} invoices on the Fiber network.
           </Text>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button outline onClick={() => setCreateDialogOpen(true)} disabled={!running}>
-            Create invoice
-          </Button>
-          <Button
-            plain
-            onClick={() => void refresh()}
-            disabled={!running || isRefreshing}
-            aria-label="Refresh wallet"
-          >
-            <RefreshCw
-              className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
-            />
-          </Button>
-        </div>
+        <Button
+          outline
+          onClick={() => void refresh()}
+          disabled={!running || isRefreshing}
+          aria-label="Refresh wallet"
+        >
+          <RefreshCw
+            className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
+            data-slot="icon"
+          />
+          Refresh
+        </Button>
       </div>
 
       {error ? (
@@ -220,7 +174,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           }
         />
         <StatCard
-          label="On-chain (CKB wallet)"
+          label="On-chain (funding wallet)"
           value={isLoading && running ? "…" : onChainWallet}
           unit={
             available &&
@@ -261,8 +215,6 @@ export function WalletPage({ initialAction }: WalletPageProps) {
             <HomeEmptyState
               title="No invoices yet"
               description={`Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`}
-              actionLabel="Create invoice"
-              onAction={() => setCreateDialogOpen(true)}
             />
           ) : (
             <Table dense>
@@ -290,7 +242,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
                     <TableCell>
                       <Badge color={invoiceStatusTone(item.status)}>
                         <StatusDot tone={invoiceStatusDotTone(item.status)} />
-                        {item.status}
+                        {invoiceStatusDisplayLabel(item.status)}
                       </Badge>
                     </TableCell>
                     <TableCell className="tabular-nums text-zinc-600 dark:text-zinc-400">
@@ -303,68 +255,34 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           )}
         </section>
 
-        <div className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
-          <Subheading level={3}>Send payment</Subheading>
-          <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            Paste a {invoiceCurrency} invoice to pay off-chain via Fiber
-          </Text>
-
-          <FieldGroup className="mt-4">
-            <Field>
-              <Label>Invoice string</Label>
-              <Input
-                type="text"
-                placeholder="fibt1000000001p…"
-                className="font-mono text-xs"
-                value={invoice}
-                onChange={(event) => setInvoice(event.target.value)}
-                disabled={!running}
-              />
-              <Description>
-                Bech32m invoice ({invoiceCurrency} on{" "}
-                {data?.network === "mainnet" ? "mainnet" : "testnet"})
-              </Description>
-            </Field>
-          </FieldGroup>
-
-          <div className="mt-4">
-            <PaymentRoutePreview
-              preview={routePreview}
-              isLoading={previewLoading}
-              error={previewError}
-              compact
-            />
-          </div>
-
-          <Button
-            className="mt-4 w-full"
-            onClick={handleReviewPayment}
-            disabled={!running || !canReviewPayment}
-          >
-            Review payment
-          </Button>
-        </div>
+        <SendPaymentPanel
+          running={running}
+          available={available}
+          network={data?.network ?? null}
+          sendTargets={sendTargets}
+          isActing={isActing}
+          actionError={actionError}
+          onParseInvoicePreview={handleParseInvoicePreview}
+          onPreviewSendPayment={previewSendPayment}
+          onPreviewKeysendPayment={previewKeysendPayment}
+          onSendPayment={sendPayment}
+          onSendKeysendPayment={sendKeysendPayment}
+          onGetPayment={handleGetPayment}
+          onPaymentSettled={refresh}
+          onClearError={clearActionError}
+        />
       </div>
 
       <SentPaymentsSection payments={payments} available={available} />
 
-      <section className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
-        <Subheading level={3}>Your node pubkey</Subheading>
-        <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Node identity from node_info — used when opening channels or receiving
-          payments
+      {available && data?.pubkey ? (
+        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+          Node pubkey{" "}
+          <code className="font-mono">{truncatePubkey(data.pubkey)}</code>
+          {" · "}
+          <CopyButton value={data.pubkey} label="Copy" />
         </Text>
-        <div className="mt-3 flex flex-wrap items-center gap-3">
-          <code className="rounded-md bg-zinc-100 px-3 py-2 font-mono text-sm text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-            {available && data?.pubkey
-              ? truncatePubkey(data.pubkey)
-              : "—"}
-          </code>
-          {available && data?.pubkey ? (
-            <CopyButton value={data.pubkey} label="Copy pubkey" />
-          ) : null}
-        </div>
-      </section>
+      ) : null}
 
       <CreateInvoiceDialog
         open={createDialogOpen}
@@ -383,19 +301,6 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         isActing={isActing}
         actionError={actionError}
         onCancelInvoice={handleCancelInvoice}
-        onClearError={clearActionError}
-      />
-
-      <SendPaymentDialog
-        open={sendDialogOpen}
-        onClose={() => setSendDialogOpen(false)}
-        invoice={invoice.trim()}
-        preview={routePreview}
-        isActing={isActing}
-        actionError={actionError}
-        onSendPayment={handleSendPayment}
-        onGetPayment={handleGetPayment}
-        onPaymentSettled={refresh}
         onClearError={clearActionError}
       />
     </div>

@@ -149,6 +149,40 @@ export function invoiceStatusTone(status: string): InvoiceBadgeColor {
   }
 }
 
+export function invoiceStatusDisplayLabel(status: string): string {
+  switch (status) {
+    case "Open":
+      return "Awaiting payment"
+    case "Received":
+      return "Payment incoming"
+    case "Paid":
+      return "Paid"
+    case "Expired":
+      return "Expired"
+    case "Cancelled":
+      return "Cancelled"
+    default:
+      return status
+  }
+}
+
+export function invoiceStatusDescription(status: string): string | null {
+  switch (status) {
+    case "Open":
+      return "Share the invoice string with the payer."
+    case "Received":
+      return "A payer started this payment — settlement may still be in progress."
+    case "Paid":
+      return "Payment settled on the Fiber network."
+    case "Expired":
+      return "This invoice expired before payment."
+    case "Cancelled":
+      return "This invoice was cancelled and can no longer be paid."
+    default:
+      return null
+  }
+}
+
 export function truncateLockScriptArgs(args: string): string {
   const trimmed = args.startsWith("0x") ? args.slice(2) : args
   if (trimmed.length <= 12) return `0x${trimmed}`
