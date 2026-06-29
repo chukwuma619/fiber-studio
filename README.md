@@ -19,13 +19,13 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **Guided setup wizard** — choose mainnet or testnet, connect via official relays or a custom peer, pick a data directory, import a CKB key file, and set a wallet password
 - **Node lifecycle** — start and stop `fnn`, view recent logs, and stop the node when the app exits
 - **Home dashboard** — local balance, channel and peer counts, relay connectivity, channel liquidity, and recent activity
+- **Wallet** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
+- **Channels** — open, list, monitor, and close channels; on-chain funding wallet balance
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
 - **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
 
 ### Planned
 
-- **Wallet** — send and receive payments, human-readable amounts, invoice QR codes
-- **Channels** — open, list, and monitor channels
 - **Network** — peer management and network visibility
 - **Settings** — node and wallet preferences beyond updates
 

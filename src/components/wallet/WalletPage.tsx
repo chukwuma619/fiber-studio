@@ -21,7 +21,7 @@ import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
 import { Heading, Subheading } from "../ui/heading"
-import { Text } from "../ui/text"
+import { Text, TextLink } from "../ui/text"
 import {
   Table,
   TableBody,
@@ -32,7 +32,6 @@ import {
 } from "../ui/table"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
-import { IncomingPaymentsSection } from "./IncomingPaymentsSection"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
@@ -229,7 +228,8 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           {receivedInvoiceCount === 1
             ? "1 invoice has an incoming payment settling."
             : `${receivedInvoiceCount} invoices have incoming payments settling.`}{" "}
-          Check Incoming payments below — status updates every few seconds.
+          Highlighted rows in the invoice table below — status updates every few
+          seconds.
         </div>
       ) : null}
 
@@ -262,9 +262,9 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
           <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
             <div>
-              <Subheading level={3}>Invoices</Subheading>
+              <Subheading level={3}>Receive & invoices</Subheading>
               <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-                Invoices you created — click a row for details
+                Invoices you create to receive CKB over Fiber.
               </Text>
             </div>
             <div className="flex gap-2">
@@ -352,7 +352,11 @@ export function WalletPage({ initialAction }: WalletPageProps) {
                 {filteredInvoices.map((item) => (
                   <TableRow
                     key={item.paymentHash}
-                    className="cursor-pointer"
+                    className={`cursor-pointer ${
+                      item.status === "Received"
+                        ? "bg-amber-50/80 hover:bg-amber-100/80 dark:bg-amber-950/25 dark:hover:bg-amber-950/40"
+                        : ""
+                    }`}
                     onClick={() => setSelectedInvoice(item)}
                   >
                     <TableCell className="tabular-nums font-medium">
@@ -381,6 +385,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           running={running}
           available={available}
           network={data?.network ?? null}
+          relayStatus={data?.relayStatus ?? "not_configured"}
           sendTargets={sendTargets}
           isActing={isActing}
           actionError={actionError}
@@ -394,12 +399,6 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           onClearError={clearActionError}
         />
       </div>
-
-      <IncomingPaymentsSection
-        invoices={invoices}
-        available={available}
-        onSelectInvoice={setSelectedInvoice}
-      />
 
       <SentPaymentsSection
         payments={payments}

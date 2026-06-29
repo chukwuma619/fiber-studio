@@ -238,6 +238,27 @@ export function filterInvoices<T extends { status: string }>(
   }
 }
 
+export function sortInvoicesForDisplay<T extends { status: string }>(
+  invoices: T[],
+): T[] {
+  const priority = (status: string) => {
+    switch (status) {
+      case "Received":
+        return 0
+      case "Open":
+        return 1
+      case "Paid":
+        return 2
+      default:
+        return 3
+    }
+  }
+
+  return [...invoices].sort(
+    (left, right) => priority(left.status) - priority(right.status),
+  )
+}
+
 export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
   if (hops.length === 0) return "—"
   const truncated = hops.map((pubkey) =>

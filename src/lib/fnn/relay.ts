@@ -67,6 +67,25 @@ export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
   }
 }
 
+export function relaySendPaymentWarning(
+  status: RelayConnectionStatus,
+): string | null {
+  switch (status) {
+    case "connected":
+      return null
+    case "connecting":
+      return "Relay is still connecting — route preview may fail until the connection is ready."
+    case "failed":
+      return "Relay connection failed — payments may not route until your node reconnects. Try refreshing or restarting the node."
+    case "not_configured":
+      return "No relay configured — multi-hop payments may fail unless you pay a direct channel peer."
+    default: {
+      const exhaustive: never = status
+      return exhaustive
+    }
+  }
+}
+
 export function formatRelayStatus(
   dashboard: HomeDashboardResponse | null,
   config: SetupConfig | null,

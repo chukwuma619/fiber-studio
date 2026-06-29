@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { invoiceCurrencyLabel } from "../../lib/fnn/format"
+import { relaySendPaymentWarning } from "../../lib/fnn/relay"
 import type {
   KeysendPaymentPayload,
   ParseInvoicePreview,
   PreviewSendPaymentResult,
+  RelayConnectionStatus,
   SendPaymentMode,
   SendPaymentPayload,
   SendPaymentResult,
@@ -26,6 +28,7 @@ type SendPaymentPanelProps = {
   running: boolean
   available: boolean
   network: string | null
+  relayStatus: RelayConnectionStatus
   sendTargets: WalletSendTarget[]
   isActing: boolean
   actionError: string | null
@@ -49,6 +52,7 @@ export function SendPaymentPanel({
   running,
   available,
   network,
+  relayStatus,
   sendTargets,
   isActing,
   actionError,
@@ -81,6 +85,7 @@ export function SendPaymentPanel({
   const [previewError, setPreviewError] = useState<string | null>(null)
 
   const invoiceCurrency = invoiceCurrencyLabel(network)
+  const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
 
   useEffect(() => {
     if (sendTargets.length > 0 && !targetPubkey) {
@@ -245,6 +250,12 @@ export function SendPaymentPanel({
         <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           Pay by invoice or push CKB to a known node pubkey (keysend)
         </Text>
+
+        {relayWarning ? (
+          <Text className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            {relayWarning}
+          </Text>
+        ) : null}
 
         <div className="mt-4 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
           <button
