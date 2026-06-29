@@ -397,6 +397,7 @@ pub async fn new_invoice(
         "currency": currency,
         "expiry": format!("0x{expiry_seconds:x}"),
         "hash_algorithm": "sha256",
+        "allow_mpp": true,
     });
 
     if let Some(desc) = description.filter(|value| !value.trim().is_empty()) {
