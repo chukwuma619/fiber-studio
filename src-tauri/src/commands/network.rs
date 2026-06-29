@@ -54,7 +54,6 @@ pub struct NetworkPageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_chain_wallet_error: Option<String>,
     pub min_funding_ckb: u64,
-    pub saved_peers_open_for_channel: Vec<NetworkSavedPeerEntry>,
 }
 
 #[derive(Debug, Serialize)]
@@ -166,7 +165,6 @@ fn network_page_unavailable() -> NetworkPageResponse {
         on_chain_wallet_ckb: None,
         on_chain_wallet_error: None,
         min_funding_ckb: channel::CHANNEL_OPEN_MIN_FUNDING_CKB,
-        saved_peers_open_for_channel: Vec::new(),
     }
 }
 
@@ -275,12 +273,6 @@ pub async fn get_network_page(
         .filter(|entry| entry.connected)
         .count() as u32;
 
-    let saved_peers_open_for_channel = saved_peer_entries
-        .iter()
-        .filter(|entry| !entry.has_active_or_pending_channel)
-        .cloned()
-        .collect();
-
     let min_funding_ckb =
         min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
 
@@ -366,7 +358,6 @@ pub async fn get_network_page(
         on_chain_wallet_ckb,
         on_chain_wallet_error,
         min_funding_ckb,
-        saved_peers_open_for_channel,
     })
 }
 

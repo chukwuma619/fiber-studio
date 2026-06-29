@@ -84,10 +84,16 @@ function openButtonLabel(
   return "Opening channel…"
 }
 
-function firstOpenablePeer(savedPeers: SavedPeerEntry[]): string {
-  return (
-    savedPeers.find((peer) => !peer.hasActiveOrPendingChannel)?.pubkey ?? ""
-  )
+function peerChannelLabel(peer: SavedPeerEntry): string {
+  if (peer.channelCount === 0) {
+    return peer.connected ? "" : " (not connected)"
+  }
+  const channelLabel =
+    peer.channelCount === 1 ? "1 channel" : `${peer.channelCount} channels`
+  if (peer.connected) {
+    return ` (${channelLabel})`
+  }
+  return ` (${channelLabel}, not connected)`
 }
 
 export function OpenChannelDialog({
@@ -112,11 +118,6 @@ export function OpenChannelDialog({
     [savedPeers, selectedPubkey],
   )
 
-  const openablePeers = useMemo(
-    () => savedPeers.filter((peer) => !peer.hasActiveOrPendingChannel),
-    [savedPeers],
-  )
-
   const parsedCapacity = useMemo(() => {
     const trimmed = capacity.trim()
     if (!trimmed) return null
@@ -138,17 +139,13 @@ export function OpenChannelDialog({
 
   const walletBalanceUnavailable = onChainWalletError !== null
   const noSavedPeers = savedPeers.length === 0
-  const noOpenablePeers = openablePeers.length === 0
-  const selectedHasChannel = selectedPeer?.hasActiveOrPendingChannel ?? false
   const peerNotConnected = selectedPeer ? !selectedPeer.connected : true
 
   const submitDisabled =
     isActing ||
     !selectedPubkey ||
-    selectedHasChannel ||
     peerNotConnected ||
     noSavedPeers ||
-    noOpenablePeers ||
     walletBalanceUnavailable ||
     belowMinimum === true ||
     insufficientWalletBalance === true
@@ -158,7 +155,7 @@ export function OpenChannelDialog({
 
     setValidationError(null)
     onClearError()
-    const defaultPeer = firstOpenablePeer(savedPeers)
+    const defaultPeer = savedPeers[0]?.pubkey ?? ""
     setSelectedPubkey(defaultPeer)
     setCapacity(defaultPeer ? String(minFundingCkb) : "")
   }, [minFundingCkb, onClearError, open, savedPeers])
@@ -166,13 +163,6 @@ export function OpenChannelDialog({
   async function handleSubmit() {
     if (!selectedPubkey) {
       setValidationError("Select a saved peer to open a channel with.")
-      return
-    }
-
-    if (selectedHasChannel) {
-      setValidationError(
-        "This saved peer already has an active or opening channel.",
-      )
       return
     }
 
@@ -222,9 +212,7 @@ export function OpenChannelDialog({
       <DialogDescription>
         {noSavedPeers
           ? "Add at least one saved peer on the Network page before opening a channel."
-          : noOpenablePeers
-            ? "Every saved peer already has an active or opening channel. Add another saved peer on the Network page to open a new one."
-            : "Open a public channel with one of your saved peers."}
+          : "Open a public channel with one of your saved peers. You can open multiple channels with the same peer."}
       </DialogDescription>
 
       <DialogBody>
@@ -242,17 +230,9 @@ export function OpenChannelDialog({
                 disabled={isActing}
               >
                 {savedPeers.map((peer) => (
-                  <option
-                    key={peer.pubkey}
-                    value={peer.pubkey}
-                    disabled={peer.hasActiveOrPendingChannel}
-                  >
+                  <option key={peer.pubkey} value={peer.pubkey}>
                     {truncatePubkey(peer.pubkey)}
-                    {peer.hasActiveOrPendingChannel
-                      ? " (channel exists)"
-                      : peer.connected
-                        ? ""
-                        : " (not connected)"}
+                    {peerChannelLabel(peer)}
                   </option>
                 ))}
               </Select>
@@ -269,8 +249,8 @@ export function OpenChannelDialog({
               </div>
             ) : null}
             <Description>
-              All saved peers are listed. Peers that already have a channel are
-              disabled.
+              All saved peers are listed. Multiple channels can share the same
+              peer connection.
             </Description>
           </Field>
 
@@ -287,8 +267,12 @@ export function OpenChannelDialog({
                     ? "Connected"
                     : formatRelayStatusLabel(relayStatus)}
                 </Badge>
-                {selectedPeer.hasActiveOrPendingChannel ? (
-                  <Badge color="zinc">Channel exists</Badge>
+                {selectedPeer.channelCount > 0 ? (
+                  <Badge color="blue">
+                    {selectedPeer.channelCount === 1
+                      ? "1 channel"
+                      : `${selectedPeer.channelCount} channels`}
+                  </Badge>
                 ) : null}
               </div>
             </Field>
@@ -301,7 +285,7 @@ export function OpenChannelDialog({
               onChange={(event) => setCapacity(event.target.value)}
               inputMode="numeric"
               placeholder={String(minFundingCkb)}
-              disabled={!selectedPubkey || noOpenablePeers}
+              disabled={!selectedPubkey}
             />
             <Description>
               Minimum {minFundingCkb} CKB to open a channel.
@@ -309,13 +293,7 @@ export function OpenChannelDialog({
           </Field>
         </FieldGroup>
 
-        {selectedHasChannel ? (
-          <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
-            This peer already has a channel. Pick another saved peer or add one
-            on the Network page.
-          </Text>
-        ) : null}
-        {peerNotConnected && selectedPubkey && !selectedHasChannel ? (
+        {peerNotConnected && selectedPubkey ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
             {relayStatus === "connecting"
               ? "Saved peer connection is still in progress. Wait until the peer shows as connected."

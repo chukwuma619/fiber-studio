@@ -15,7 +15,6 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   network: null,
   defaultFundingLockScript: null,
   savedPeers: [],
-  savedPeersOpenForChannel: [],
   relayStatus: "not_configured",
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
 }

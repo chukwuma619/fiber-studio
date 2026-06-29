@@ -84,7 +84,6 @@ export type ChannelsPageResponse = {
   network: string | null
   defaultFundingLockScript: CkbScript | null
   savedPeers: SavedPeerEntry[]
-  savedPeersOpenForChannel: SavedPeerEntry[]
   relayStatus: RelayConnectionStatus
   minFundingCkb: number
 }
@@ -306,7 +305,6 @@ export type NetworkPageResponse = {
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
   minFundingCkb: number
-  savedPeersOpenForChannel: SavedPeerEntry[]
 }
 
 export type ConnectPeerPayload = {

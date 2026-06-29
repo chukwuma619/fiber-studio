@@ -64,8 +64,12 @@ export function SavedPeersSection({
                   <Badge color={peer.connected ? "green" : "zinc"}>
                     {peer.connected ? "Connected" : "Not connected"}
                   </Badge>
-                  {peer.hasActiveOrPendingChannel ? (
-                    <Badge color="blue">Channel open</Badge>
+                  {peer.channelCount > 0 ? (
+                    <Badge color="blue">
+                      {peer.channelCount === 1
+                        ? "1 channel"
+                        : `${peer.channelCount} channels`}
+                    </Badge>
                   ) : null}
                 </div>
 

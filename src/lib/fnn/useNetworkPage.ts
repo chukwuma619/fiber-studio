@@ -19,7 +19,6 @@ const EMPTY_RESPONSE: NetworkPageResponse = {
   onChainWalletCkb: null,
   onChainWalletError: null,
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
-  savedPeersOpenForChannel: [],
 }
 
 const CONNECTING_POLL_INTERVAL_MS = 3_000

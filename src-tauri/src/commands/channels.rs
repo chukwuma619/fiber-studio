@@ -37,7 +37,6 @@ pub struct ChannelsPageResponse {
     pub network: Option<String>,
     pub default_funding_lock_script: Option<CkbScript>,
     pub saved_peers: Vec<ChannelsSavedPeerEntry>,
-    pub saved_peers_open_for_channel: Vec<ChannelsSavedPeerEntry>,
     pub relay_status: String,
     pub min_funding_ckb: u64,
 }
@@ -130,7 +129,6 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         network: None,
         default_funding_lock_script: None,
         saved_peers: Vec::new(),
-        saved_peers_open_for_channel: Vec::new(),
         relay_status: "not_configured".to_string(),
         min_funding_ckb: channel::CHANNEL_OPEN_MIN_FUNDING_CKB,
     }
@@ -223,12 +221,6 @@ pub async fn get_channels_page(
         .map(|peer| build_channels_saved_peer_entry(peer, &peers, &channels))
         .collect();
 
-    let saved_peers_open_for_channel = saved_peer_entries
-        .iter()
-        .filter(|entry| !entry.has_active_or_pending_channel)
-        .cloned()
-        .collect();
-
     let (on_chain_wallet_ckb, on_chain_wallet_error) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
             Some(network) => match fetch_wallet_balance_for_network(network).await {
@@ -250,7 +242,6 @@ pub async fn get_channels_page(
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
         default_funding_lock_script: Some(node_info.default_funding_lock_script),
         saved_peers: saved_peer_entries,
-        saved_peers_open_for_channel,
         relay_status,
         min_funding_ckb,
     })
@@ -295,15 +286,6 @@ pub async fn open_channel(
         return Err(format!(
             "Channel capacity must be at least {min_funding_ckb} CKB.",
         ));
-    }
-
-    let channels = rpc::fetch_list_channels()
-        .await
-        .map_err(|error| error.to_string())?;
-    if has_active_or_pending_channel_to_peer(&channels, pubkey) {
-        return Err(
-            "A channel to this peer is already active or opening. Wait for it to finish or close it first.".to_string(),
-        );
     }
 
     let saved_multiaddr = studio_metadata
