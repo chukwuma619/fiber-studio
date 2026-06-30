@@ -15,7 +15,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
   useEffect(() => {
     if (!config?.network) return
     void migrateLegacyDataDirectory(config.network).catch(() => {
-      // Best-effort migration for legacy ~/Library/fiber-studio installs.
+      // Best-effort: copy legacy ~/Library/fiber-studio → network folder, then remove legacy.
     })
   }, [config?.network])
 

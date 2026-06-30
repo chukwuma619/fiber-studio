@@ -389,8 +389,24 @@ pub async fn migrate_legacy_data_directory(
 
     if let Ok(mut studio_metadata) = studio::read_studio_metadata(&canonical) {
         studio_metadata.data_directory = canonical.display().to_string();
-        studio_metadata.network = network;
+        studio_metadata.network = network.clone();
         let _ = studio::write_studio_metadata(&canonical, &studio_metadata);
+    }
+
+    if !data_directory::network_data_directory_is_provisioned(&canonical) {
+        return Err(
+            "Migration copy completed but the new data directory is not provisioned.".into(),
+        );
+    }
+
+    if legacy != canonical && legacy.exists() {
+        fs::remove_dir_all(&legacy).map_err(|error| {
+            format!(
+                "Migrated data to {} but failed to remove legacy directory {}: {error}",
+                canonical.display(),
+                legacy.display()
+            )
+        })?;
     }
 
     Ok(canonical.display().to_string())
