@@ -164,6 +164,11 @@ async fn build_node_settings(
             .unwrap_or_else(|| FNN_VERSION.to_string())
     });
 
+    let data_provisioned = data_dir
+        .as_ref()
+        .map(|path| data_directory::network_data_directory_is_provisioned(path))
+        .unwrap_or(false);
+
     Ok(NodeSettingsResponse {
         network,
         data_directory: data_dir
@@ -195,7 +200,7 @@ async fn build_node_settings(
         fnn_version,
         node_pub_key,
         ckb_wallet_address,
-        wallet_password_stored: keychain::has_wallet_password(),
+        wallet_password_stored: data_provisioned,
         node_status,
         relay_status,
         setup_completed_at: studio_metadata
