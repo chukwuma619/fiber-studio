@@ -1,6 +1,6 @@
 import { CopyButton } from "../ui/copy-button"
 import { Text } from "../ui/text"
-import { InvoiceQrCode } from "./InvoiceQrCode"
+import { InvoiceQrCodeLazy } from "./InvoiceQrCodeLazy"
 
 type InvoiceSharePanelProps = {
   invoiceAddress: string
@@ -24,7 +24,7 @@ export function InvoiceSharePanel({
         {subtitle}
       </Text>
       <div className="mt-4 flex justify-center">
-        <InvoiceQrCode value={invoiceAddress} />
+        <InvoiceQrCodeLazy value={invoiceAddress} />
       </div>
       <div className="mt-4 flex min-w-0 items-center gap-2">
         <code

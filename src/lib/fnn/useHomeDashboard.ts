@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { getHomeDashboard } from "./invoke"
+import {
+  getPageCache,
+  invalidatePageCaches,
+  PAGE_CACHE_KEYS,
+  setPageCache,
+} from "./pageCache"
 import { usePollInFlight } from "./usePollInFlight"
 import type { HomeDashboardResponse } from "./types"
 
@@ -45,8 +51,12 @@ export function useHomeDashboard(
   running: boolean,
   pollIntervalMs = DEFAULT_POLL_INTERVAL_MS,
 ) {
-  const [dashboard, setDashboard] = useState<HomeDashboardResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [dashboard, setDashboard] = useState<HomeDashboardResponse | null>(() =>
+    getPageCache<HomeDashboardResponse>(PAGE_CACHE_KEYS.home),
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => getPageCache<HomeDashboardResponse>(PAGE_CACHE_KEYS.home) === null,
+  )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const runIfIdle = usePollInFlight()
@@ -58,6 +68,7 @@ export function useHomeDashboard(
   const refresh = useCallback(
     async (manual = false) => {
       if (!running) {
+        invalidatePageCaches()
         setDashboard(EMPTY_RESPONSE)
         setError(null)
         setIsLoading(false)
@@ -66,6 +77,9 @@ export function useHomeDashboard(
       }
 
       if (manual) {
+        invalidatePageCaches(PAGE_CACHE_KEYS.home)
+        setIsRefreshing(true)
+      } else if (getPageCache<HomeDashboardResponse>(PAGE_CACHE_KEYS.home)) {
         setIsRefreshing(true)
       }
 
@@ -73,6 +87,7 @@ export function useHomeDashboard(
         async () => {
           try {
             const data = await getHomeDashboard()
+            setPageCache(PAGE_CACHE_KEYS.home, data)
             setDashboard(data)
             setError(null)
           } catch (err) {
@@ -96,7 +111,13 @@ export function useHomeDashboard(
   )
 
   useEffect(() => {
-    setIsLoading(true)
+    const cached = getPageCache<HomeDashboardResponse>(PAGE_CACHE_KEYS.home)
+    if (cached) {
+      setDashboard(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     void refresh()
   }, [refresh])
 

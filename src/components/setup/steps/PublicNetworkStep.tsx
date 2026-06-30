@@ -29,7 +29,7 @@ export function PublicNetworkStep({
     <div className="space-y-5">
       {!hideHeading ? (
         <div>
-          <Heading level={2}>Connect to public network</Heading>
+          <Heading level={2} tabIndex={-1}>Connect to public network</Heading>
           <Text className="mt-1">
             Pick a public relay or enter a peer pubkey. Fiber Studio connects
             outbound on start — no public IP or VPS required.

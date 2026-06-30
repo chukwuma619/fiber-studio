@@ -3,6 +3,7 @@ import { formatCkb } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 import { ChannelLiquiditySection } from "./ChannelLiquiditySection"
 import { NodeStatusPanel } from "./NodeStatusPanel"
@@ -24,11 +25,17 @@ export function HomePage() {
     isLoading: isNodeLoading,
     running,
   } = useNodeControlContext()
-  const { dashboard, isLoading: isDashboardLoading, error } = useHomeDashboard(running)
+  const {
+    dashboard,
+    isLoading: isDashboardLoading,
+    error,
+    refresh,
+  } = useHomeDashboard(running)
 
   const available = dashboard?.available ?? false
   const nodeInfo = dashboard?.nodeInfo
-  const isLoading = isNodeLoading || (running && isDashboardLoading)
+  const isDashboardInitialLoad = running && isDashboardLoading && dashboard === null
+  const isLoading = isNodeLoading || isDashboardInitialLoad
 
   const activeChannelCount = dashboard?.activeChannelCount ?? 0
   const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
@@ -69,9 +76,10 @@ export function HomePage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-          Failed to load dashboard: {error}
-        </div>
+        <PageErrorBanner
+          message={`Failed to load dashboard: ${error}`}
+          onRetry={() => void refresh()}
+        />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -106,11 +114,12 @@ export function HomePage() {
         <ChannelLiquiditySection
           channels={dashboard?.channels ?? []}
           available={available}
+          isLoading={isDashboardInitialLoad}
         />
         <NodeStatusPanel
           dashboard={dashboard}
           status={status}
-          isLoading={isNodeLoading}
+          isLoading={isNodeLoading || isDashboardInitialLoad}
           dataDirectory={nodeStatus?.dataDirectory ?? config?.dataDirectory ?? null}
           config={config}
         />
@@ -120,6 +129,7 @@ export function HomePage() {
         payments={dashboard?.payments ?? []}
         incomingInvoices={dashboard?.incomingInvoices ?? []}
         available={available}
+        isLoading={isDashboardInitialLoad}
       />
     </div>
   )

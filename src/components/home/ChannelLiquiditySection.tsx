@@ -19,11 +19,13 @@ import {
 } from "../../lib/fnn/format"
 import type { HomeChannel } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
+import { TableRowsSkeleton } from "../ui/skeleton"
 import { HomeEmptyState } from "./HomeEmptyState"
 
 type ChannelLiquiditySectionProps = {
   channels: HomeChannel[]
   available: boolean
+  isLoading?: boolean
 }
 
 function channelBadgeColor(state: string, localPercent: number) {
@@ -33,6 +35,7 @@ function channelBadgeColor(state: string, localPercent: number) {
 export function ChannelLiquiditySection({
   channels,
   available,
+  isLoading = false,
 }: ChannelLiquiditySectionProps) {
   return (
     <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
@@ -43,7 +46,22 @@ export function ChannelLiquiditySection({
         </Button>
       </div>
 
-      {!available ? (
+      {isLoading ? (
+        <Table dense>
+          <TableHead>
+            <TableRow>
+              <TableHeader className="w-10">S/N</TableHeader>
+              <TableHeader>Peer</TableHeader>
+              <TableHeader>Capacity</TableHeader>
+              <TableHeader>Liquidity</TableHeader>
+              <TableHeader>Status</TableHeader>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            <TableRowsSkeleton rows={3} cols={5} />
+          </TableBody>
+        </Table>
+      ) : !available ? (
         <HomeEmptyState
           title="Node not running"
           description="Start your node to see channel liquidity."

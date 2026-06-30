@@ -4,6 +4,7 @@ import {
   paymentKindLabel,
   paymentRouteBadgeLabel,
   paymentRouteTitle,
+  paymentStatusBadgeColor,
   paymentStatusTone,
 } from "../../lib/fnn/format"
 import type { WalletPaymentItem } from "../../lib/fnn/types"
@@ -30,23 +31,6 @@ type PaymentDetailDialogProps = {
   open: boolean
   payment: WalletPaymentItem | null
   onClose: () => void
-}
-
-function paymentStatusBadgeColor(
-  status: string,
-): "green" | "amber" | "red" | "zinc" | "sky" {
-  switch (status) {
-    case "Success":
-      return "green"
-    case "Failed":
-      return "red"
-    case "Inflight":
-      return "amber"
-    case "Created":
-      return "sky"
-    default:
-      return "zinc"
-  }
 }
 
 export function PaymentDetailDialog({

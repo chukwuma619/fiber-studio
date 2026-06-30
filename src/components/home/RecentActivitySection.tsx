@@ -16,11 +16,13 @@ import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
 import { Text } from "../ui/text"
 import { HomeEmptyState } from "./HomeEmptyState"
+import { ActivityListSkeleton } from "../ui/skeleton"
 
 type RecentActivitySectionProps = {
   payments: HomePayment[]
   incomingInvoices: HomeIncomingInvoice[]
   available: boolean
+  isLoading?: boolean
 }
 
 function paymentDetail(payment: HomePayment): string {
@@ -47,6 +49,7 @@ export function RecentActivitySection({
   payments,
   incomingInvoices,
   available,
+  isLoading = false,
 }: RecentActivitySectionProps) {
   const hasIncoming = incomingInvoices.length > 0
   const hasPayments = payments.length > 0
@@ -61,7 +64,9 @@ export function RecentActivitySection({
         </Text>
       </div>
 
-      {!available ? (
+      {isLoading ? (
+        <ActivityListSkeleton rows={4} />
+      ) : !available ? (
         <HomeEmptyState
           title="No recent activity"
           description="Payment history appears here once your node is running."
@@ -149,7 +154,10 @@ export function RecentActivitySection({
                             </Badge>
                           ) : null}
                         </div>
-                        <time className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400">
+                        <time
+                          className="shrink-0 text-xs text-zinc-500 dark:text-zinc-400"
+                          dateTime={new Date(payment.lastUpdatedAt).toISOString()}
+                        >
                           {formatRelativeTime(payment.lastUpdatedAt)}
                         </time>
                       </div>

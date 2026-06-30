@@ -6,6 +6,7 @@ import {
   parseHexU128,
   paymentKindLabel,
   paymentRouteBadgeLabel,
+  paymentStatusBadgeColor,
   paymentStatusTone,
 } from "../../lib/fnn/format"
 import type { WalletPaymentItem } from "../../lib/fnn/types"
@@ -22,23 +23,6 @@ type SentPaymentsSectionProps = {
   hasMore: boolean
   isLoadingMore: boolean
   onLoadMore: () => void
-}
-
-function paymentStatusBadgeColor(
-  status: string,
-): "green" | "amber" | "red" | "zinc" | "sky" {
-  switch (status) {
-    case "Success":
-      return "green"
-    case "Failed":
-      return "red"
-    case "Inflight":
-      return "amber"
-    case "Created":
-      return "sky"
-    default:
-      return "zinc"
-  }
 }
 
 function paymentSummaryLine(payment: WalletPaymentItem): string {

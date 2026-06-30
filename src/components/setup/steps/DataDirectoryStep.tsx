@@ -23,7 +23,7 @@ export function DataDirectoryStep({
   return (
     <div className="space-y-4">
       <div>
-        <Heading level={2}>Data directory</Heading>
+        <Heading level={2} tabIndex={-1}>Data directory</Heading>
         <Text className="mt-1">
           fnn stores its configuration, database, and CKB key under this folder.
         </Text>

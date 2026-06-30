@@ -49,7 +49,7 @@ export function ReviewStep({
   return (
     <div className="space-y-4">
       <div>
-        <Heading level={2}>Review & start</Heading>
+        <Heading level={2} tabIndex={-1}>Review & start</Heading>
         <Text className="mt-1">
           Check your choices, then start your local node.
         </Text>
@@ -74,7 +74,10 @@ export function ReviewStep({
       </Text>
 
       {startError ? (
-        <div className="rounded-lg bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20 dark:bg-red-500/10 dark:ring-red-500/20">
+        <div
+          role="alert"
+          className="rounded-lg bg-red-500/10 px-4 py-3 ring-1 ring-red-500/20 dark:bg-red-500/10 dark:ring-red-500/20"
+        >
           <Text className="text-sm text-red-700 dark:text-red-300">
             {startError}
           </Text>

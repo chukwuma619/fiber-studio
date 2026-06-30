@@ -35,20 +35,25 @@ export function NetworkStep({ network, onChange }: NetworkStepProps) {
   return (
     <div className="space-y-4">
       <div>
-        <Heading level={2}>Choose a network</Heading>
+        <Heading level={2} tabIndex={-1}>Choose a network</Heading>
         <Text className="mt-1">
           This sets the fnn network your node will join. You can change it later
           in Settings.
         </Text>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div
+        role="radiogroup"
+        aria-label="Fiber network"
+        className="grid gap-3 sm:grid-cols-2"
+      >
         {OPTIONS.map((option) => {
           const selected = network === option.value
           const disabled = option.disabled ?? false
           return (
             <SelectionCard
               key={option.value}
+              role="radio"
               selected={selected}
               disabled={disabled}
               onClick={() => {

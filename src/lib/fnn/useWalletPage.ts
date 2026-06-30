@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { getWalletPage } from "./invoke"
+import {
+  getPageCache,
+  invalidatePageCaches,
+  PAGE_CACHE_KEYS,
+  setPageCache,
+} from "./pageCache"
 import { usePollInFlight } from "./usePollInFlight"
 import type { WalletPageResponse } from "./types"
 
@@ -33,8 +39,12 @@ function hasIncomingInvoices(invoices: WalletPageResponse["invoices"]): boolean 
 }
 
 export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
-  const [data, setData] = useState<WalletPageResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [data, setData] = useState<WalletPageResponse | null>(() =>
+    getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet),
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet) === null,
+  )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const runIfIdle = usePollInFlight()
@@ -55,6 +65,9 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
     }
 
     if (manual) {
+      invalidatePageCaches(PAGE_CACHE_KEYS.wallet, PAGE_CACHE_KEYS.home)
+      setIsRefreshing(true)
+    } else if (getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet)) {
       setIsRefreshing(true)
     }
 
@@ -62,6 +75,7 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
       async () => {
         try {
           const response = await getWalletPage()
+          setPageCache(PAGE_CACHE_KEYS.wallet, response)
           setData(response)
           setError(null)
         } catch (err) {
@@ -83,7 +97,13 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
   }, [runIfIdle, running])
 
   useEffect(() => {
-    setIsLoading(true)
+    const cached = getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet)
+    if (cached) {
+      setData(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     void refresh()
   }, [refresh])
 

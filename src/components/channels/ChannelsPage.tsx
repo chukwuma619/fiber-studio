@@ -8,6 +8,10 @@ import {
   isChannelPending,
   parseHexU128,
 } from "../../lib/fnn/format"
+import {
+  invalidatePageCaches,
+  PAGE_CACHE_KEYS,
+} from "../../lib/fnn/pageCache"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
 import type { HomeChannel } from "../../lib/fnn/types"
@@ -67,7 +71,13 @@ function channelLiquidityCell(channel: HomeChannel) {
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const { running } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
-  const channelActions = useChannelActions(refresh)
+
+  const handleMutationSuccess = useCallback(() => {
+    invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home)
+    void refresh()
+  }, [refresh])
+
+  const channelActions = useChannelActions(handleMutationSuccess)
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)

@@ -46,7 +46,10 @@ export function SetupLayout({
           <p className="mb-4 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             {STEP_TITLES[currentStep]}
           </p>
-          <div className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+          <div
+            className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10"
+            aria-live="polite"
+          >
             {children}
           </div>
         </div>

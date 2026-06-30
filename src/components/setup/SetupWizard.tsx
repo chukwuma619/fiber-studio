@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useState } from "react"
+import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import {
   getDefaultDataDirectoryDisplay,
   resolveDataDirectory,
@@ -16,14 +16,45 @@ import {
   type SetupConfig,
   type SetupStep,
 } from "../../lib/setup/types"
+import { Skeleton } from "../ui/skeleton"
 import { SetupLayout } from "./SetupLayout"
-import { DataDirectoryStep } from "./steps/DataDirectoryStep"
-import { KeyFileStep } from "./steps/KeyFileStep"
-import { NetworkStep } from "./steps/NetworkStep"
-import { PasswordStep } from "./steps/PasswordStep"
-import { PublicNetworkStep } from "./steps/PublicNetworkStep"
-import { ReviewStep } from "./steps/ReviewStep"
-import { WelcomeStep } from "./steps/WelcomeStep"
+
+const WelcomeStep = lazy(() =>
+  import("./steps/WelcomeStep").then((module) => ({ default: module.WelcomeStep })),
+)
+const NetworkStep = lazy(() =>
+  import("./steps/NetworkStep").then((module) => ({ default: module.NetworkStep })),
+)
+const PublicNetworkStep = lazy(() =>
+  import("./steps/PublicNetworkStep").then((module) => ({
+    default: module.PublicNetworkStep,
+  })),
+)
+const DataDirectoryStep = lazy(() =>
+  import("./steps/DataDirectoryStep").then((module) => ({
+    default: module.DataDirectoryStep,
+  })),
+)
+const KeyFileStep = lazy(() =>
+  import("./steps/KeyFileStep").then((module) => ({ default: module.KeyFileStep })),
+)
+const PasswordStep = lazy(() =>
+  import("./steps/PasswordStep").then((module) => ({ default: module.PasswordStep })),
+)
+const ReviewStep = lazy(() =>
+  import("./steps/ReviewStep").then((module) => ({ default: module.ReviewStep })),
+)
+
+function StepSkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden>
+      <Skeleton className="h-7 w-48" />
+      <Skeleton className="h-4 w-full" />
+      <Skeleton className="h-4 w-3/4" />
+      <Skeleton className="mt-6 h-10 w-full" />
+    </div>
+  )
+}
 
 function renderStepContent(
   step: SetupStep,
@@ -95,6 +126,7 @@ function renderStepContent(
 
 export function SetupWizard() {
   const navigate = useNavigate()
+  const stepContentRef = useRef<HTMLDivElement>(null)
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome")
   const [config, setConfig] = useState<SetupConfig>(createDefaultSetupConfig)
   const [isStarting, setIsStarting] = useState(false)
@@ -120,6 +152,17 @@ export function SetupWizard() {
       cancelled = true
     }
   }, [])
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      const heading = stepContentRef.current?.querySelector<HTMLElement>("h2")
+      heading?.focus()
+    })
+
+    return () => {
+      window.cancelAnimationFrame(frame)
+    }
+  }, [currentStep])
 
   const stepIndex = SETUP_STEPS.indexOf(currentStep)
   const isFirstStep = stepIndex === 0
@@ -182,13 +225,17 @@ export function SetupWizard() {
       onNext={goNext}
       onComplete={handleComplete}
     >
-      {renderStepContent(
-        currentStep,
-        config,
-        updateConfig,
-        startError,
-        stepValidationError,
-      )}
+      <div ref={stepContentRef}>
+        <Suspense fallback={<StepSkeleton />}>
+          {renderStepContent(
+            currentStep,
+            config,
+            updateConfig,
+            startError,
+            stepValidationError,
+          )}
+        </Suspense>
+      </div>
     </SetupLayout>
   )
 }

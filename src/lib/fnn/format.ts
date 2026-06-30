@@ -133,6 +133,40 @@ export function paymentActivityTitle(status: string): string {
 
 export type InvoiceBadgeColor = "green" | "amber" | "red" | "zinc"
 
+export type StatusDotTone = "running" | "warning" | "danger" | "info"
+
+export type PaymentBadgeColor = "green" | "amber" | "red" | "zinc" | "sky"
+
+export function invoiceStatusDotTone(status: string): StatusDotTone {
+  switch (status) {
+    case "Open":
+    case "Paid":
+      return "running"
+    case "Received":
+      return "warning"
+    case "Expired":
+    case "Cancelled":
+      return "info"
+    default:
+      return "info"
+  }
+}
+
+export function paymentStatusBadgeColor(status: string): PaymentBadgeColor {
+  switch (status) {
+    case "Success":
+      return "green"
+    case "Failed":
+      return "red"
+    case "Inflight":
+      return "amber"
+    case "Created":
+      return "sky"
+    default:
+      return "zinc"
+  }
+}
+
 export function invoiceStatusTone(status: string): InvoiceBadgeColor {
   switch (status) {
     case "Open":

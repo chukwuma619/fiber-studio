@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { getChannelsPage } from "./invoke"
+import {
+  getPageCache,
+  invalidatePageCaches,
+  PAGE_CACHE_KEYS,
+  setPageCache,
+} from "./pageCache"
 import { usePollInFlight } from "./usePollInFlight"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../public-relays"
 import type { ChannelsPageResponse } from "./types"
@@ -24,8 +30,12 @@ const OPENING_POLL_INTERVAL_MS = 3_000
 const DEFAULT_POLL_INTERVAL_MS = 10_000
 
 export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
-  const [data, setData] = useState<ChannelsPageResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [data, setData] = useState<ChannelsPageResponse | null>(() =>
+    getPageCache<ChannelsPageResponse>(PAGE_CACHE_KEYS.channels),
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => getPageCache<ChannelsPageResponse>(PAGE_CACHE_KEYS.channels) === null,
+  )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const runIfIdle = usePollInFlight()
@@ -45,6 +55,9 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
     }
 
     if (manual) {
+      invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home)
+      setIsRefreshing(true)
+    } else if (getPageCache<ChannelsPageResponse>(PAGE_CACHE_KEYS.channels)) {
       setIsRefreshing(true)
     }
 
@@ -52,6 +65,7 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
       async () => {
         try {
           const response = await getChannelsPage()
+          setPageCache(PAGE_CACHE_KEYS.channels, response)
           setData(response)
           setError(null)
         } catch (err) {
@@ -73,7 +87,13 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
   }, [runIfIdle, running])
 
   useEffect(() => {
-    setIsLoading(true)
+    const cached = getPageCache<ChannelsPageResponse>(PAGE_CACHE_KEYS.channels)
+    if (cached) {
+      setData(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     void refresh()
   }, [refresh])
 

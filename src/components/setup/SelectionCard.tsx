@@ -8,6 +8,7 @@ type SelectionCardProps = {
   description: string
   badge?: ReactNode
   disabled?: boolean
+  role?: "radio" | "button"
 }
 
 export function SelectionCard({
@@ -17,10 +18,13 @@ export function SelectionCard({
   description,
   badge,
   disabled = false,
+  role = "button",
 }: SelectionCardProps) {
   return (
     <button
       type="button"
+      role={role}
+      aria-checked={role === "radio" ? selected : undefined}
       onClick={onClick}
       disabled={disabled}
       className={clsx(

@@ -13,7 +13,7 @@ export function PasswordStep({ password, onChange, error }: PasswordStepProps) {
   return (
     <div className="space-y-4">
       <div>
-        <Heading level={2}>Wallet password</Heading>
+        <Heading level={2} tabIndex={-1}>Wallet password</Heading>
         <Text className="mt-1 leading-relaxed">
           Choose a password to protect your key on this computer. Fiber uses it
           to unlock your wallet when the node starts.

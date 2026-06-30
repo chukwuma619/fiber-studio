@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from "react"
 import { getNetworkPage } from "./invoke"
+import {
+  getPageCache,
+  invalidatePageCaches,
+  PAGE_CACHE_KEYS,
+  setPageCache,
+} from "./pageCache"
 import { usePollInFlight } from "./usePollInFlight"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../public-relays"
 import type { NetworkPageResponse } from "./types"
@@ -26,8 +32,12 @@ const CONNECTING_POLL_INTERVAL_MS = 3_000
 const DEFAULT_POLL_INTERVAL_MS = 10_000
 
 export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
-  const [data, setData] = useState<NetworkPageResponse | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
+  const [data, setData] = useState<NetworkPageResponse | null>(() =>
+    getPageCache<NetworkPageResponse>(PAGE_CACHE_KEYS.network),
+  )
+  const [isLoading, setIsLoading] = useState(
+    () => getPageCache<NetworkPageResponse>(PAGE_CACHE_KEYS.network) === null,
+  )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const runIfIdle = usePollInFlight()
@@ -45,6 +55,9 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
     }
 
     if (manual) {
+      invalidatePageCaches(PAGE_CACHE_KEYS.network)
+      setIsRefreshing(true)
+    } else if (getPageCache<NetworkPageResponse>(PAGE_CACHE_KEYS.network)) {
       setIsRefreshing(true)
     }
 
@@ -52,6 +65,7 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
       async () => {
         try {
           const response = await getNetworkPage()
+          setPageCache(PAGE_CACHE_KEYS.network, response)
           setData(response)
           setError(null)
         } catch (err) {
@@ -73,7 +87,13 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
   }, [runIfIdle, running])
 
   useEffect(() => {
-    setIsLoading(true)
+    const cached = getPageCache<NetworkPageResponse>(PAGE_CACHE_KEYS.network)
+    if (cached) {
+      setData(cached)
+      setIsLoading(false)
+    } else {
+      setIsLoading(true)
+    }
     void refresh()
   }, [refresh])
 

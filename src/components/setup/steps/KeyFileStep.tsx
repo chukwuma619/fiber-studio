@@ -21,7 +21,7 @@ export function KeyFileStep({
   return (
     <div className="space-y-5">
       <div>
-        <Heading level={2}>Add your wallet key</Heading>
+        <Heading level={2} tabIndex={-1}>Add your wallet key</Heading>
         <Text className="mt-1 leading-relaxed">
           Fiber needs your CKB wallet key to open payment channels and move CKB
           on-chain. Your key stays on this computer — it is never uploaded

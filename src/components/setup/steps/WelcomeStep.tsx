@@ -23,7 +23,7 @@ export function WelcomeStep() {
   return (
     <div className="space-y-6">
       <div>
-        <Heading level={2}>Welcome to Fiber Studio</Heading>
+        <Heading level={2} tabIndex={-1}>Welcome to Fiber Studio</Heading>
         <Text className="mt-2 leading-relaxed">
           Fiber Studio is a local-first desktop app for running and managing your
           Fiber Network Node (fnn). Your CKB keys and wallet data stay on this
