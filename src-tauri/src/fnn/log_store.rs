@@ -10,13 +10,13 @@ pub fn log_file_path(data_directory: &Path) -> PathBuf {
     data_directory.join(LOG_FILE_NAME)
 }
 
-pub fn append_line(path: &Path, line: &str) -> io::Result<()> {
-    if line.is_empty() {
-        return Ok(());
-    }
-
-    let mut file = OpenOptions::new().create(true).append(true).open(path)?;
-    writeln!(file, "{line}")?;
+pub fn clear_log_file(path: &Path) -> io::Result<()> {
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(path)?;
+    file.flush()?;
     Ok(())
 }
 

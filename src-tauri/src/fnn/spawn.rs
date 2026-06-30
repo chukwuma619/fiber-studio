@@ -56,7 +56,8 @@ pub fn spawn_with_log_file(
     let sidecar = sidecar_path()?;
     let log_file = OpenOptions::new()
         .create(true)
-        .append(true)
+        .write(true)
+        .truncate(true)
         .open(log_path)
         .map_err(|error| format!("failed to open log file {}: {error}", log_path.display()))?;
     let stderr_file = log_file

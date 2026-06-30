@@ -128,7 +128,7 @@ impl FnnManager {
 
         if rpc::fetch_node_info().await.is_ok() {
             super::process::kill_process_on_port(rpc::FNN_RPC_PORT).map_err(ManagerError::Stop)?;
-            self.append_log("Stopped running fnn process.", true);
+            self.append_log("Stopped running fnn process.");
         }
 
         self.status = NodeRuntimeStatus::Stopped;
@@ -169,7 +169,7 @@ impl FnnManager {
                 if was_stopped {
                     self.restore_logs_from_disk();
                     self.start_log_tail();
-                    self.append_log("Connected to already-running fnn process.", true);
+                    self.append_log("Connected to already-running fnn process.");
                 }
             }
             Err(_) if matches!(self.status, NodeRuntimeStatus::Running { .. }) => {
@@ -186,7 +186,7 @@ impl FnnManager {
             return;
         }
 
-        self.append_log(&format!("fnn exited with code {code:?}"), true);
+        self.append_log(&format!("fnn exited with code {code:?}"));
 
         self.status = match code {
             Some(0) | None => NodeRuntimeStatus::Stopped,
@@ -224,8 +224,8 @@ impl FnnManager {
         let config_path = data_directory.join("config.yml");
         let log_path = log_store::log_file_path(&data_directory);
 
-        self.restore_logs_from_disk();
-        self.append_log("Spawning fnn sidecar…", true);
+        self.clear_session_logs();
+        self.append_log("Spawning fnn sidecar…");
 
         let child = spawn::spawn_with_log_file(&config_path, &data_directory, &log_path, password)
             .map_err(ManagerError::Spawn)?;
@@ -349,18 +349,22 @@ impl FnnManager {
         }
     }
 
-    fn append_log(&self, line: &str, persist: bool) {
-        let log_file = self
-            .data_directory
-            .as_ref()
-            .map(|directory| log_store::log_file_path(directory));
+    fn append_log(&self, line: &str) {
         let mut logs = self.logs.lock().expect("log mutex poisoned");
-        push_log_line(
-            &mut logs,
-            normalize_log_line(line),
-            log_file.as_deref(),
-            persist,
-        );
+        push_log_line(&mut logs, normalize_log_line(line));
+    }
+
+    fn clear_session_logs(&self) {
+        if let Some(data_directory) = &self.data_directory {
+            let path = log_store::log_file_path(data_directory);
+            let _ = log_store::clear_log_file(&path);
+        }
+
+        self.logs.lock().expect("log mutex poisoned").clear();
+        *self
+            .log_file_offset
+            .lock()
+            .expect("log offset mutex poisoned") = 0;
     }
 
     fn restore_logs_from_disk(&self) {
@@ -377,7 +381,7 @@ impl FnnManager {
             let mut buffer = self.logs.lock().expect("log mutex poisoned");
             buffer.clear();
             for line in lines {
-                push_log_line(&mut buffer, line, None, false);
+                push_log_line(&mut buffer, line);
             }
         }
 
@@ -430,7 +434,7 @@ impl FnnManager {
 
                 let mut buffer = logs.lock().expect("log mutex poisoned");
                 for line in new_lines {
-                    push_log_line(&mut buffer, line, None, false);
+                    push_log_line(&mut buffer, line);
                 }
             }
         });
@@ -485,20 +489,9 @@ fn relay_state_from_saved_peers_result(
     }
 }
 
-fn push_log_line(
-    buffer: &mut VecDeque<String>,
-    line: String,
-    log_file: Option<&std::path::Path>,
-    persist: bool,
-) {
+fn push_log_line(buffer: &mut VecDeque<String>, line: String) {
     if line.is_empty() {
         return;
-    }
-
-    if persist {
-        if let Some(path) = log_file {
-            let _ = log_store::append_line(path, &line);
-        }
     }
 
     buffer.push_back(line);
