@@ -356,3 +356,47 @@ export type NetworkGraphResponse = {
   lastCursor: string | null
   hasMore: boolean
 }
+
+export type BackupPathEntry = {
+  relativePath: string
+  description: string
+}
+
+export type NodeSettingsResponse = {
+  network: string | null
+  dataDirectory: string | null
+  configFilePath: string | null
+  keyFilePath: string | null
+  rpcListenAddr: string | null
+  fiberListeningAddr: string | null
+  ckbRpcUrl: string | null
+  announcedNodeName: string | null
+  connectionMode: string
+  publicRelayLabel: string | null
+  publicRelayPubkey: string | null
+  fnnVersion: string
+  nodePubKey: string | null
+  ckbWalletAddress: string | null
+  walletPasswordStored: boolean
+  nodeStatus: NodeStatusState
+  relayStatus: RelayConnectionStatus
+  setupCompletedAt: string | null
+  backupPaths: BackupPathEntry[]
+}
+
+export type UpdateWalletPasswordPayload = {
+  oldPassword: string
+  newPassword: string
+}
+
+export type SwitchNetworkPayload = {
+  network: string
+  newDataDirectory: string
+  customPublicNodePubkey: string
+  customPublicNodeMultiaddr: string
+  copyKeyFromCurrent: boolean
+}
+
+export type MigrateDataDirectoryPayload = {
+  newDataDirectory: string
+}

@@ -19,3 +19,7 @@ pub fn get_wallet_password() -> Result<String, KeychainError> {
     let entry = keyring::Entry::new(SERVICE_NAME, PASSWORD_ACCOUNT)?;
     Ok(entry.get_password()?)
 }
+
+pub fn has_wallet_password() -> bool {
+    get_wallet_password().is_ok()
+}

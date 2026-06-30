@@ -1,7 +1,9 @@
 pub mod amounts;
 pub mod bootnodes;
 pub mod channel;
+pub mod ckb_address;
 pub mod ckb_indexer;
+pub mod config_read;
 pub mod invoices;
 pub mod invoice_display;
 pub mod config;

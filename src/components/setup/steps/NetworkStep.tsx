@@ -1,55 +1,48 @@
+import {
+  NETWORK_OPTIONS,
+  type NetworkOption,
+} from "../../../lib/setup/network"
 import type { NetworkChoice } from "../../../lib/setup/types"
 import { Badge } from "../../ui/badge"
 import { Heading } from "../../ui/heading"
 import { Text } from "../../ui/text"
 import { SelectionCard } from "../SelectionCard"
 
-/** Re-enable when mainnet support is fully tested and ready for production. */
-const MAINNET_ENABLED = false
-
-const OPTIONS: {
-  value: NetworkChoice
-  label: string
-  description: string
-  disabled?: boolean
-}[] = [
-  {
-    value: "mainnet",
-    label: "Mainnet",
-    description: "Connect to the live Fiber network with real CKB.",
-    disabled: !MAINNET_ENABLED,
-  },
-  {
-    value: "testnet",
-    label: "Testnet",
-    description: "Experiment safely with test CKB on the staging network.",
-  },
-]
-
 type NetworkStepProps = {
   network: NetworkChoice
   onChange: (network: NetworkChoice) => void
+  /** Limit choices — used when switching away from the current network. */
+  options?: NetworkOption[]
+  hideHeading?: boolean
+  description?: string
 }
 
-export function NetworkStep({ network, onChange }: NetworkStepProps) {
+export function NetworkStep({
+  network,
+  onChange,
+  options = NETWORK_OPTIONS,
+  hideHeading = false,
+  description = "This sets the fnn network your node will join.",
+}: NetworkStepProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <Heading level={2} tabIndex={-1}>Choose a network</Heading>
-        <Text className="mt-1">
-          This sets the fnn network your node will join. You can change it later
-          in Settings.
-        </Text>
-      </div>
+      {!hideHeading ? (
+        <div>
+          <Heading level={2} tabIndex={-1}>
+            Choose a network
+          </Heading>
+          <Text className="mt-1">{description}</Text>
+        </div>
+      ) : null}
 
       <div
         role="radiogroup"
         aria-label="Fiber network"
         className="grid gap-3 sm:grid-cols-2"
       >
-        {OPTIONS.map((option) => {
+        {options.map((option) => {
           const selected = network === option.value
-          const disabled = option.disabled ?? false
+          const disabled = !option.enabled
           return (
             <SelectionCard
               key={option.value}

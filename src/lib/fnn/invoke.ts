@@ -34,6 +34,10 @@ import type {
   WalletBalanceResponse,
   WalletInvoiceItem,
   WalletPageResponse,
+  NodeSettingsResponse,
+  UpdateWalletPasswordPayload,
+  SwitchNetworkPayload,
+  MigrateDataDirectoryPayload,
 } from "./types"
 
 function toCompleteSetupPayload(config: SetupConfig): CompleteSetupPayload {
@@ -209,4 +213,36 @@ export async function getNetworkGraph(
   payload: GetNetworkGraphPayload,
 ): Promise<NetworkGraphResponse> {
   return invoke<NetworkGraphResponse>("get_network_graph", { payload })
+}
+
+export async function getNodeSettings(
+  dataDirectory?: string,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("get_node_settings", { dataDirectory })
+}
+
+export async function openConfigFile(dataDirectory?: string): Promise<void> {
+  return invoke<void>("open_config_file", { dataDirectory })
+}
+
+export async function openDataDirectory(dataDirectory?: string): Promise<void> {
+  return invoke<void>("open_data_directory", { dataDirectory })
+}
+
+export async function updateWalletPassword(
+  payload: UpdateWalletPasswordPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("update_wallet_password", { payload })
+}
+
+export async function switchNetwork(
+  payload: SwitchNetworkPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("switch_network", { payload })
+}
+
+export async function migrateDataDirectory(
+  payload: MigrateDataDirectoryPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("migrate_data_directory", { payload })
 }

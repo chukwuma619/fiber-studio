@@ -22,12 +22,9 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **Wallet** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
 - **Channels** — open, list, monitor, and close channels; on-chain funding wallet balance
 - **Network** — connect to public relays and custom peers, view relay and graph status
+- **Settings** — node and wallet configuration, theme, data directory migration, network switch, password updates, in-app updates
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
 - **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
-
-### Planned
-
-- **Settings** — node and wallet preferences beyond updates
 
 ## Download
 

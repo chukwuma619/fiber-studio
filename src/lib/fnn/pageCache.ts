@@ -12,6 +12,7 @@ export const PAGE_CACHE_KEYS = {
   wallet: "page:wallet",
   channels: "page:channels",
   network: "page:network",
+  settings: "page:settings",
 } as const
 
 export function getPageCache<T>(
