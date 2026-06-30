@@ -2,7 +2,7 @@ use std::path::Path;
 use std::time::Duration;
 
 use super::rpc::{self, GraphNode, PeerInfo, RpcError};
-use super::studio::{self, SavedPeer, StudioMetadata};
+use super::studio::{self, SavedPeer};
 
 const CONNECT_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const CONNECT_POLL_TIMEOUT: Duration = Duration::from_secs(25);
