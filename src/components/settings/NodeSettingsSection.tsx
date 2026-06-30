@@ -1,5 +1,7 @@
 import { useState } from "react"
+import { getDataDirectoryDisplayForNetwork } from "../../lib/data-directory"
 import { canSwitchNetwork } from "../../lib/setup/network"
+import type { NetworkChoice } from "../../lib/setup/types"
 import { formatNetworkLabel } from "../../lib/fnn/useNodeControl"
 import type { NodeSettingsResponse, SwitchNetworkPayload } from "../../lib/fnn/types"
 import { Button } from "../ui/button"
@@ -20,7 +22,7 @@ export function NodeSettingsSection({
   onSwitchNetwork,
 }: NodeSettingsSectionProps) {
   const [networkOpen, setNetworkOpen] = useState(false)
-  const currentNetwork = (settings.network as "mainnet" | "testnet") ?? "testnet"
+  const currentNetwork = (settings.network as NetworkChoice) ?? "testnet"
   const showSwitchNetwork = canSwitchNetwork(currentNetwork)
 
   return (
@@ -48,7 +50,7 @@ export function NodeSettingsSection({
           <SettingsRow label="Config file" value="config.yml" mono />
           <SettingsRow
             label="Data directory"
-            value={settings.dataDirectory ?? "—"}
+            value={getDataDirectoryDisplayForNetwork(currentNetwork)}
             mono
           />
           <SettingsRow
@@ -71,7 +73,6 @@ export function NodeSettingsSection({
           open={networkOpen}
           onClose={() => setNetworkOpen(false)}
           currentNetwork={currentNetwork}
-          currentDataDirectory={settings.dataDirectory ?? ""}
           isActing={isActing}
           onSave={async (payload) => {
             await onSwitchNetwork(payload)

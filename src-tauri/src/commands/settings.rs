@@ -7,6 +7,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use crate::fnn::ckb_address;
 use crate::fnn::config_read;
+use crate::fnn::data_directory;
 use crate::fnn::keychain;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::provision::{self, ProvisionRequest};
@@ -58,16 +59,9 @@ pub struct UpdateWalletPasswordPayload {
 #[serde(rename_all = "camelCase")]
 pub struct SwitchNetworkPayload {
     pub network: String,
-    pub new_data_directory: String,
     pub custom_public_node_pubkey: String,
     pub custom_public_node_multiaddr: String,
     pub copy_key_from_current: bool,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MigrateDataDirectoryPayload {
-    pub new_data_directory: String,
 }
 
 fn backup_paths() -> Vec<BackupPathEntry> {
@@ -320,84 +314,86 @@ pub async fn switch_network(
 ) -> Result<NodeSettingsResponse, String> {
     let current_data_directory = require_node_stopped(&state).await?;
 
-    if payload.new_data_directory.trim().is_empty() {
-        return Err("New data directory is required.".into());
-    }
-
     if payload.network != "mainnet" && payload.network != "testnet" {
         return Err("Network must be mainnet or testnet.".into());
     }
 
-    let new_data_dir = PathBuf::from(payload.new_data_directory.trim());
+    let new_data_dir = data_directory::resolve_data_directory_for_network(&payload.network)?;
     if new_data_dir == current_data_directory {
-        return Err("Choose a different data directory when switching networks.".into());
+        return Err("You are already using this network's data directory.".into());
     }
 
-    fs::create_dir_all(new_data_dir.join("ckb"))
-        .map_err(|error| format!("Failed to create data directory: {error}"))?;
+    let target_provisioned = data_directory::network_data_directory_is_provisioned(&new_data_dir);
 
-    if payload.copy_key_from_current {
-        let source_key = current_data_directory.join("ckb").join("key");
-        let dest_key = new_data_dir.join("ckb").join("key");
-        if !source_key.is_file() {
-            return Err("CKB key file was not found in the current data directory.".into());
+    if !target_provisioned {
+        fs::create_dir_all(new_data_dir.join("ckb"))
+            .map_err(|error| format!("Failed to create data directory: {error}"))?;
+
+        if payload.copy_key_from_current {
+            let source_key = current_data_directory.join("ckb").join("key");
+            let dest_key = new_data_dir.join("ckb").join("key");
+            if !source_key.is_file() {
+                return Err("CKB key file was not found in the current data directory.".into());
+            }
+            fs::copy(&source_key, &dest_key)
+                .map_err(|error| format!("Failed to copy key file: {error}"))?;
         }
-        fs::copy(&source_key, &dest_key)
-            .map_err(|error| format!("Failed to copy key file: {error}"))?;
+
+        let pubkey = if payload.custom_public_node_pubkey.trim().is_empty() {
+            relays::relays_for_network(&payload.network)
+                .into_iter()
+                .find(|relay| relay.id == "node1")
+                .map(|relay| relay.pubkey)
+                .unwrap_or_default()
+        } else {
+            payload.custom_public_node_pubkey.trim().to_string()
+        };
+
+        let provision_request = ProvisionRequest {
+            network: payload.network.clone(),
+            data_directory: new_data_dir.display().to_string(),
+            key_file_mode: "existing".into(),
+            key_file_path: "ckb/key".into(),
+            imported_private_key: None,
+            custom_public_node_pubkey: pubkey,
+            custom_public_node_multiaddr: payload.custom_public_node_multiaddr.trim().to_string(),
+        };
+
+        provision::provision_data_directory(&provision_request)
+            .map_err(|error| format!("Failed to provision new network data directory: {error}"))?;
     }
-
-    let pubkey = if payload.custom_public_node_pubkey.trim().is_empty() {
-        relays::relays_for_network(&payload.network)
-            .into_iter()
-            .find(|relay| relay.id == "node1")
-            .map(|relay| relay.pubkey)
-            .unwrap_or_default()
-    } else {
-        payload.custom_public_node_pubkey.trim().to_string()
-    };
-
-    let provision_request = ProvisionRequest {
-        network: payload.network.clone(),
-        data_directory: new_data_dir.display().to_string(),
-        key_file_mode: "existing".into(),
-        key_file_path: "ckb/key".into(),
-        imported_private_key: None,
-        custom_public_node_pubkey: pubkey,
-        custom_public_node_multiaddr: payload.custom_public_node_multiaddr.trim().to_string(),
-    };
-
-    provision::provision_data_directory(&provision_request)
-        .map_err(|error| format!("Failed to provision new network data directory: {error}"))?;
 
     build_node_settings(&state, Some(new_data_dir)).await
 }
 
 #[tauri::command]
-pub async fn migrate_data_directory(
-    state: State<'_, AppState>,
-    payload: MigrateDataDirectoryPayload,
-) -> Result<NodeSettingsResponse, String> {
-    let current_data_directory = require_node_stopped(&state).await?;
-
-    if payload.new_data_directory.trim().is_empty() {
-        return Err("New data directory is required.".into());
+pub async fn migrate_legacy_data_directory(
+    network: String,
+) -> Result<String, String> {
+    if network != "mainnet" && network != "testnet" {
+        return Err("Network must be mainnet or testnet.".into());
     }
 
-    let new_data_dir = PathBuf::from(payload.new_data_directory.trim());
-    if new_data_dir == current_data_directory {
-        return Err("Choose a different data directory.".into());
+    let canonical = data_directory::resolve_data_directory_for_network(&network)?;
+    if data_directory::network_data_directory_is_provisioned(&canonical) {
+        return Ok(canonical.display().to_string());
     }
 
-    copy_dir_recursive(&current_data_directory, &new_data_dir)
-        .map_err(|error| format!("Failed to copy data directory: {error}"))?;
+    let legacy = data_directory::resolve_legacy_data_directory()?;
+    if !data_directory::network_data_directory_is_provisioned(&legacy) {
+        return Ok(canonical.display().to_string());
+    }
 
-    let mut studio_metadata = studio::read_studio_metadata(&new_data_dir)
-        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
-    studio_metadata.data_directory = new_data_dir.display().to_string();
-    studio::write_studio_metadata(&new_data_dir, &studio_metadata)
-        .map_err(|error| format!("Failed to update studio metadata: {error}"))?;
+    copy_dir_recursive(&legacy, &canonical)
+        .map_err(|error| format!("Failed to migrate legacy data directory: {error}"))?;
 
-    build_node_settings(&state, Some(new_data_dir)).await
+    if let Ok(mut studio_metadata) = studio::read_studio_metadata(&canonical) {
+        studio_metadata.data_directory = canonical.display().to_string();
+        studio_metadata.network = network;
+        let _ = studio::write_studio_metadata(&canonical, &studio_metadata);
+    }
+
+    Ok(canonical.display().to_string())
 }
 
 fn copy_dir_recursive(source: &Path, destination: &Path) -> std::io::Result<()> {

@@ -42,7 +42,6 @@ export function SettingsPage() {
     handleOpenDataDirectory,
     handleUpdatePassword,
     handleSwitchNetwork,
-    handleMigrateDataDirectory,
   } = useSettingsPage(config)
 
   const nodeStopped =
@@ -87,7 +86,6 @@ export function SettingsPage() {
             nodeStopped={nodeStopped}
             isActing={isActing}
             onUpdatePassword={handleUpdatePassword}
-            onMigrateDataDirectory={handleMigrateDataDirectory}
           />
           <BackupPathsSection paths={settings.backupPaths} />
           <AppearanceSection />

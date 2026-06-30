@@ -391,12 +391,7 @@ export type UpdateWalletPasswordPayload = {
 
 export type SwitchNetworkPayload = {
   network: string
-  newDataDirectory: string
   customPublicNodePubkey: string
   customPublicNodeMultiaddr: string
   copyKeyFromCurrent: boolean
-}
-
-export type MigrateDataDirectoryPayload = {
-  newDataDirectory: string
 }

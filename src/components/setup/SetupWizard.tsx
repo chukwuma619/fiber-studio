@@ -1,9 +1,8 @@
 import { useNavigate } from "@tanstack/react-router"
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import {
-  getDefaultDataDirectoryDisplay,
-  resolveDataDirectory,
-  resolveDefaultDataDirectory,
+  getDataDirectoryDisplayForNetwork,
+  resolveDataDirectoryForNetwork,
 } from "../../lib/data-directory"
 import { completeSetupAndStart } from "../../lib/fnn/invoke"
 import { FNN_VERSION } from "../../lib/fnn/types"
@@ -13,6 +12,7 @@ import { validateSetupStep } from "../../lib/setup/validation"
 import {
   createDefaultSetupConfig,
   SETUP_STEPS,
+  type NetworkChoice,
   type SetupConfig,
   type SetupStep,
 } from "../../lib/setup/types"
@@ -28,11 +28,6 @@ const NetworkStep = lazy(() =>
 const PublicNetworkStep = lazy(() =>
   import("./steps/PublicNetworkStep").then((module) => ({
     default: module.PublicNetworkStep,
-  })),
-)
-const DataDirectoryStep = lazy(() =>
-  import("./steps/DataDirectoryStep").then((module) => ({
-    default: module.DataDirectoryStep,
   })),
 )
 const KeyFileStep = lazy(() =>
@@ -56,6 +51,22 @@ function StepSkeleton() {
   )
 }
 
+function applyNetworkChange(
+  config: SetupConfig,
+  network: NetworkChoice,
+): Partial<SetupConfig> {
+  const patch: Partial<SetupConfig> = {
+    network,
+    dataDirectory: getDataDirectoryDisplayForNetwork(network),
+  }
+  if (config.publicConnectionMode === "official-relays") {
+    const node1 = getRelay(network, "node1")
+    patch.customPublicNodePubkey = node1.pubkey
+    patch.customPublicNodeMultiaddr = node1.multiaddr ?? ""
+  }
+  return patch
+}
+
 function renderStepContent(
   step: SetupStep,
   config: SetupConfig,
@@ -70,15 +81,7 @@ function renderStepContent(
       return (
         <NetworkStep
           network={config.network}
-          onChange={(network) => {
-            const patch: Partial<SetupConfig> = { network }
-            if (config.publicConnectionMode === "official-relays") {
-              const node1 = getRelay(network, "node1")
-              patch.customPublicNodePubkey = node1.pubkey
-              patch.customPublicNodeMultiaddr = node1.multiaddr ?? ""
-            }
-            updateConfig(patch)
-          }}
+          onChange={(network) => updateConfig(applyNetworkChange(config, network))}
         />
       )
     case "public-network":
@@ -86,14 +89,6 @@ function renderStepContent(
         <PublicNetworkStep
           config={config}
           onChange={(patch) => updateConfig(patch)}
-          error={stepValidationError}
-        />
-      )
-    case "data-directory":
-      return (
-        <DataDirectoryStep
-          dataDirectory={config.dataDirectory}
-          onChange={(dataDirectory) => updateConfig({ dataDirectory })}
           error={stepValidationError}
         />
       )
@@ -135,25 +130,6 @@ export function SetupWizard() {
   const stepValidationError = validateSetupStep(currentStep, config)
 
   useEffect(() => {
-    let cancelled = false
-
-    resolveDefaultDataDirectory().then((dir) => {
-      if (cancelled) return
-      setConfig((prev) => {
-        const displayDefault = getDefaultDataDirectoryDisplay()
-        if (!prev.dataDirectory || prev.dataDirectory === displayDefault) {
-          return { ...prev, dataDirectory: dir }
-        }
-        return prev
-      })
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [])
-
-  useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const heading = stepContentRef.current?.querySelector<HTMLElement>("h2")
       heading?.focus()
@@ -191,7 +167,7 @@ export function SetupWizard() {
     setIsStarting(true)
 
     try {
-      const dataDirectory = await resolveDataDirectory(config.dataDirectory)
+      const dataDirectory = await resolveDataDirectoryForNetwork(config.network)
       const setupConfig = { ...config, dataDirectory }
 
       await completeSetupAndStart(setupConfig)
@@ -200,6 +176,7 @@ export function SetupWizard() {
         setupConfig
       completeSetup({
         ...persisted,
+        dataDirectory: getDataDirectoryDisplayForNetwork(config.network),
         fnnVersion: FNN_VERSION,
         password: "",
         importedPrivateKey: "",

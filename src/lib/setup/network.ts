@@ -1,7 +1,5 @@
 import type { NetworkChoice } from "./types"
 
-/** Re-enable when mainnet support is fully tested and ready for production. */
-export const MAINNET_ENABLED = false
 
 export type NetworkOption = {
   value: NetworkChoice
@@ -15,7 +13,7 @@ export const NETWORK_OPTIONS: NetworkOption[] = [
     value: "mainnet",
     label: "Mainnet",
     description: "Live Fiber network with real CKB.",
-    enabled: MAINNET_ENABLED,
+    enabled: false,
   },
   {
     value: "testnet",

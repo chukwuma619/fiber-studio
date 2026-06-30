@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
+import { resolveConfiguredDataDirectory } from "../data-directory"
 import { loadSetupConfig } from "../setup/storage"
-import { getNodeStatus, startNode, stopNode } from "./invoke"
+import { getNodeStatus, migrateLegacyDataDirectory, startNode, stopNode } from "./invoke"
 import { isNodeRunning } from "./status"
 import type { NodeStatusResponse, NodeStatusState } from "./types"
 
@@ -11,16 +12,24 @@ export function useNodeControl(pollIntervalMs = 5000) {
   const [actionError, setActionError] = useState<string | null>(null)
   const [isActing, setIsActing] = useState(false)
 
+  useEffect(() => {
+    if (!config?.network) return
+    void migrateLegacyDataDirectory(config.network).catch(() => {
+      // Best-effort migration for legacy ~/Library/fiber-studio installs.
+    })
+  }, [config?.network])
+
   const refreshStatus = useCallback(async () => {
     try {
-      const status = await getNodeStatus(config?.dataDirectory)
+      const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+      const status = await getNodeStatus(dataDirectory)
       setNodeStatus(status)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
     } finally {
       setIsLoading(false)
     }
-  }, [config?.dataDirectory])
+  }, [config?.network])
 
   useEffect(() => {
     void refreshStatus()
@@ -39,7 +48,8 @@ export function useNodeControl(pollIntervalMs = 5000) {
   }, [pollIntervalMs, refreshStatus])
 
   const handleStartNode = useCallback(async () => {
-    if (!config?.dataDirectory) {
+    const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+    if (!dataDirectory) {
       setActionError("Data directory is not configured.")
       return
     }
@@ -47,14 +57,14 @@ export function useNodeControl(pollIntervalMs = 5000) {
     setIsActing(true)
     setActionError(null)
     try {
-      const status = await startNode({ dataDirectory: config.dataDirectory })
+      const status = await startNode({ dataDirectory })
       setNodeStatus(status)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
     } finally {
       setIsActing(false)
     }
-  }, [config?.dataDirectory])
+  }, [config?.network])
 
   const handleStopNode = useCallback(async () => {
     setIsActing(true)

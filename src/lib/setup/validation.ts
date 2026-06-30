@@ -24,11 +24,6 @@ export function validateSetupStep(
       }
       return null
     }
-    case "data-directory":
-      if (!config.dataDirectory.trim()) {
-        return "Data directory is required."
-      }
-      return null
     case "key-file": {
       if (!config.importedPrivateKey.trim()) {
         return "Private key is required."

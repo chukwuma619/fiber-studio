@@ -22,7 +22,7 @@ export function NetworkStep({
   onChange,
   options = NETWORK_OPTIONS,
   hideHeading = false,
-  description = "This sets the fnn network your node will join.",
+  description = "This sets the fnn network your node will join. Data is stored in a dedicated folder for that network.",
 }: NetworkStepProps) {
   return (
     <div className="space-y-4">

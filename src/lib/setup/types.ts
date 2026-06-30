@@ -1,11 +1,10 @@
-import { getDefaultDataDirectoryDisplay } from "../data-directory"
+import { getDataDirectoryDisplayForNetwork } from "../data-directory"
 import { getRelay, type PublicConnectionMode } from "../public-relays"
 
 export type SetupStep =
   | "welcome"
   | "network"
   | "public-network"
-  | "data-directory"
   | "key-file"
   | "password"
   | "review"
@@ -33,7 +32,6 @@ export const SETUP_STEPS: SetupStep[] = [
   "welcome",
   "network",
   "public-network",
-  "data-directory",
   "key-file",
   "password",
   "review",
@@ -43,7 +41,6 @@ export const STEP_TITLES: Record<SetupStep, string> = {
   welcome: "Welcome",
   network: "Network",
   "public-network": "Connect to peer",
-  "data-directory": "Data directory",
   "key-file": "Wallet key",
   password: "Wallet password",
   review: "Review & start",
@@ -57,7 +54,7 @@ export function createDefaultSetupConfig(): SetupConfig {
     publicConnectionMode: "official-relays",
     customPublicNodePubkey: node1.pubkey,
     customPublicNodeMultiaddr: node1.multiaddr ?? "",
-    dataDirectory: getDefaultDataDirectoryDisplay(),
+    dataDirectory: getDataDirectoryDisplayForNetwork("testnet"),
     keyFileMode: "import",
     keyFilePath: "",
     importedPrivateKey: "",

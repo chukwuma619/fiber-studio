@@ -55,7 +55,7 @@ pub fn run() {
             commands::settings::open_data_directory,
             commands::settings::update_wallet_password,
             commands::settings::switch_network,
-            commands::settings::migrate_data_directory,
+            commands::settings::migrate_legacy_data_directory,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

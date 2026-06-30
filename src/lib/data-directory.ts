@@ -1,10 +1,11 @@
 import { isTauri } from "@tauri-apps/api/core"
 import { dataDir, homeDir, join, sep } from "@tauri-apps/api/path"
 import { platform } from "@tauri-apps/plugin-os"
+import type { NetworkChoice } from "./setup/types"
 
 export type DesktopPlatform = "macos" | "windows" | "linux"
 
-const APP_DIR_NAME = "fiber-studio"
+const LEGACY_DIR_NAME = "fiber-studio"
 
 /** True when running inside the Tauri webview (`tauri dev` / packaged app). */
 export function isTauriRuntime(): boolean {
@@ -65,16 +66,23 @@ export function detectPlatform(): DesktopPlatform {
   return "linux"
 }
 
-/** User-facing tilde path for placeholders and browser-only dev. */
-export function getDefaultDataDirectoryDisplay(): string {
+export function getDataDirectoryDirName(network: NetworkChoice): string {
+  return `fiber-studio-${network}`
+}
+
+/** User-facing tilde path for a network. */
+export function getDataDirectoryDisplayForNetwork(
+  network: NetworkChoice,
+): string {
+  const dirName = getDataDirectoryDirName(network)
   const currentPlatform = detectPlatform()
   switch (currentPlatform) {
     case "macos":
-      return `~/Library/${APP_DIR_NAME}`
+      return `~/Library/${dirName}`
     case "windows":
-      return `~\\AppData\\Roaming\\${APP_DIR_NAME}`
+      return `~\\AppData\\Roaming\\${dirName}`
     case "linux":
-      return `~/.local/share/${APP_DIR_NAME}`
+      return `~/.local/share/${dirName}`
     default: {
       const _exhaustive: never = currentPlatform
       return _exhaustive
@@ -82,45 +90,51 @@ export function getDefaultDataDirectoryDisplay(): string {
   }
 }
 
-/** @deprecated Use getDefaultDataDirectoryDisplay() for sync UI or resolveDefaultDataDirectory() for Tauri. */
-export function getDefaultDataDirectory(): string {
-  return getDefaultDataDirectoryDisplay()
+/** User-facing tilde path for the legacy single-network folder. */
+export function getLegacyDataDirectoryDisplay(): string {
+  const currentPlatform = detectPlatform()
+  switch (currentPlatform) {
+    case "macos":
+      return `~/Library/${LEGACY_DIR_NAME}`
+    case "windows":
+      return `~\\AppData\\Roaming\\${LEGACY_DIR_NAME}`
+    case "linux":
+      return `~/.local/share/${LEGACY_DIR_NAME}`
+    default: {
+      const _exhaustive: never = currentPlatform
+      return _exhaustive
+    }
+  }
+}
+
+export function isLegacyDataDirectoryPath(path: string): boolean {
+  const normalized = path.replace(/\\/g, "/").replace(/\/$/, "")
+  return (
+    normalized.endsWith(`/${LEGACY_DIR_NAME}`) &&
+    !normalized.endsWith("/fiber-studio-mainnet") &&
+    !normalized.endsWith("/fiber-studio-testnet")
+  )
 }
 
 /**
- * Resolve the default fnn data directory using Tauri path APIs.
+ * Resolve the fnn data directory for a network using Tauri path APIs.
  * @see https://v2.tauri.app/reference/javascript/api/namespacepath/
  */
-export async function resolveDefaultDataDirectory(): Promise<string> {
+export async function resolveDataDirectoryForNetwork(
+  network: NetworkChoice,
+): Promise<string> {
   if (!isTauriRuntime()) {
-    return getDefaultDataDirectoryDisplay()
+    return getDataDirectoryDisplayForNetwork(network)
   }
 
+  const dirName = getDataDirectoryDirName(network)
   const currentPlatform = detectPlatform()
   switch (currentPlatform) {
     case "macos":
-      // fnn data lives under ~/Library/fiber-studio (not Application Support).
-      return join(await homeDir(), "Library", APP_DIR_NAME)
+      return join(await homeDir(), "Library", dirName)
     case "windows":
     case "linux":
-      // dataDir() → Roaming AppData on Windows, XDG data dir on Linux.
-      return join(await dataDir(), APP_DIR_NAME)
-    default: {
-      const _exhaustive: never = currentPlatform
-      return _exhaustive
-    }
-  }
-}
-
-export function getDataDirectoryPlatformHint(): string {
-  const currentPlatform = detectPlatform()
-  switch (currentPlatform) {
-    case "macos":
-      return "Default location on macOS. Config, logs, and ckb/key live here."
-    case "windows":
-      return "Default location on Windows. Config, logs, and ckb/key live here."
-    case "linux":
-      return "Default location on Linux. Config, logs, and ckb/key live here."
+      return join(await dataDir(), dirName)
     default: {
       const _exhaustive: never = currentPlatform
       return _exhaustive
@@ -151,6 +165,13 @@ export async function joinDataPathAsync(
     return join(base, ...segments)
   }
   return joinDataPath(base, ...segments)
+}
+
+export async function resolveConfiguredDataDirectory(
+  network: NetworkChoice | undefined,
+): Promise<string | undefined> {
+  if (!network) return undefined
+  return resolveDataDirectoryForNetwork(network)
 }
 
 /** Expand a tilde-prefixed path to an absolute path in Tauri. */

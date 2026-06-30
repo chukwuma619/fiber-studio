@@ -4,6 +4,7 @@ pub mod channel;
 pub mod ckb_address;
 pub mod ckb_indexer;
 pub mod config_read;
+pub mod data_directory;
 pub mod invoices;
 pub mod invoice_display;
 pub mod config;

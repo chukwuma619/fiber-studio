@@ -37,7 +37,6 @@ import type {
   NodeSettingsResponse,
   UpdateWalletPasswordPayload,
   SwitchNetworkPayload,
-  MigrateDataDirectoryPayload,
 } from "./types"
 
 function toCompleteSetupPayload(config: SetupConfig): CompleteSetupPayload {
@@ -241,8 +240,8 @@ export async function switchNetwork(
   return invoke<NodeSettingsResponse>("switch_network", { payload })
 }
 
-export async function migrateDataDirectory(
-  payload: MigrateDataDirectoryPayload,
-): Promise<NodeSettingsResponse> {
-  return invoke<NodeSettingsResponse>("migrate_data_directory", { payload })
+export async function migrateLegacyDataDirectory(
+  network: string,
+): Promise<string> {
+  return invoke<string>("migrate_legacy_data_directory", { network })
 }

@@ -1,9 +1,12 @@
 import { useCallback, useEffect, useState } from "react"
+import {
+  getDataDirectoryDisplayForNetwork,
+  resolveConfiguredDataDirectory,
+} from "../data-directory"
 import { saveSetupConfig } from "../setup/storage"
 import type { NetworkChoice, SetupConfig } from "../setup/types"
 import {
   getNodeSettings,
-  migrateDataDirectory,
   openConfigFile,
   openDataDirectory,
   switchNetwork,
@@ -11,7 +14,6 @@ import {
 } from "./invoke"
 import { invalidatePageCaches, PAGE_CACHE_KEYS } from "./pageCache"
 import type {
-  MigrateDataDirectoryPayload,
   NodeSettingsResponse,
   SwitchNetworkPayload,
   UpdateWalletPasswordPayload,
@@ -22,10 +24,11 @@ function syncSetupConfigFromSettings(
   settings: NodeSettingsResponse,
   patch?: Partial<SetupConfig>,
 ): void {
+  const network = (settings.network as NetworkChoice) ?? config.network
   saveSetupConfig({
     ...config,
-    network: (settings.network as NetworkChoice) ?? config.network,
-    dataDirectory: settings.dataDirectory ?? config.dataDirectory,
+    network,
+    dataDirectory: getDataDirectoryDisplayForNetwork(network),
     ...patch,
   })
 }
@@ -41,7 +44,8 @@ export function useSettingsPage(config: SetupConfig | null) {
   const refresh = useCallback(async () => {
     setLoadError(null)
     try {
-      const data = await getNodeSettings(config?.dataDirectory)
+      const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+      const data = await getNodeSettings(dataDirectory)
       setSettings(data)
       invalidatePageCaches(PAGE_CACHE_KEYS.settings)
     } catch (error) {
@@ -49,7 +53,7 @@ export function useSettingsPage(config: SetupConfig | null) {
     } finally {
       setIsLoading(false)
     }
-  }, [config?.dataDirectory])
+  }, [config?.network])
 
   useEffect(() => {
     void refresh()
@@ -98,20 +102,22 @@ export function useSettingsPage(config: SetupConfig | null) {
   const handleOpenConfig = useCallback(async () => {
     setActionError(null)
     try {
-      await openConfigFile(config?.dataDirectory)
+      const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+      await openConfigFile(dataDirectory)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
     }
-  }, [config?.dataDirectory])
+  }, [config?.network])
 
   const handleOpenDataDirectory = useCallback(async () => {
     setActionError(null)
     try {
-      await openDataDirectory(config?.dataDirectory)
+      const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+      await openDataDirectory(dataDirectory)
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
     }
-  }, [config?.dataDirectory])
+  }, [config?.network])
 
   const handleUpdatePassword = useCallback(
     (payload: UpdateWalletPasswordPayload) =>
@@ -125,23 +131,11 @@ export function useSettingsPage(config: SetupConfig | null) {
     (payload: SwitchNetworkPayload) =>
       runMutation(() => switchNetwork(payload), {
         successMessage:
-          "Network switched. Your old data directory is unchanged — start the node from the new folder.",
+          "Network switched. Start the node to use the other network's data folder.",
         syncConfig: (result) => ({
           network: (result.network as NetworkChoice) ?? payload.network,
-          dataDirectory: result.dataDirectory ?? payload.newDataDirectory,
           customPublicNodePubkey: payload.customPublicNodePubkey,
           customPublicNodeMultiaddr: payload.customPublicNodeMultiaddr,
-        }),
-      }),
-    [runMutation],
-  )
-
-  const handleMigrateDataDirectory = useCallback(
-    (payload: MigrateDataDirectoryPayload) =>
-      runMutation(() => migrateDataDirectory(payload), {
-        successMessage: "Data directory migrated.",
-        syncConfig: (result) => ({
-          dataDirectory: result.dataDirectory ?? payload.newDataDirectory,
         }),
       }),
     [runMutation],
@@ -161,6 +155,5 @@ export function useSettingsPage(config: SetupConfig | null) {
     handleOpenDataDirectory,
     handleUpdatePassword,
     handleSwitchNetwork,
-    handleMigrateDataDirectory,
   }
 }
