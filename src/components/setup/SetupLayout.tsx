@@ -9,6 +9,7 @@ type SetupLayoutProps = {
   isFirstStep: boolean
   isLastStep: boolean
   isStarting?: boolean
+  canProceed?: boolean
   onBack: () => void
   onNext: () => void
   onComplete: () => void
@@ -20,6 +21,7 @@ export function SetupLayout({
   isFirstStep,
   isLastStep,
   isStarting = false,
+  canProceed = true,
   onBack,
   onNext,
   onComplete,
@@ -76,7 +78,7 @@ export function SetupLayout({
           ) : (
             <Button
               onClick={onNext}
-              disabled={isStarting}
+              disabled={isStarting || !canProceed}
               className="min-w-24"
             >
               Continue

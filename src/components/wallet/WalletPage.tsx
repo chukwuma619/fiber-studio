@@ -87,6 +87,10 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null)
   const [paymentsHasMore, setPaymentsHasMore] = useState(false)
   const [isLoadingMorePayments, setIsLoadingMorePayments] = useState(false)
+  const [hasLoadedMorePayments, setHasLoadedMorePayments] = useState(false)
+
+  const isWalletLoading = running && isLoading && data === null
+  const isNodeStopped = !running
 
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
@@ -96,11 +100,34 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   const filteredInvoices = filterInvoices(invoices, invoiceFilter)
 
   useEffect(() => {
+    if (!running) {
+      setHasLoadedMorePayments(false)
+    }
+  }, [running])
+
+  useEffect(() => {
     if (!data) return
-    setPayments(data.payments)
-    setPaymentsCursor(data.paymentsLastCursor)
-    setPaymentsHasMore(data.paymentsHasMore)
-  }, [data])
+
+    setPayments((current) => {
+      if (!hasLoadedMorePayments) {
+        return data.payments
+      }
+
+      const firstPageHashes = new Set(
+        data.payments.map((payment) => payment.paymentHash),
+      )
+      const extraPages = current.filter(
+        (payment) => !firstPageHashes.has(payment.paymentHash),
+      )
+
+      return [...data.payments, ...extraPages]
+    })
+
+    if (!hasLoadedMorePayments) {
+      setPaymentsCursor(data.paymentsLastCursor)
+      setPaymentsHasMore(data.paymentsHasMore)
+    }
+  }, [data, hasLoadedMorePayments])
 
   useEffect(() => {
     if (!selectedInvoice) return
@@ -188,6 +215,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
       })
       setPaymentsCursor(result.lastCursor)
       setPaymentsHasMore(result.hasMore)
+      setHasLoadedMorePayments(true)
     } finally {
       setIsLoadingMorePayments(false)
     }
@@ -205,7 +233,10 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         </div>
         <Button
           outline
-          onClick={() => void refresh()}
+          onClick={() => {
+            setHasLoadedMorePayments(false)
+            void refresh()
+          }}
           disabled={!running || isRefreshing}
           aria-label="Refresh wallet"
         >
@@ -312,10 +343,20 @@ export function WalletPage({ initialAction }: WalletPageProps) {
             </div>
           ) : null}
 
-          {!available ? (
+          {isWalletLoading ? (
+            <HomeEmptyState
+              title="Loading invoices…"
+              description="Fetching wallet data from your node."
+            />
+          ) : isNodeStopped ? (
             <HomeEmptyState
               title="No invoices yet"
               description="Start your node to create and manage invoices."
+            />
+          ) : !available ? (
+            <HomeEmptyState
+              title="Wallet unavailable"
+              description="Your node is running but wallet data could not be loaded."
             />
           ) : filteredInvoices.length === 0 ? (
             <HomeEmptyState

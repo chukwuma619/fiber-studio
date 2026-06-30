@@ -3,7 +3,10 @@ use serde::Serialize;
 
 use crate::fnn::amounts::ckb_from_shannons_hex;
 use crate::fnn::invoices::StoredInvoice;
-use crate::fnn::rpc::{self, CkbInvoiceStatus};
+use crate::fnn::rpc::{self, CkbInvoiceStatus, GetInvoiceResult};
+
+/// Dashboard only shows a handful of incoming invoices — enrich recent ones only.
+pub const DASHBOARD_INVOICE_ENRICH_LIMIT: usize = 15;
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
@@ -17,41 +20,33 @@ pub struct InvoiceListItem {
 }
 
 pub async fn build_invoice_list_items(stored: Vec<StoredInvoice>) -> Vec<InvoiceListItem> {
-    let mut items = Vec::with_capacity(stored.len());
+    build_invoice_list_items_with_limit(stored, None).await
+}
 
-    for record in stored {
-        let mut status = "Open".to_string();
-        let mut amount_hex = record.amount_shannons.clone();
-
-        match rpc::get_invoice(&record.payment_hash).await {
-            Ok(live) => {
-                status = invoice_status_label(&live.status).to_string();
-                if let Some(amount) = live.invoice.amount {
-                    amount_hex = amount;
-                }
-            }
-            Err(_) => {
-                // Keep stored defaults when live lookup fails.
-            }
-        }
-
-        let note = record
-            .description
-            .clone()
-            .filter(|value| !value.trim().is_empty())
-            .unwrap_or_else(|| "—".to_string());
-
-        items.push(InvoiceListItem {
-            payment_hash: record.payment_hash,
-            invoice_address: record.invoice_address,
-            amount_ckb: format!("{} CKB", ckb_from_shannons_hex(&amount_hex)),
-            note,
-            status: status.clone(),
-            expires_in: expires_in_label(&record.created_at, record.expiry_seconds, &status),
-        });
+pub async fn build_invoice_list_items_with_limit(
+    stored: Vec<StoredInvoice>,
+    enrich_limit: Option<usize>,
+) -> Vec<InvoiceListItem> {
+    if stored.is_empty() {
+        return Vec::new();
     }
 
-    items
+    let enrich_count = enrich_limit.unwrap_or(stored.len()).min(stored.len());
+    let live_statuses = fetch_live_invoice_statuses(&stored[..enrich_count]).await;
+
+    stored
+        .into_iter()
+        .enumerate()
+        .map(|(index, record)| {
+            let live = live_statuses.get(index).and_then(|result| result.as_ref().ok());
+            stored_invoice_to_item(record, live)
+        })
+        .collect()
+}
+
+pub async fn build_invoice_list_item(stored: StoredInvoice) -> InvoiceListItem {
+    let live = rpc::get_invoice(&stored.payment_hash).await.ok();
+    stored_invoice_to_item(stored, live.as_ref())
 }
 
 pub fn select_incoming_invoices(items: &[InvoiceListItem], paid_limit: usize) -> Vec<InvoiceListItem> {
@@ -70,6 +65,61 @@ pub fn select_incoming_invoices(items: &[InvoiceListItem], paid_limit: usize) ->
     );
 
     incoming
+}
+
+async fn fetch_live_invoice_statuses(
+    records: &[StoredInvoice],
+) -> Vec<Result<GetInvoiceResult, rpc::RpcError>> {
+    if records.is_empty() {
+        return Vec::new();
+    }
+
+    let mut handles = Vec::with_capacity(records.len());
+    for record in records {
+        let payment_hash = record.payment_hash.clone();
+        handles.push(tokio::spawn(async move { rpc::get_invoice(&payment_hash).await }));
+    }
+
+    let mut results = Vec::with_capacity(handles.len());
+    for handle in handles {
+        results.push(
+            handle
+                .await
+                .unwrap_or(Err(rpc::RpcError::MissingResult)),
+        );
+    }
+
+    results
+}
+
+fn stored_invoice_to_item(
+    record: StoredInvoice,
+    live: Option<&GetInvoiceResult>,
+) -> InvoiceListItem {
+    let mut status = "Open".to_string();
+    let mut amount_hex = record.amount_shannons.clone();
+
+    if let Some(live) = live {
+        status = invoice_status_label(&live.status).to_string();
+        if let Some(amount) = &live.invoice.amount {
+            amount_hex = amount.clone();
+        }
+    }
+
+    let note = record
+        .description
+        .clone()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "—".to_string());
+
+    InvoiceListItem {
+        payment_hash: record.payment_hash,
+        invoice_address: record.invoice_address,
+        amount_ckb: format!("{} CKB", ckb_from_shannons_hex(&amount_hex)),
+        note,
+        status: status.clone(),
+        expires_in: expires_in_label(&record.created_at, record.expiry_seconds, &status),
+    }
 }
 
 fn invoice_status_label(status: &CkbInvoiceStatus) -> &'static str {

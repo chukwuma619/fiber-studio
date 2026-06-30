@@ -7,13 +7,16 @@ import { Text } from "../../ui/text"
 type KeyFileStepProps = {
   importedPrivateKey: string
   onPrivateKeyChange: (key: string) => void
+  error?: string | null
 }
 
 export function KeyFileStep({
   importedPrivateKey,
   onPrivateKeyChange,
+  error,
 }: KeyFileStepProps) {
   const keyError = validateCkbPrivateKey(importedPrivateKey)
+  const displayError = keyError ?? error
 
   return (
     <div className="space-y-5">
@@ -37,9 +40,9 @@ export function KeyFileStep({
           autoComplete="off"
           spellCheck={false}
           className="font-mono text-xs"
-          data-invalid={keyError ? true : undefined}
+          data-invalid={displayError ? true : undefined}
         />
-        {keyError ? <ErrorMessage>{keyError}</ErrorMessage> : null}
+        {displayError ? <ErrorMessage>{displayError}</ErrorMessage> : null}
       </Field>
 
 

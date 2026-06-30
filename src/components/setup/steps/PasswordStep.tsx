@@ -1,4 +1,4 @@
-import { Field, Label } from "../../ui/fieldset"
+import { ErrorMessage, Field, Label } from "../../ui/fieldset"
 import { Heading } from "../../ui/heading"
 import { Input } from "../../ui/input"
 import { Text } from "../../ui/text"
@@ -6,9 +6,10 @@ import { Text } from "../../ui/text"
 type PasswordStepProps = {
   password: string
   onChange: (password: string) => void
+  error?: string | null
 }
 
-export function PasswordStep({ password, onChange }: PasswordStepProps) {
+export function PasswordStep({ password, onChange, error }: PasswordStepProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -27,7 +28,9 @@ export function PasswordStep({ password, onChange }: PasswordStepProps) {
           onChange={(event) => onChange(event.target.value)}
           placeholder="Enter a strong password"
           autoComplete="new-password"
+          data-invalid={error ? true : undefined}
         />
+        {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       </Field>
 
       <div className="rounded-lg bg-zinc-950/2.5 px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10">

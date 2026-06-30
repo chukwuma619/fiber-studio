@@ -504,15 +504,17 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .as_ref()
         .and_then(|path| studio::read_studio_metadata(path).ok());
 
-    let node_info = rpc::fetch_node_info()
-        .await
-        .map_err(|error| error.to_string())?;
-    let channels = rpc::fetch_list_channels()
-        .await
-        .map_err(|error| error.to_string())?;
-    let peers = rpc::fetch_list_peers()
-        .await
-        .map_err(|error| error.to_string())?;
+    let (node_info, channels, peers, payments_page) = tokio::join!(
+        rpc::fetch_node_info(),
+        rpc::fetch_list_channels(),
+        rpc::fetch_list_peers(),
+        rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, None),
+    );
+
+    let node_info = node_info.map_err(|error| error.to_string())?;
+    let channels = channels.map_err(|error| error.to_string())?;
+    let peers = peers.map_err(|error| error.to_string())?;
+    let payments_page = payments_page.map_err(|error| error.to_string())?;
 
     let total_local = sum_local_balances(&channels);
     let in_channel_balance_ckb = (total_local / SHANNONS_PER_CKB) as u64;
@@ -553,10 +555,6 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         .into_iter()
         .map(to_wallet_invoice)
         .collect();
-
-    let payments_page = rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, None)
-        .await
-        .map_err(|error| error.to_string())?;
 
     let stored_sent_payments = data_directory
         .as_ref()
@@ -936,15 +934,10 @@ pub async fn import_invoice(
         .map_err(|error| format!("Invoice not found on this node: {error}"))?;
 
     let stored = stored_invoice_from_get_invoice(payment_hash.clone(), live);
-    invoices::append_invoice(&data_directory, stored)
+    invoices::append_invoice(&data_directory, stored.clone())
         .map_err(|error| format!("Failed to save imported invoice: {error}"))?;
 
-    let items = invoice_display::build_invoice_list_items(invoices::read_invoices(&data_directory).unwrap_or_default())
-        .await;
-    let imported = items
-        .into_iter()
-        .find(|item| item.payment_hash.eq_ignore_ascii_case(&payment_hash))
-        .ok_or_else(|| "Imported invoice could not be loaded.".to_string())?;
+    let imported = invoice_display::build_invoice_list_item(stored).await;
 
     Ok(to_wallet_invoice(imported))
 }

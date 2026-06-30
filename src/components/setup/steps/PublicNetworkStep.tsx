@@ -1,6 +1,7 @@
 import { EXAMPLE_CUSTOM_PUBLIC_NODES } from "../../../lib/public-relays"
 import type { SetupConfig } from "../../../lib/setup/types"
 import { ConnectPeerForm } from "../../connect/ConnectPeerForm"
+import { ErrorMessage } from "../../ui/fieldset"
 import { Heading } from "../../ui/heading"
 import { Text } from "../../ui/text"
 
@@ -13,12 +14,14 @@ type PublicNetworkStepProps = {
   config: ConfiguredPeerFields
   onChange: (patch: Partial<ConfiguredPeerFields>) => void
   hideHeading?: boolean
+  error?: string | null
 }
 
 export function PublicNetworkStep({
   config,
   onChange,
   hideHeading = false,
+  error,
 }: PublicNetworkStepProps) {
   const { network } = config
 
@@ -47,6 +50,8 @@ export function PublicNetworkStep({
         }
         customPubkeyExample={EXAMPLE_CUSTOM_PUBLIC_NODES[network]}
       />
+
+      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
     </div>
   )
 }

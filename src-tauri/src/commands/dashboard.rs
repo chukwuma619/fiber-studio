@@ -132,18 +132,17 @@ pub async fn get_home_dashboard(
         .as_ref()
         .and_then(|path| studio::read_studio_metadata(path).ok());
 
-    let node_info = rpc::fetch_node_info()
-        .await
-        .map_err(|error| error.to_string())?;
-    let channels = rpc::fetch_list_channels()
-        .await
-        .map_err(|error| error.to_string())?;
-    let peers = rpc::fetch_list_peers()
-        .await
-        .map_err(|error| error.to_string())?;
-    let payments = rpc::fetch_list_payments(HOME_PAYMENT_LIMIT)
-        .await
-        .map_err(|error| error.to_string())?;
+    let (node_info, channels, peers, payments) = tokio::join!(
+        rpc::fetch_node_info(),
+        rpc::fetch_list_channels(),
+        rpc::fetch_list_peers(),
+        rpc::fetch_list_payments(HOME_PAYMENT_LIMIT),
+    );
+
+    let node_info = node_info.map_err(|error| error.to_string())?;
+    let channels = channels.map_err(|error| error.to_string())?;
+    let peers = peers.map_err(|error| error.to_string())?;
+    let payments = payments.map_err(|error| error.to_string())?;
 
     let stored_sent_payments = data_directory
         .as_ref()
@@ -154,7 +153,11 @@ pub async fn get_home_dashboard(
         .as_ref()
         .map(|path| invoices::read_invoices(path).unwrap_or_default())
         .unwrap_or_default();
-    let invoice_items = invoice_display::build_invoice_list_items(stored_invoices).await;
+    let invoice_items = invoice_display::build_invoice_list_items_with_limit(
+        stored_invoices,
+        Some(invoice_display::DASHBOARD_INVOICE_ENRICH_LIMIT),
+    )
+    .await;
     let incoming_invoices = invoice_display::select_incoming_invoices(
         &invoice_items,
         HOME_INCOMING_PAID_LIMIT,

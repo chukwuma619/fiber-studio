@@ -2,7 +2,7 @@ import {
   getDataDirectoryPlatformHint,
   getDefaultDataDirectoryDisplay,
 } from "../../../lib/data-directory"
-import { Description, Field, Label } from "../../ui/fieldset"
+import { Description, ErrorMessage, Field, Label } from "../../ui/fieldset"
 import { Heading } from "../../ui/heading"
 import { Input } from "../../ui/input"
 import { Text } from "../../ui/text"
@@ -10,11 +10,13 @@ import { Text } from "../../ui/text"
 type DataDirectoryStepProps = {
   dataDirectory: string
   onChange: (path: string) => void
+  error?: string | null
 }
 
 export function DataDirectoryStep({
   dataDirectory,
   onChange,
+  error,
 }: DataDirectoryStepProps) {
   const defaultPath = getDefaultDataDirectoryDisplay()
 
@@ -34,7 +36,9 @@ export function DataDirectoryStep({
           onChange={(event) => onChange(event.target.value)}
           placeholder={defaultPath}
           className="font-mono text-xs"
+          data-invalid={error ? true : undefined}
         />
+        {error ? <ErrorMessage>{error}</ErrorMessage> : null}
         <Description>{getDataDirectoryPlatformHint()}</Description>
       </Field>
     </div>

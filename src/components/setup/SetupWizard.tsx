@@ -9,6 +9,7 @@ import { completeSetupAndStart } from "../../lib/fnn/invoke"
 import { FNN_VERSION } from "../../lib/fnn/types"
 import { getRelay } from "../../lib/public-relays"
 import { completeSetup } from "../../lib/setup/storage"
+import { validateSetupStep } from "../../lib/setup/validation"
 import {
   createDefaultSetupConfig,
   SETUP_STEPS,
@@ -29,6 +30,7 @@ function renderStepContent(
   config: SetupConfig,
   updateConfig: (patch: Partial<SetupConfig>) => void,
   startError: string | null,
+  stepValidationError: string | null,
 ) {
   switch (step) {
     case "welcome":
@@ -53,6 +55,7 @@ function renderStepContent(
         <PublicNetworkStep
           config={config}
           onChange={(patch) => updateConfig(patch)}
+          error={stepValidationError}
         />
       )
     case "data-directory":
@@ -60,6 +63,7 @@ function renderStepContent(
         <DataDirectoryStep
           dataDirectory={config.dataDirectory}
           onChange={(dataDirectory) => updateConfig({ dataDirectory })}
+          error={stepValidationError}
         />
       )
     case "key-file":
@@ -69,6 +73,7 @@ function renderStepContent(
           onPrivateKeyChange={(importedPrivateKey) =>
             updateConfig({ importedPrivateKey })
           }
+          error={stepValidationError}
         />
       )
     case "password":
@@ -76,6 +81,7 @@ function renderStepContent(
         <PasswordStep
           password={config.password}
           onChange={(password) => updateConfig({ password })}
+          error={stepValidationError}
         />
       )
     case "review":
@@ -93,6 +99,8 @@ export function SetupWizard() {
   const [config, setConfig] = useState<SetupConfig>(createDefaultSetupConfig)
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+
+  const stepValidationError = validateSetupStep(currentStep, config)
 
   useEffect(() => {
     let cancelled = false
@@ -128,10 +136,12 @@ export function SetupWizard() {
   }
 
   function goNext() {
-    if (!isLastStep && !isStarting) {
+    if (!isLastStep && !isStarting && stepValidationError === null) {
       setCurrentStep(SETUP_STEPS[stepIndex + 1])
     }
   }
+
+  const canProceed = stepValidationError === null
 
   async function handleComplete() {
     setStartError(null)
@@ -167,11 +177,18 @@ export function SetupWizard() {
       isFirstStep={isFirstStep}
       isLastStep={isLastStep}
       isStarting={isStarting}
+      canProceed={canProceed}
       onBack={goBack}
       onNext={goNext}
       onComplete={handleComplete}
     >
-      {renderStepContent(currentStep, config, updateConfig, startError)}
+      {renderStepContent(
+        currentStep,
+        config,
+        updateConfig,
+        startError,
+        stepValidationError,
+      )}
     </SetupLayout>
   )
 }
