@@ -422,6 +422,19 @@ async fn upsert_and_connect_saved_peer(
         .await
         .map_err(|error| error.to_string())?;
 
+    if status == peer_connect::RelayConnectStatus::Connected {
+        if let Ok(peers) = rpc::fetch_list_peers().await {
+            if let Some(peer) = peers.iter().find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey)) {
+                let _ = studio::persist_relay_multiaddr(
+                    &data_directory,
+                    &studio_metadata,
+                    pubkey,
+                    &peer.address,
+                );
+            }
+        }
+    }
+
     let mut manager = state.fnn.lock().await;
     manager.restart_relay_connect_loop(app);
     drop(manager);

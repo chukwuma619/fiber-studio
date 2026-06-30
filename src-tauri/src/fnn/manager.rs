@@ -18,7 +18,8 @@ use super::rpc::{self, NodeInfo};
 use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
-const RELAY_RETRY_INTERVAL: Duration = Duration::from_secs(30);
+const RELAY_STARTUP_DELAY: Duration = Duration::from_secs(8);
+const RELAY_RETRY_INTERVAL: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -303,12 +304,19 @@ impl FnnManager {
 
         let app_handle = app.clone();
         tauri::async_runtime::spawn(async move {
+            tokio::time::sleep(RELAY_STARTUP_DELAY).await;
+
+            let mut attempt = 0_u32;
             loop {
                 if cancel.load(Ordering::Relaxed) {
                     break;
                 }
 
-                let result = peer_connect::ensure_saved_peers_connected(&data_directory).await;
+                let use_graph_lookup = attempt > 0;
+                let result =
+                    peer_connect::ensure_saved_peers_connected(&data_directory, use_graph_lookup)
+                        .await;
+                attempt = attempt.saturating_add(1);
 
                 if let Some(state) = app_handle.try_state::<AppState>() {
                     let mut manager = state.fnn.lock().await;

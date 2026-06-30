@@ -6,7 +6,8 @@ use super::studio::{self, SavedPeer, StudioMetadata};
 
 const CONNECT_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const CONNECT_POLL_TIMEOUT: Duration = Duration::from_secs(25);
-const GRAPH_LOOKUP_RETRIES: usize = 6;
+const GRAPH_LOOKUP_RETRIES_QUICK: usize = 2;
+const GRAPH_LOOKUP_RETRIES_THOROUGH: usize = 6;
 const GRAPH_LOOKUP_DELAY: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,36 +83,24 @@ pub async fn ensure_peer_connected(
     }
 
     let saved_multiaddr = saved_multiaddr.trim();
-
-    if !saved_multiaddr.is_empty() {
-        try_connect_peer_with_address(pubkey, saved_multiaddr).await;
-
-        if wait_for_peer(pubkey).await? {
-            return Ok(RelayConnectStatus::Connected);
-        }
-
-        if let Some(dial_address) = strip_p2p_suffix(saved_multiaddr) {
-            try_connect_peer_with_address(pubkey, &dial_address).await;
-
-            if wait_for_peer(pubkey).await? {
-                return Ok(RelayConnectStatus::Connected);
-            }
-        }
-    }
-
-    try_connect_peer_pubkey_only(pubkey).await;
+    dial_peer_attempts(pubkey, saved_multiaddr).await;
 
     if wait_for_peer(pubkey).await? {
         return Ok(RelayConnectStatus::Connected);
     }
 
-    let addresses = resolve_graph_addresses(pubkey, saved_multiaddr).await;
-    for address in addresses {
+    for address in resolve_graph_addresses(
+        pubkey,
+        saved_multiaddr,
+        GRAPH_LOOKUP_RETRIES_THOROUGH,
+    )
+    .await
+    {
         try_connect_peer_with_address(pubkey, &address).await;
+    }
 
-        if wait_for_peer(pubkey).await? {
-            return Ok(RelayConnectStatus::Connected);
-        }
+    if wait_for_peer(pubkey).await? {
+        return Ok(RelayConnectStatus::Connected);
     }
 
     Ok(RelayConnectStatus::Failed)
@@ -119,6 +108,7 @@ pub async fn ensure_peer_connected(
 
 pub async fn ensure_saved_peers_connected(
     data_dir: &Path,
+    use_graph_lookup: bool,
 ) -> Result<SavedPeersConnectResult, RpcError> {
     let metadata = match studio::read_studio_metadata(data_dir) {
         Ok(metadata) => metadata,
@@ -140,33 +130,77 @@ pub async fn ensure_saved_peers_connected(
     }
 
     let total = metadata.saved_peers.len();
-    let mut connected_count = 0;
+    let peers = rpc::fetch_list_peers().await?;
+    let disconnected: Vec<SavedPeer> = metadata
+        .saved_peers
+        .iter()
+        .filter(|saved_peer| {
+            !peers
+                .iter()
+                .any(|peer| pubkeys_equal(&peer.pubkey, &saved_peer.pubkey))
+        })
+        .cloned()
+        .collect();
+
+    let mut connected_count = total.saturating_sub(disconnected.len());
     let mut any_failed = false;
 
-    let mut handles = Vec::with_capacity(total);
-    for saved_peer in &metadata.saved_peers {
-        let data_dir = data_dir.to_path_buf();
-        let metadata = metadata.clone();
-        let saved_peer = saved_peer.clone();
-        handles.push(tokio::spawn(async move {
-            connect_saved_peer(&data_dir, &metadata, &saved_peer).await
-        }));
+    if disconnected.is_empty() {
+        return Ok(SavedPeersConnectResult {
+            connected_count,
+            total,
+            any_failed: false,
+        });
     }
 
-    for handle in handles {
-        match handle.await {
-            Ok(Ok(status)) => match status {
-                RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected => {
-                    connected_count += 1;
-                }
-                RelayConnectStatus::Failed => {
-                    any_failed = true;
-                }
-                RelayConnectStatus::NotConfigured | RelayConnectStatus::Connecting => {}
-            },
-            Ok(Err(_)) | Err(_) => {
-                any_failed = true;
+    for saved_peer in &disconnected {
+        dial_peer_attempts(
+            saved_peer.pubkey.trim(),
+            saved_peer.multiaddr.trim(),
+        )
+        .await;
+    }
+
+    if use_graph_lookup {
+        for saved_peer in &disconnected {
+            let pubkey = saved_peer.pubkey.trim();
+            if is_peer_connected(pubkey).await? {
+                continue;
             }
+
+            for address in resolve_graph_addresses(
+                pubkey,
+                saved_peer.multiaddr.trim(),
+                GRAPH_LOOKUP_RETRIES_QUICK,
+            )
+            .await
+            {
+                try_connect_peer_with_address(pubkey, &address).await;
+            }
+        }
+    }
+
+    let connected_pubkeys =
+        wait_for_peers(disconnected.iter().map(|peer| peer.pubkey.as_str())).await?;
+
+    for saved_peer in &disconnected {
+        if connected_pubkeys.contains(&normalize_pubkey(&saved_peer.pubkey)) {
+            connected_count += 1;
+            if let Ok(peers) = rpc::fetch_list_peers().await {
+                if let Some(peer) = peers
+                    .iter()
+                    .find(|peer| pubkeys_equal(&peer.pubkey, &saved_peer.pubkey))
+                {
+                    let _ = studio::persist_relay_multiaddr(
+                        data_dir,
+                        &metadata,
+                        saved_peer.pubkey.trim(),
+                        &peer.address,
+                    );
+                }
+            }
+        } else {
+            any_failed = true;
         }
     }
 
@@ -177,33 +211,22 @@ pub async fn ensure_saved_peers_connected(
     })
 }
 
-pub async fn connect_saved_peer(
-    data_dir: &Path,
-    metadata: &StudioMetadata,
-    saved_peer: &SavedPeer,
-) -> Result<RelayConnectStatus, RpcError> {
-    let pubkey = saved_peer.pubkey.trim();
-    if pubkey.is_empty() {
-        return Ok(RelayConnectStatus::NotConfigured);
+async fn dial_peer_attempts(pubkey: &str, saved_multiaddr: &str) {
+    if !saved_multiaddr.is_empty() {
+        try_connect_peer_with_address(pubkey, saved_multiaddr).await;
     }
-
-    let status = ensure_peer_connected(pubkey, saved_peer.multiaddr.trim()).await?;
-
-    if status == RelayConnectStatus::Connected {
-        if let Ok(peers) = rpc::fetch_list_peers().await {
-            if let Some(peer) = peers.iter().find(|peer| pubkeys_equal(&peer.pubkey, pubkey)) {
-                let _ = studio::persist_relay_multiaddr(data_dir, metadata, pubkey, &peer.address);
-            }
-        }
-    }
-
-    Ok(status)
+    try_connect_peer_pubkey_only(pubkey).await;
 }
 
-async fn resolve_graph_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<String> {
+async fn resolve_graph_addresses(
+    pubkey: &str,
+    saved_multiaddr: &str,
+    max_retries: usize,
+) -> Vec<String> {
     let mut addresses = Vec::new();
+    let retries = max_retries.max(1);
 
-    for _ in 0..GRAPH_LOOKUP_RETRIES {
+    for attempt in 0..retries {
         match rpc::fetch_graph_nodes().await {
             Ok(nodes) => {
                 if let Some(node) = nodes
@@ -224,7 +247,7 @@ async fn resolve_graph_addresses(pubkey: &str, saved_multiaddr: &str) -> Vec<Str
             Err(_) => {}
         }
 
-        if addresses.is_empty() {
+        if addresses.is_empty() && attempt + 1 < retries {
             tokio::time::sleep(GRAPH_LOOKUP_DELAY).await;
         } else {
             break;
@@ -282,16 +305,6 @@ async fn try_connect_peer_pubkey_only(pubkey: &str) {
     let _ = connect_peer_pubkey_only(pubkey).await;
 }
 
-fn strip_p2p_suffix(multiaddr: &str) -> Option<String> {
-    let trimmed = multiaddr.trim();
-    let suffix_start = trimmed.find("/p2p/")?;
-    if suffix_start == 0 {
-        return None;
-    }
-
-    Some(trimmed[..suffix_start].to_string())
-}
-
 async fn connect_peer_with_address(pubkey: &str, address: &str) -> Result<(), RpcError> {
     let params = serde_json::json!([{
         "pubkey": pubkey,
@@ -312,17 +325,47 @@ async fn connect_peer_pubkey_only(pubkey: &str) -> Result<(), RpcError> {
 }
 
 async fn wait_for_peer(pubkey: &str) -> Result<bool, RpcError> {
-    let started = std::time::Instant::now();
+    Ok(wait_for_peers([pubkey])
+        .await?
+        .contains(&normalize_pubkey(pubkey)))
+}
 
-    while started.elapsed() < CONNECT_POLL_TIMEOUT {
-        if is_peer_connected(pubkey).await? {
-            return Ok(true);
+async fn wait_for_peers<'a, I>(pubkeys: I) -> Result<std::collections::HashSet<String>, RpcError>
+where
+    I: IntoIterator<Item = &'a str>,
+{
+    use std::collections::HashSet;
+
+    let targets: HashSet<String> = pubkeys
+        .into_iter()
+        .map(normalize_pubkey)
+        .filter(|pubkey| !pubkey.is_empty())
+        .collect();
+
+    if targets.is_empty() {
+        return Ok(HashSet::new());
+    }
+
+    let started = std::time::Instant::now();
+    let mut connected = HashSet::new();
+
+    while started.elapsed() < CONNECT_POLL_TIMEOUT && connected.len() < targets.len() {
+        let peers = rpc::fetch_list_peers().await?;
+        for peer in peers {
+            let normalized = normalize_pubkey(&peer.pubkey);
+            if targets.contains(&normalized) {
+                connected.insert(normalized);
+            }
+        }
+
+        if connected.len() == targets.len() {
+            break;
         }
 
         tokio::time::sleep(CONNECT_POLL_INTERVAL).await;
     }
 
-    Ok(false)
+    Ok(connected)
 }
 
 #[cfg(test)]
@@ -358,15 +401,6 @@ mod tests {
         ]);
 
         assert_eq!(ranked.len(), 1);
-    }
-
-    #[test]
-    fn strip_p2p_suffix_removes_trailing_peer_id() {
-        let stripped = strip_p2p_suffix(
-            "/ip4/18.163.221.211/tcp/8119/p2p/QmbKyzq9qUmymW2Gi8Zq7kKVpPiNA1XUJ6uMvsUC4F3p89",
-        );
-
-        assert_eq!(stripped, Some("/ip4/18.163.221.211/tcp/8119".into()));
     }
 
     #[test]
