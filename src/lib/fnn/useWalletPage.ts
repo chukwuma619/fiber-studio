@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { getWalletPage } from "./invoke"
+import { usePollInFlight } from "./usePollInFlight"
 import type { WalletPageResponse } from "./types"
 
 const EMPTY_RESPONSE: WalletPageResponse = {
@@ -36,6 +37,7 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const runIfIdle = usePollInFlight()
 
   const effectivePollIntervalMs =
     data &&
@@ -56,17 +58,29 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
       setIsRefreshing(true)
     }
 
-    try {
-      const response = await getWalletPage()
-      setData(response)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
+    const executed = await runIfIdle(
+      async () => {
+        try {
+          const response = await getWalletPage()
+          setData(response)
+          setError(null)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err))
+        }
+      },
+      { force: manual },
+    )
+
+    if (!executed) {
+      if (manual) {
+        setIsRefreshing(false)
+      }
+      return
     }
-  }, [running])
+
+    setIsLoading(false)
+    setIsRefreshing(false)
+  }, [runIfIdle, running])
 
   useEffect(() => {
     setIsLoading(true)

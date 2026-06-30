@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { getNetworkPage } from "./invoke"
+import { usePollInFlight } from "./usePollInFlight"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../public-relays"
 import type { NetworkPageResponse } from "./types"
 
@@ -29,6 +30,7 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const runIfIdle = usePollInFlight()
 
   const effectivePollIntervalMs =
     data?.relayStatus === "connecting" ? CONNECTING_POLL_INTERVAL_MS : pollIntervalMs
@@ -46,17 +48,29 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
       setIsRefreshing(true)
     }
 
-    try {
-      const response = await getNetworkPage()
-      setData(response)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
+    const executed = await runIfIdle(
+      async () => {
+        try {
+          const response = await getNetworkPage()
+          setData(response)
+          setError(null)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err))
+        }
+      },
+      { force: manual },
+    )
+
+    if (!executed) {
+      if (manual) {
+        setIsRefreshing(false)
+      }
+      return
     }
-  }, [running])
+
+    setIsLoading(false)
+    setIsRefreshing(false)
+  }, [runIfIdle, running])
 
   useEffect(() => {
     setIsLoading(true)

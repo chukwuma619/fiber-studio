@@ -1,7 +1,11 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::OnceLock;
+use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use tokio::sync::Mutex;
 
 use crate::fnn::amounts::{self, ckb_from_shannons_hex, format_ckb_amount};
 use crate::fnn::channel::{sum_local_balances, SHANNONS_PER_CKB};
@@ -17,6 +21,52 @@ use crate::fnn::studio;
 use crate::state::AppState;
 
 const WALLET_PAYMENT_PAGE_SIZE: u32 = 25;
+const INVOICE_PARSE_CACHE_TTL: Duration = Duration::from_secs(60);
+
+struct CachedInvoiceParse {
+    result: rpc::ParseInvoiceResult,
+    cached_at: Instant,
+}
+
+static INVOICE_PARSE_CACHE: OnceLock<Mutex<HashMap<String, CachedInvoiceParse>>> = OnceLock::new();
+
+fn invoice_parse_cache() -> &'static Mutex<HashMap<String, CachedInvoiceParse>> {
+    INVOICE_PARSE_CACHE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+async fn parse_invoice_cached(invoice: &str) -> Result<rpc::ParseInvoiceResult, String> {
+    let key = invoice.trim().to_string();
+    if key.is_empty() {
+        return Err("Invoice string is required.".to_string());
+    }
+
+    {
+        let cache = invoice_parse_cache().lock().await;
+        if let Some(entry) = cache.get(&key) {
+            if entry.cached_at.elapsed() < INVOICE_PARSE_CACHE_TTL {
+                return Ok(entry.result.clone());
+            }
+        }
+    }
+
+    let parsed = rpc::parse_invoice(&key)
+        .await
+        .map_err(|error| format!("Invalid invoice: {error}"))?;
+
+    {
+        let mut cache = invoice_parse_cache().lock().await;
+        cache.retain(|_, entry| entry.cached_at.elapsed() < INVOICE_PARSE_CACHE_TTL);
+        cache.insert(
+            key,
+            CachedInvoiceParse {
+                result: parsed.clone(),
+                cached_at: Instant::now(),
+            },
+        );
+    }
+
+    Ok(parsed)
+}
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -648,9 +698,7 @@ pub async fn preview_send_payment(
 
     let _data_directory = require_running_data_dir(&state).await?;
 
-    let parsed = rpc::parse_invoice(invoice)
-        .await
-        .map_err(|error| format!("Invalid invoice: {error}"))?;
+    let parsed = parse_invoice_cached(invoice).await?;
 
     let parse_preview = build_parse_invoice_preview(&parsed.invoice, None);
     let amount_shannons = parsed
@@ -700,9 +748,7 @@ pub async fn parse_invoice_preview(
     let studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
-    let parsed = rpc::parse_invoice(invoice)
-        .await
-        .map_err(|error| format!("Invalid invoice: {error}"))?;
+    let parsed = parse_invoice_cached(invoice).await?;
 
     Ok(build_parse_invoice_preview(
         &parsed.invoice,
@@ -722,9 +768,7 @@ pub async fn send_payment(
 
     let data_directory = require_running_data_dir(&state).await?;
 
-    let parsed = rpc::parse_invoice(invoice)
-        .await
-        .map_err(|error| format!("Invalid invoice: {error}"))?;
+    let parsed = parse_invoice_cached(invoice).await?;
     let amount_shannons = parsed
         .invoice
         .amount

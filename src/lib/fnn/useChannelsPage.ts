@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { getChannelsPage } from "./invoke"
+import { usePollInFlight } from "./usePollInFlight"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB } from "../public-relays"
 import type { ChannelsPageResponse } from "./types"
 
@@ -27,6 +28,7 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const runIfIdle = usePollInFlight()
 
   const effectivePollIntervalMs =
     (data?.pendingChannelCount ?? 0) > 0
@@ -46,17 +48,29 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
       setIsRefreshing(true)
     }
 
-    try {
-      const response = await getChannelsPage()
-      setData(response)
-      setError(null)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err))
-    } finally {
-      setIsLoading(false)
-      setIsRefreshing(false)
+    const executed = await runIfIdle(
+      async () => {
+        try {
+          const response = await getChannelsPage()
+          setData(response)
+          setError(null)
+        } catch (err) {
+          setError(err instanceof Error ? err.message : String(err))
+        }
+      },
+      { force: manual },
+    )
+
+    if (!executed) {
+      if (manual) {
+        setIsRefreshing(false)
+      }
+      return
     }
-  }, [running])
+
+    setIsLoading(false)
+    setIsRefreshing(false)
+  }, [runIfIdle, running])
 
   useEffect(() => {
     setIsLoading(true)

@@ -103,70 +103,68 @@ export function SendPaymentPanel({
       setParsedInvoice(null)
       setParseError(null)
       setParseLoading(false)
-      return
-    }
-
-    setParseLoading(true)
-    setParseError(null)
-
-    const timeout = window.setTimeout(() => {
-      void onParseInvoicePreview(trimmed)
-        .then((preview) => {
-          setParsedInvoice(preview)
-          setParseError(null)
-        })
-        .catch((err) => {
-          setParsedInvoice(null)
-          setParseError(err instanceof Error ? err.message : String(err))
-        })
-        .finally(() => {
-          setParseLoading(false)
-        })
-    }, PREVIEW_DEBOUNCE_MS)
-
-    return () => {
-      window.clearTimeout(timeout)
-    }
-  }, [available, invoice, onParseInvoicePreview, running, sendMode])
-
-  useEffect(() => {
-    if (!running || !available) {
       setRoutePreview(null)
       setPreviewError(null)
       setPreviewLoading(false)
       return
     }
 
-    if (sendMode === "invoice") {
-      const trimmed = invoice.trim()
-      if (!trimmed) {
-        setRoutePreview(null)
+    let cancelled = false
+
+    const timeout = window.setTimeout(() => {
+      void (async () => {
+        setParseLoading(true)
+        setPreviewLoading(true)
+        setParseError(null)
         setPreviewError(null)
-        setPreviewLoading(false)
-        return
-      }
 
-      setPreviewLoading(true)
+        try {
+          const preview = await onParseInvoicePreview(trimmed)
+          if (cancelled) return
+          setParsedInvoice(preview)
+          setParseLoading(false)
+
+          const route = await onPreviewSendPayment({ invoice: trimmed })
+          if (cancelled) return
+          setRoutePreview(route)
+        } catch (err) {
+          if (cancelled) return
+          const message = err instanceof Error ? err.message : String(err)
+          setParsedInvoice(null)
+          setParseError(message)
+          setRoutePreview(null)
+          setPreviewError(message)
+        } finally {
+          if (cancelled) return
+          setParseLoading(false)
+          setPreviewLoading(false)
+        }
+      })()
+    }, PREVIEW_DEBOUNCE_MS)
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+    }
+  }, [
+    available,
+    invoice,
+    onParseInvoicePreview,
+    onPreviewSendPayment,
+    running,
+    sendMode,
+  ])
+
+  useEffect(() => {
+    if (sendMode !== "keysend") {
+      return
+    }
+
+    if (!running || !available) {
+      setRoutePreview(null)
       setPreviewError(null)
-
-      const timeout = window.setTimeout(() => {
-        void onPreviewSendPayment({ invoice: trimmed })
-          .then((preview) => {
-            setRoutePreview(preview)
-            setPreviewError(null)
-          })
-          .catch((err) => {
-            setRoutePreview(null)
-            setPreviewError(err instanceof Error ? err.message : String(err))
-          })
-          .finally(() => {
-            setPreviewLoading(false)
-          })
-      }, PREVIEW_DEBOUNCE_MS)
-
-      return () => {
-        window.clearTimeout(timeout)
-      }
+      setPreviewLoading(false)
+      return
     }
 
     const pubkey = targetPubkey.trim()
@@ -204,10 +202,8 @@ export function SendPaymentPanel({
     }
   }, [
     available,
-    invoice,
     keysendAmount,
     onPreviewKeysendPayment,
-    onPreviewSendPayment,
     running,
     sendMode,
     targetPubkey,

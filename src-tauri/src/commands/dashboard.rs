@@ -7,7 +7,7 @@ use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
-use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo, PeerInfo};
+use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo};
 use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
@@ -22,7 +22,6 @@ pub struct HomeDashboardResponse {
     pub available: bool,
     pub node_info: Option<HomeNodeInfo>,
     pub channels: Vec<HomeChannel>,
-    pub peers: Vec<HomePeer>,
     pub payments: Vec<HomePayment>,
     pub incoming_invoices: Vec<HomeIncomingInvoice>,
     pub active_channel_count: u32,
@@ -42,13 +41,6 @@ pub struct HomeNodeInfo {
     pub channel_count: u32,
     pub pending_channel_count: u32,
     pub peers_count: u32,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HomePeer {
-    pub pubkey: String,
-    pub address: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -110,7 +102,6 @@ pub async fn get_home_dashboard(
             available: false,
             node_info: None,
             channels: Vec::new(),
-            peers: Vec::new(),
             payments: Vec::new(),
             incoming_invoices: Vec::new(),
             active_channel_count: 0,
@@ -194,7 +185,6 @@ pub async fn get_home_dashboard(
         available: true,
         node_info: Some(to_home_node_info(node_info)),
         channels: home_channels,
-        peers: peers.into_iter().map(to_home_peer).collect(),
         payments: payments
             .into_iter()
             .map(|payment| {
@@ -239,11 +229,4 @@ fn select_home_channels(channels: Vec<Channel>) -> Vec<HomeChannel> {
         .into_iter()
         .take(HOME_CHANNEL_LIMIT)
         .collect()
-}
-
-fn to_home_peer(peer: PeerInfo) -> HomePeer {
-    HomePeer {
-        pubkey: peer.pubkey,
-        address: peer.address,
-    }
 }

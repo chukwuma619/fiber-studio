@@ -105,11 +105,6 @@ export type AbandonChannelPayload = {
   channelId: string
 }
 
-export type HomePeer = {
-  pubkey: string
-  address: string
-}
-
 export type HomePayment = {
   paymentHash: string
   status: string
@@ -139,7 +134,6 @@ export type HomeDashboardResponse = {
   available: boolean
   nodeInfo: HomeNodeInfo | null
   channels: HomeChannel[]
-  peers: HomePeer[]
   payments: HomePayment[]
   incomingInvoices: HomeIncomingInvoice[]
   activeChannelCount: number

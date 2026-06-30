@@ -2,7 +2,6 @@
 import type { SetupConfig } from "../setup/types"
 import type {
   HomeDashboardResponse,
-  HomePeer,
   RelayConnectionStatus,
 } from "./types"
 
@@ -38,18 +37,6 @@ export function getRelayContext(
     network,
     relayStatus: dashboard?.relayStatus,
   }
-}
-
-export function isRelayConnected(
-  peers: HomePeer[],
-  context: RelayContext,
-): boolean {
-  if (context.relayStatus === "connected") return true
-
-  if (context.savedPeerPubkeys.length === 0) return false
-  return context.savedPeerPubkeys.some((pubkey) =>
-    peers.some((peer) => pubkeysEqual(peer.pubkey, pubkey)),
-  )
 }
 
 export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
