@@ -321,6 +321,10 @@ export type RemoveSavedPeerPayload = {
   pubkey: string
 }
 
+export type ReconnectSavedPeerPayload = {
+  pubkey: string
+}
+
 export type PeerConnectResult = {
   status: "connected" | "already_connected" | "failed" | "connecting" | "not_configured"
 }

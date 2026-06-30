@@ -106,6 +106,12 @@ pub struct RemoveSavedPeerPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ReconnectSavedPeerPayload {
+    pub pubkey: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DisconnectPeerPayload {
     pub pubkey: String,
 }
@@ -470,6 +476,68 @@ pub async fn add_saved_peer(
     }
 
     upsert_and_connect_saved_peer(&app, &state, pubkey, payload.multiaddr).await
+}
+
+#[tauri::command]
+pub async fn reconnect_saved_peer(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    payload: ReconnectSavedPeerPayload,
+) -> Result<PeerConnectResult, String> {
+    let pubkey = payload.pubkey.trim();
+    if pubkey.is_empty() {
+        return Err("Peer pubkey is required.".to_string());
+    }
+
+    let manager = state.fnn.lock().await;
+
+    if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
+        return Err("Node is not running. Start your node before reconnecting a peer.".to_string());
+    }
+
+    let data_directory = manager
+        .data_directory()
+        .cloned()
+        .ok_or_else(|| "Data directory is not configured.".to_string())?;
+    drop(manager);
+
+    let studio_metadata = studio::read_studio_metadata(&data_directory)
+        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+
+    if !studio_metadata.has_saved_peer(pubkey) {
+        return Err("Peer is not in your saved peer list.".to_string());
+    }
+
+    let saved_multiaddr = studio_metadata
+        .find_saved_peer(pubkey)
+        .map(|peer| peer.multiaddr.as_str())
+        .unwrap_or("");
+
+    let status = peer_connect::ensure_peer_connected(pubkey, saved_multiaddr)
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if status == RelayConnectStatus::Connected {
+        if let Ok(peers) = rpc::fetch_list_peers().await {
+            if let Some(peer) = peers.iter().find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
+            {
+                let _ = studio::persist_relay_multiaddr(
+                    &data_directory,
+                    &studio_metadata,
+                    pubkey,
+                    &peer.address,
+                );
+            }
+        }
+    }
+
+    let mut manager = state.fnn.lock().await;
+    manager.restart_relay_connect_loop(&app);
+    drop(manager);
+
+    Ok(PeerConnectResult {
+        status: connect_status_label(status).to_string(),
+    })
 }
 
 #[tauri::command]

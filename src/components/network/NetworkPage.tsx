@@ -19,9 +19,8 @@ import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { Text } from "../ui/text"
 import { ConnectPeerDialog } from "./ConnectPeerDialog"
-import { ConnectedPeersSection } from "./ConnectedPeersSection"
 import { GraphBrowserSection } from "./GraphBrowserSection"
-import { SavedPeersSection } from "./SavedPeersSection"
+import { PeersSection } from "./PeersSection"
 
 export function NetworkPage() {
   const { running, config } = useNodeControlContext()
@@ -30,6 +29,7 @@ export function NetworkPage() {
 
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
   const [disconnectingPubkey, setDisconnectingPubkey] = useState<string | null>(null)
+  const [reconnectingPubkey, setReconnectingPubkey] = useState<string | null>(null)
   const [removingPubkey, setRemovingPubkey] = useState<string | null>(null)
 
   const available = data?.available ?? false
@@ -67,6 +67,19 @@ export function NetworkPage() {
         await networkActions.handleRemoveSavedPeer({ pubkey })
       } finally {
         setRemovingPubkey(null)
+      }
+    },
+    [networkActions],
+  )
+
+  const handleReconnectSavedPeer = useCallback(
+    async (pubkey: string) => {
+      networkActions.clearActionError()
+      setReconnectingPubkey(pubkey)
+      try {
+        await networkActions.handleReconnectSavedPeer({ pubkey })
+      } finally {
+        setReconnectingPubkey(null)
       }
     },
     [networkActions],
@@ -148,21 +161,16 @@ export function NetworkPage() {
         </section>
       ) : (
         <>
-          <SavedPeersSection
-            peers={savedPeers}
-            isActing={networkActions.isActing}
-            removingPubkey={removingPubkey}
-            onAddPeer={openConnectDialog}
-            onRemovePeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
-          />
-
-          <ConnectedPeersSection
-            peers={connectedPeers}
+          <PeersSection
+            savedPeers={savedPeers}
+            connectedPeers={connectedPeers}
             isActing={networkActions.isActing}
             disconnectingPubkey={disconnectingPubkey}
+            reconnectingPubkey={reconnectingPubkey}
             removingPubkey={removingPubkey}
-            onConnectPeer={openConnectDialog}
+            onAddPeer={openConnectDialog}
             onDisconnectPeer={(pubkey) => void handleDisconnectPeer(pubkey)}
+            onReconnectSavedPeer={(pubkey) => void handleReconnectSavedPeer(pubkey)}
             onRemoveSavedPeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
           />
 

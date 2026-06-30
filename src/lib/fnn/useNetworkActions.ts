@@ -1,9 +1,10 @@
 import { useCallback, useState } from "react"
-import { connectPeer, disconnectPeer, addSavedPeer, removeSavedPeer } from "./invoke"
+import { connectPeer, disconnectPeer, addSavedPeer, removeSavedPeer, reconnectSavedPeer } from "./invoke"
 import type {
   AddSavedPeerPayload,
   ConnectPeerPayload,
   DisconnectPeerPayload,
+  ReconnectSavedPeerPayload,
   RemoveSavedPeerPayload,
 } from "./types"
 
@@ -77,6 +78,30 @@ export function useNetworkActions(onSuccess?: () => void) {
     [onSuccess],
   )
 
+  const handleReconnectSavedPeer = useCallback(
+    async (payload: ReconnectSavedPeerPayload) => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        const result = await reconnectSavedPeer(payload)
+        if (result.status === "failed") {
+          throw new Error(
+            "Could not reconnect to peer. Check that the peer is online and try again.",
+          )
+        }
+        onSuccess?.()
+        return result
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        setActionError(message)
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
   const clearActionError = useCallback(() => {
     setActionError(null)
   }, [])
@@ -105,6 +130,7 @@ export function useNetworkActions(onSuccess?: () => void) {
     handleConnectPeer,
     handleAddSavedPeer,
     handleRemoveSavedPeer,
+    handleReconnectSavedPeer,
     handleDisconnectPeer,
     clearActionError,
   }
