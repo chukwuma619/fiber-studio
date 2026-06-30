@@ -62,6 +62,17 @@ pub struct SwitchNetworkPayload {
     pub custom_public_node_pubkey: String,
     pub custom_public_node_multiaddr: String,
     pub copy_key_from_current: bool,
+    pub imported_private_key: Option<String>,
+}
+
+#[tauri::command]
+pub fn is_network_provisioned(network: String) -> Result<bool, String> {
+    if network != "mainnet" && network != "testnet" {
+        return Err("Network must be mainnet or testnet.".into());
+    }
+
+    let data_dir = data_directory::resolve_data_directory_for_network(&network)?;
+    Ok(data_directory::network_data_directory_is_provisioned(&data_dir))
 }
 
 fn backup_paths() -> Vec<BackupPathEntry> {
@@ -329,7 +340,13 @@ pub async fn switch_network(
         fs::create_dir_all(new_data_dir.join("ckb"))
             .map_err(|error| format!("Failed to create data directory: {error}"))?;
 
-        if payload.copy_key_from_current {
+        let imported_key = payload
+            .imported_private_key
+            .as_ref()
+            .map(|value| value.trim())
+            .filter(|value| !value.is_empty());
+
+        let (key_file_mode, imported_private_key) = if payload.copy_key_from_current {
             let source_key = current_data_directory.join("ckb").join("key");
             let dest_key = new_data_dir.join("ckb").join("key");
             if !source_key.is_file() {
@@ -337,7 +354,14 @@ pub async fn switch_network(
             }
             fs::copy(&source_key, &dest_key)
                 .map_err(|error| format!("Failed to copy key file: {error}"))?;
-        }
+            ("existing".to_string(), None)
+        } else if let Some(key) = imported_key {
+            ("import".to_string(), Some(key.to_string()))
+        } else {
+            return Err(
+                "CKB private key is required to set up this network's data folder.".into(),
+            );
+        };
 
         let pubkey = if payload.custom_public_node_pubkey.trim().is_empty() {
             relays::relays_for_network(&payload.network)
@@ -352,9 +376,9 @@ pub async fn switch_network(
         let provision_request = ProvisionRequest {
             network: payload.network.clone(),
             data_directory: new_data_dir.display().to_string(),
-            key_file_mode: "existing".into(),
+            key_file_mode,
             key_file_path: "ckb/key".into(),
-            imported_private_key: None,
+            imported_private_key,
             custom_public_node_pubkey: pubkey,
             custom_public_node_multiaddr: payload.custom_public_node_multiaddr.trim().to_string(),
         };
@@ -389,24 +413,8 @@ pub async fn migrate_legacy_data_directory(
 
     if let Ok(mut studio_metadata) = studio::read_studio_metadata(&canonical) {
         studio_metadata.data_directory = canonical.display().to_string();
-        studio_metadata.network = network.clone();
+        studio_metadata.network = network;
         let _ = studio::write_studio_metadata(&canonical, &studio_metadata);
-    }
-
-    if !data_directory::network_data_directory_is_provisioned(&canonical) {
-        return Err(
-            "Migration copy completed but the new data directory is not provisioned.".into(),
-        );
-    }
-
-    if legacy != canonical && legacy.exists() {
-        fs::remove_dir_all(&legacy).map_err(|error| {
-            format!(
-                "Migrated data to {} but failed to remove legacy directory {}: {error}",
-                canonical.display(),
-                legacy.display()
-            )
-        })?;
     }
 
     Ok(canonical.display().to_string())

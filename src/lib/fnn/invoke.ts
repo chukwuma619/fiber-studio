@@ -240,6 +240,10 @@ export async function switchNetwork(
   return invoke<NodeSettingsResponse>("switch_network", { payload })
 }
 
+export async function isNetworkProvisioned(network: string): Promise<boolean> {
+  return invoke<boolean>("is_network_provisioned", { network })
+}
+
 export async function migrateLegacyDataDirectory(
   network: string,
 ): Promise<string> {

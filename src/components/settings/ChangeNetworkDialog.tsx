@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react"
+import { validateCkbPrivateKey } from "../../lib/ckb-key"
 import {
   getDataDirectoryDisplayForNetwork,
   resolveDataDirectoryForNetwork,
 } from "../../lib/data-directory"
+import { isNetworkProvisioned } from "../../lib/fnn/invoke"
 import {
   NETWORK_OPTIONS,
   switchTargetNetworks,
@@ -12,6 +14,7 @@ import type { SwitchNetworkPayload } from "../../lib/fnn/types"
 import { getRelay } from "../../lib/public-relays"
 import { formatNetworkLabel } from "../../lib/fnn/useNodeControl"
 import { Button } from "../ui/button"
+import { Checkbox, CheckboxField } from "../ui/checkbox"
 import {
   Dialog,
   DialogActions,
@@ -19,6 +22,8 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog"
+import { ErrorMessage, Field, Label } from "../ui/fieldset"
+import { Input } from "../ui/input"
 import { Text } from "../ui/text"
 import { SelectionCard } from "../setup/SelectionCard"
 
@@ -49,26 +54,51 @@ export function ChangeNetworkDialog({
     targetOptions[0]?.value ?? "testnet",
   )
   const [targetDataDirectory, setTargetDataDirectory] = useState("")
+  const [targetProvisioned, setTargetProvisioned] = useState(true)
+  const [importedPrivateKey, setImportedPrivateKey] = useState("")
+  const [copyKeyFromCurrent, setCopyKeyFromCurrent] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
     const firstTarget = switchTargetNetworks(currentNetwork)[0] ?? "testnet"
     setNetwork(firstTarget)
+    setImportedPrivateKey("")
+    setCopyKeyFromCurrent(false)
     setError(null)
     void resolveDataDirectoryForNetwork(firstTarget).then(setTargetDataDirectory)
+    void isNetworkProvisioned(firstTarget).then(setTargetProvisioned)
   }, [currentNetwork, open])
 
   useEffect(() => {
     if (!open) return
     void resolveDataDirectoryForNetwork(network).then(setTargetDataDirectory)
+    void isNetworkProvisioned(network).then(setTargetProvisioned)
   }, [network, open])
+
+  const needsKeySetup = !targetProvisioned
+  const keyError =
+    needsKeySetup && !copyKeyFromCurrent
+      ? validateCkbPrivateKey(importedPrivateKey)
+      : null
 
   async function handleConfirm() {
     setError(null)
     if (network === currentNetwork) {
       setError("Pick a different network than your current one.")
       return
+    }
+
+    if (needsKeySetup && !copyKeyFromCurrent) {
+      if (!importedPrivateKey.trim()) {
+        setError("Private key is required.")
+        return
+      }
+      const validationError = validateCkbPrivateKey(importedPrivateKey)
+      if (validationError) {
+        setError(validationError)
+        return
+      }
     }
 
     const node1 = getRelay(network, "node1")
@@ -78,7 +108,11 @@ export function ChangeNetworkDialog({
         network,
         customPublicNodePubkey: node1.pubkey,
         customPublicNodeMultiaddr: node1.multiaddr ?? "",
-        copyKeyFromCurrent: true,
+        copyKeyFromCurrent: needsKeySetup && copyKeyFromCurrent,
+        importedPrivateKey:
+          needsKeySetup && !copyKeyFromCurrent
+            ? importedPrivateKey
+            : undefined,
       })
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
@@ -100,12 +134,7 @@ export function ChangeNetworkDialog({
       </DialogDescription>
       <DialogBody>
         <div className="space-y-5">
-          <Text className="text-sm text-amber-700 dark:text-amber-400">
-            This copies your CKB key on first use of the other network, writes a
-            new config, and does not move channel state. Configure peers on the
-            Network page after you start the node.
-          </Text>
-
+          
           <div className="space-y-2">
             <p className="text-sm font-medium text-zinc-950 dark:text-white">
               Target network
@@ -134,6 +163,36 @@ export function ChangeNetworkDialog({
             </p>
           </div>
 
+          {needsKeySetup ? (
+            <div className="space-y-4">
+              <CheckboxField>
+                <Checkbox
+                  checked={copyKeyFromCurrent}
+                  onChange={setCopyKeyFromCurrent}
+                  color="dark/zinc"
+                />
+                <Label>Use the same CKB key as my current network</Label>
+              </CheckboxField>
+
+              {!copyKeyFromCurrent ? (
+                <Field>
+                  <Label>CKB private key (hex)</Label>
+                  <Input
+                    type="password"
+                    value={importedPrivateKey}
+                    onChange={(event) => setImportedPrivateKey(event.target.value)}
+                    placeholder="64 hex characters (optional 0x prefix)"
+                    autoComplete="off"
+                    spellCheck={false}
+                    className="font-mono text-xs"
+                    data-invalid={keyError ? true : undefined}
+                  />
+                  {keyError ? <ErrorMessage>{keyError}</ErrorMessage> : null}
+                </Field>
+              ) : null}
+            </div>
+          ) : null}
+
           {error ? (
             <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           ) : null}
@@ -143,7 +202,10 @@ export function ChangeNetworkDialog({
         <Button plain onClick={onClose} disabled={isActing}>
           Cancel
         </Button>
-        <Button onClick={() => void handleConfirm()} disabled={isActing}>
+        <Button
+          onClick={() => void handleConfirm()}
+          disabled={isActing}
+        >
           {isActing ? "Switching…" : "Switch network"}
         </Button>
       </DialogActions>

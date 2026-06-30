@@ -394,4 +394,5 @@ export type SwitchNetworkPayload = {
   customPublicNodePubkey: string
   customPublicNodeMultiaddr: string
   copyKeyFromCurrent: boolean
+  importedPrivateKey?: string
 }

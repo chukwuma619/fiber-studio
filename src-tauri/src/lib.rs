@@ -55,6 +55,7 @@ pub fn run() {
             commands::settings::open_data_directory,
             commands::settings::update_wallet_password,
             commands::settings::switch_network,
+            commands::settings::is_network_provisioned,
             commands::settings::migrate_legacy_data_directory,
         ])
         .build(tauri::generate_context!())
