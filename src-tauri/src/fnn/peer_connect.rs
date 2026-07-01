@@ -1,12 +1,10 @@
-use std::path::Path;
 use std::time::Duration;
 
 use super::rpc::{self, GraphNode, PeerInfo, RpcError};
-use super::studio::{self, SavedPeer};
+use super::studio::SavedPeer;
 
 const CONNECT_POLL_INTERVAL: Duration = Duration::from_millis(500);
 const CONNECT_POLL_TIMEOUT: Duration = Duration::from_secs(25);
-const GRAPH_LOOKUP_RETRIES_QUICK: usize = 2;
 const GRAPH_LOOKUP_RETRIES_THOROUGH: usize = 6;
 const GRAPH_LOOKUP_DELAY: Duration = Duration::from_secs(5);
 
@@ -17,24 +15,6 @@ pub enum RelayConnectStatus {
     Connected,
     Connecting,
     Failed,
-}
-
-impl RelayConnectStatus {
-    pub fn status_label(&self) -> &'static str {
-        match self {
-            Self::NotConfigured => "not_configured",
-            Self::AlreadyConnected | Self::Connected => "connected",
-            Self::Connecting => "connecting",
-            Self::Failed => "failed",
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SavedPeersConnectResult {
-    pub connected_count: usize,
-    pub total: usize,
-    pub any_failed: bool,
 }
 
 pub fn pubkeys_equal(left: &str, right: &str) -> bool {
@@ -64,8 +44,8 @@ pub fn relay_status_for_saved_peers(
 
     match fallback_status {
         "connecting" => "connecting".to_string(),
-        "failed" => "failed".to_string(),
-        _ => "failed".to_string(),
+        "failed" | "connected" => "failed".to_string(),
+        _ => "not_configured".to_string(),
     }
 }
 
@@ -104,111 +84,6 @@ pub async fn ensure_peer_connected(
     }
 
     Ok(RelayConnectStatus::Failed)
-}
-
-pub async fn ensure_saved_peers_connected(
-    data_dir: &Path,
-    use_graph_lookup: bool,
-) -> Result<SavedPeersConnectResult, RpcError> {
-    let metadata = match studio::read_studio_metadata(data_dir) {
-        Ok(metadata) => metadata,
-        Err(_) => {
-            return Ok(SavedPeersConnectResult {
-                connected_count: 0,
-                total: 0,
-                any_failed: false,
-            });
-        }
-    };
-
-    if metadata.saved_peers.is_empty() {
-        return Ok(SavedPeersConnectResult {
-            connected_count: 0,
-            total: 0,
-            any_failed: false,
-        });
-    }
-
-    let total = metadata.saved_peers.len();
-    let peers = rpc::fetch_list_peers().await?;
-    let disconnected: Vec<SavedPeer> = metadata
-        .saved_peers
-        .iter()
-        .filter(|saved_peer| {
-            !peers
-                .iter()
-                .any(|peer| pubkeys_equal(&peer.pubkey, &saved_peer.pubkey))
-        })
-        .cloned()
-        .collect();
-
-    let mut connected_count = total.saturating_sub(disconnected.len());
-    let mut any_failed = false;
-
-    if disconnected.is_empty() {
-        return Ok(SavedPeersConnectResult {
-            connected_count,
-            total,
-            any_failed: false,
-        });
-    }
-
-    for saved_peer in &disconnected {
-        dial_peer_attempts(
-            saved_peer.pubkey.trim(),
-            saved_peer.multiaddr.trim(),
-        )
-        .await;
-    }
-
-    if use_graph_lookup {
-        for saved_peer in &disconnected {
-            let pubkey = saved_peer.pubkey.trim();
-            if is_peer_connected(pubkey).await? {
-                continue;
-            }
-
-            for address in resolve_graph_addresses(
-                pubkey,
-                saved_peer.multiaddr.trim(),
-                GRAPH_LOOKUP_RETRIES_QUICK,
-            )
-            .await
-            {
-                try_connect_peer_with_address(pubkey, &address).await;
-            }
-        }
-    }
-
-    let connected_pubkeys =
-        wait_for_peers(disconnected.iter().map(|peer| peer.pubkey.as_str())).await?;
-
-    for saved_peer in &disconnected {
-        if connected_pubkeys.contains(&normalize_pubkey(&saved_peer.pubkey)) {
-            connected_count += 1;
-            if let Ok(peers) = rpc::fetch_list_peers().await {
-                if let Some(peer) = peers
-                    .iter()
-                    .find(|peer| pubkeys_equal(&peer.pubkey, &saved_peer.pubkey))
-                {
-                    let _ = studio::persist_relay_multiaddr(
-                        data_dir,
-                        &metadata,
-                        saved_peer.pubkey.trim(),
-                        &peer.address,
-                    );
-                }
-            }
-        } else {
-            any_failed = true;
-        }
-    }
-
-    Ok(SavedPeersConnectResult {
-        connected_count,
-        total,
-        any_failed,
-    })
 }
 
 async fn dial_peer_attempts(pubkey: &str, saved_multiaddr: &str) {

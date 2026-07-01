@@ -92,10 +92,10 @@ fn to_home_incoming(item: InvoiceListItem) -> HomeIncomingInvoice {
 
 #[tauri::command]
 pub async fn get_home_dashboard(
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<HomeDashboardResponse, String> {
-    let mut manager = state.fnn.lock().await;
+    let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
         return Ok(HomeDashboardResponse {
@@ -112,8 +112,6 @@ pub async fn get_home_dashboard(
             relay_status: "not_configured".to_string(),
         });
     }
-
-    manager.ensure_relay_connect_loop(&app);
 
     let data_directory = manager.data_directory().cloned();
     let manager_relay_status = manager.relay_state().status;

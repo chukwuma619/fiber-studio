@@ -221,16 +221,14 @@ fn build_saved_peer_entry(
 
 #[tauri::command]
 pub async fn get_network_page(
-    app: AppHandle,
+    _app: AppHandle,
     state: State<'_, AppState>,
 ) -> Result<NetworkPageResponse, String> {
-    let mut manager = state.fnn.lock().await;
+    let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
         return Ok(network_page_unavailable());
     }
-
-    manager.ensure_relay_connect_loop(&app);
 
     let data_directory = manager.data_directory().cloned();
     let manager_relay_status = manager.relay_state().status;
@@ -368,7 +366,6 @@ pub async fn get_network_page(
 }
 
 async fn upsert_and_connect_saved_peer(
-    app: &AppHandle,
     state: &State<'_, AppState>,
     pubkey: &str,
     multiaddr: Option<String>,
@@ -441,10 +438,6 @@ async fn upsert_and_connect_saved_peer(
         }
     }
 
-    let mut manager = state.fnn.lock().await;
-    manager.restart_relay_connect_loop(app);
-    drop(manager);
-
     Ok(PeerConnectResult {
         status: connect_status_label(status).to_string(),
     })
@@ -452,7 +445,6 @@ async fn upsert_and_connect_saved_peer(
 
 #[tauri::command]
 pub async fn connect_peer(
-    app: AppHandle,
     state: State<'_, AppState>,
     payload: ConnectPeerPayload,
 ) -> Result<PeerConnectResult, String> {
@@ -461,12 +453,11 @@ pub async fn connect_peer(
         return Err("Peer pubkey is required.".to_string());
     }
 
-    upsert_and_connect_saved_peer(&app, &state, pubkey, payload.multiaddr).await
+    upsert_and_connect_saved_peer(&state, pubkey, payload.multiaddr).await
 }
 
 #[tauri::command]
 pub async fn add_saved_peer(
-    app: AppHandle,
     state: State<'_, AppState>,
     payload: AddSavedPeerPayload,
 ) -> Result<PeerConnectResult, String> {
@@ -475,12 +466,11 @@ pub async fn add_saved_peer(
         return Err("Peer pubkey is required.".to_string());
     }
 
-    upsert_and_connect_saved_peer(&app, &state, pubkey, payload.multiaddr).await
+    upsert_and_connect_saved_peer(&state, pubkey, payload.multiaddr).await
 }
 
 #[tauri::command]
 pub async fn reconnect_saved_peer(
-    app: AppHandle,
     state: State<'_, AppState>,
     payload: ReconnectSavedPeerPayload,
 ) -> Result<PeerConnectResult, String> {
@@ -530,10 +520,6 @@ pub async fn reconnect_saved_peer(
             }
         }
     }
-
-    let mut manager = state.fnn.lock().await;
-    manager.restart_relay_connect_loop(&app);
-    drop(manager);
 
     Ok(PeerConnectResult {
         status: connect_status_label(status).to_string(),

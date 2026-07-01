@@ -13,13 +13,10 @@ use crate::state::AppState;
 
 use super::log_store;
 use super::logs::normalize_log_line;
-use super::peer_connect::{self, RelayConnectStatus, SavedPeersConnectResult};
 use super::rpc::{self, NodeInfo};
 use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
-const RELAY_STARTUP_DELAY: Duration = Duration::from_secs(8);
-const RELAY_RETRY_INTERVAL: Duration = Duration::from_secs(15);
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -62,7 +59,6 @@ pub struct FnnManager {
     logs: Arc<Mutex<VecDeque<String>>>,
     log_file_offset: Arc<Mutex<u64>>,
     log_tail_cancel: Option<Arc<AtomicBool>>,
-    relay_connect_cancel: Option<Arc<AtomicBool>>,
     child: Option<Arc<SharedChild>>,
 }
 
@@ -75,7 +71,6 @@ impl Default for FnnManager {
             logs: Arc::new(Mutex::new(VecDeque::new())),
             log_file_offset: Arc::new(Mutex::new(0)),
             log_tail_cancel: None,
-            relay_connect_cancel: None,
             child: None,
         }
     }
@@ -106,7 +101,6 @@ impl FnnManager {
 
     pub fn stop_managed(&mut self) -> Result<(), ManagerError> {
         self.stop_log_tail();
-        self.stop_relay_connect_loop();
 
         if let Some(child) = self.child.take() {
             child
@@ -120,7 +114,6 @@ impl FnnManager {
 
     pub async fn stop(&mut self) -> Result<(), ManagerError> {
         self.stop_log_tail();
-        self.stop_relay_connect_loop();
 
         if self.child.is_some() {
             return self.stop_managed();
@@ -212,7 +205,6 @@ impl FnnManager {
             self.data_directory = Some(data_directory.clone());
             self.restore_logs_from_disk();
             self.start_log_tail();
-            self.spawn_relay_connect_loop(app);
             return rpc::fetch_node_info().await.map_err(ManagerError::Rpc);
         }
 
@@ -255,98 +247,7 @@ impl FnnManager {
             pubkey: node_info.pubkey.clone(),
         };
 
-        self.spawn_relay_connect_loop(app);
-
         Ok(node_info)
-    }
-
-    pub fn ensure_relay_connect_loop(&mut self, app: &AppHandle) {
-        if !matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-            return;
-        }
-
-        if self.data_directory.is_none() {
-            return;
-        }
-
-        if self.relay_connect_cancel.is_some() {
-            return;
-        }
-
-        self.spawn_relay_connect_loop(app);
-    }
-
-    pub fn restart_relay_connect_loop(&mut self, app: &AppHandle) {
-        if !matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-            return;
-        }
-
-        if self.data_directory.is_none() {
-            return;
-        }
-
-        self.spawn_relay_connect_loop(app);
-    }
-
-    fn spawn_relay_connect_loop(&mut self, app: &AppHandle) {
-        let Some(data_directory) = self.data_directory.clone() else {
-            return;
-        };
-
-        self.stop_relay_connect_loop();
-        self.relay_state = RelayConnectionState {
-            status: RelayConnectStatus::Connecting.status_label().to_string(),
-            detail: Some("Connecting to saved peers…".into()),
-        };
-
-        let cancel = Arc::new(AtomicBool::new(false));
-        self.relay_connect_cancel = Some(Arc::clone(&cancel));
-
-        let app_handle = app.clone();
-        tauri::async_runtime::spawn(async move {
-            tokio::time::sleep(RELAY_STARTUP_DELAY).await;
-
-            let mut attempt = 0_u32;
-            loop {
-                if cancel.load(Ordering::Relaxed) {
-                    break;
-                }
-
-                let use_graph_lookup = attempt > 0;
-                let result =
-                    peer_connect::ensure_saved_peers_connected(&data_directory, use_graph_lookup)
-                        .await;
-                attempt = attempt.saturating_add(1);
-
-                if let Some(state) = app_handle.try_state::<AppState>() {
-                    let mut manager = state.fnn.lock().await;
-                    manager.relay_state = relay_state_from_saved_peers_result(&result);
-                }
-
-                match result {
-                    Ok(summary) if summary.total == 0 => break,
-                    Ok(summary) if summary.connected_count == summary.total => break,
-                    Ok(_) => {}
-                    Err(error) => {
-                        if let Some(state) = app_handle.try_state::<AppState>() {
-                            let mut manager = state.fnn.lock().await;
-                            manager.relay_state = RelayConnectionState {
-                                status: RelayConnectStatus::Failed.status_label().to_string(),
-                                detail: Some(error.to_string()),
-                            };
-                        }
-                    }
-                }
-
-                tokio::time::sleep(RELAY_RETRY_INTERVAL).await;
-            }
-        });
-    }
-
-    fn stop_relay_connect_loop(&mut self) {
-        if let Some(cancel) = self.relay_connect_cancel.take() {
-            cancel.store(true, Ordering::Relaxed);
-        }
     }
 
     fn append_log(&self, line: &str) {
@@ -448,44 +349,6 @@ impl FnnManager {
 
     pub fn set_error(&mut self, message: String) {
         self.status = NodeRuntimeStatus::Error { message };
-    }
-}
-
-fn relay_state_from_saved_peers_result(
-    result: &Result<SavedPeersConnectResult, rpc::RpcError>,
-) -> RelayConnectionState {
-    match result {
-        Ok(summary) if summary.total == 0 => RelayConnectionState {
-            status: RelayConnectStatus::NotConfigured.status_label().to_string(),
-            detail: None,
-        },
-        Ok(summary) if summary.connected_count == summary.total => RelayConnectionState {
-            status: RelayConnectStatus::Connected.status_label().to_string(),
-            detail: None,
-        },
-        Ok(summary) if summary.connected_count > 0 => RelayConnectionState {
-            status: RelayConnectStatus::Connected.status_label().to_string(),
-            detail: Some(format!(
-                "{}/{} saved peers connected",
-                summary.connected_count, summary.total
-            )),
-        },
-        Ok(summary) => RelayConnectionState {
-            status: if summary.any_failed {
-                RelayConnectStatus::Failed.status_label()
-            } else {
-                RelayConnectStatus::Connecting.status_label()
-            }
-            .to_string(),
-            detail: Some(format!(
-                "{}/{} saved peers connected",
-                summary.connected_count, summary.total
-            )),
-        },
-        Err(error) => RelayConnectionState {
-            status: RelayConnectStatus::Failed.status_label().to_string(),
-            detail: Some(error.to_string()),
-        },
     }
 }
 
