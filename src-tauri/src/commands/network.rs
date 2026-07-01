@@ -106,7 +106,7 @@ pub struct RemoveSavedPeerPayload {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct ReconnectSavedPeerPayload {
+pub struct ConnectSavedPeerPayload {
     pub pubkey: String,
 }
 
@@ -470,9 +470,9 @@ pub async fn add_saved_peer(
 }
 
 #[tauri::command]
-pub async fn reconnect_saved_peer(
+pub async fn connect_saved_peer(
     state: State<'_, AppState>,
-    payload: ReconnectSavedPeerPayload,
+    payload: ConnectSavedPeerPayload,
 ) -> Result<PeerConnectResult, String> {
     let pubkey = payload.pubkey.trim();
     if pubkey.is_empty() {
@@ -482,7 +482,7 @@ pub async fn reconnect_saved_peer(
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node before reconnecting a peer.".to_string());
+        return Err("Node is not running. Start your node before connecting a peer.".to_string());
     }
 
     let data_directory = manager

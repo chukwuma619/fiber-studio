@@ -71,8 +71,7 @@ export function ConnectPeerDialog({
       <DialogTitle>Add saved peer</DialogTitle>
       <DialogDescription>
         Pick a public relay or enter a peer pubkey. This saves the peer and
-        connects immediately. Saved peers reconnect automatically when your
-        node starts.
+        connects immediately.
       </DialogDescription>
       <DialogBody>
         {actionError ? (

@@ -28,7 +28,7 @@ import type {
   PaymentHashPayload,
   AddSavedPeerPayload,
   RemoveSavedPeerPayload,
-  ReconnectSavedPeerPayload,
+  ConnectSavedPeerPayload,
   ShutdownChannelPayload,
   StartNodePayload,
   WalletBalanceResponse,
@@ -196,10 +196,10 @@ export async function removeSavedPeer(
   return invoke<void>("remove_saved_peer", { payload })
 }
 
-export async function reconnectSavedPeer(
-  payload: ReconnectSavedPeerPayload,
+export async function connectSavedPeer(
+  payload: ConnectSavedPeerPayload,
 ): Promise<PeerConnectResult> {
-  return invoke<PeerConnectResult>("reconnect_saved_peer", { payload })
+  return invoke<PeerConnectResult>("connect_saved_peer", { payload })
 }
 
 export async function disconnectPeer(

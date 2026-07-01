@@ -315,7 +315,7 @@ export type RemoveSavedPeerPayload = {
   pubkey: string
 }
 
-export type ReconnectSavedPeerPayload = {
+export type ConnectSavedPeerPayload = {
   pubkey: string
 }
 

@@ -30,7 +30,7 @@ export function NetworkPage() {
 
   const [connectDialogOpen, setConnectDialogOpen] = useState(false)
   const [disconnectingPubkey, setDisconnectingPubkey] = useState<string | null>(null)
-  const [reconnectingPubkey, setReconnectingPubkey] = useState<string | null>(null)
+  const [connectingPubkey, setConnectingPubkey] = useState<string | null>(null)
   const [removingPubkey, setRemovingPubkey] = useState<string | null>(null)
 
   const available = data?.available ?? false
@@ -78,14 +78,14 @@ export function NetworkPage() {
     [networkActions],
   )
 
-  const handleReconnectSavedPeer = useCallback(
+  const handleConnectSavedPeer = useCallback(
     async (pubkey: string) => {
       networkActions.clearActionError()
-      setReconnectingPubkey(pubkey)
+      setConnectingPubkey(pubkey)
       try {
-        await networkActions.handleReconnectSavedPeer({ pubkey })
+        await networkActions.handleConnectSavedPeer({ pubkey })
       } finally {
-        setReconnectingPubkey(null)
+        setConnectingPubkey(null)
       }
     },
     [networkActions],
@@ -172,11 +172,11 @@ export function NetworkPage() {
             connectedPeers={connectedPeers}
             isActing={networkActions.isActing}
             disconnectingPubkey={disconnectingPubkey}
-            reconnectingPubkey={reconnectingPubkey}
+            connectingPubkey={connectingPubkey}
             removingPubkey={removingPubkey}
             onAddPeer={openConnectDialog}
             onDisconnectPeer={(pubkey) => void handleDisconnectPeer(pubkey)}
-            onReconnectSavedPeer={(pubkey) => void handleReconnectSavedPeer(pubkey)}
+            onConnectSavedPeer={(pubkey) => void handleConnectSavedPeer(pubkey)}
             onRemoveSavedPeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
           />
 

@@ -26,11 +26,11 @@ type PeersSectionProps = {
   connectedPeers: NetworkConnectedPeer[]
   isActing: boolean
   disconnectingPubkey: string | null
-  reconnectingPubkey: string | null
+  connectingPubkey: string | null
   removingPubkey: string | null
   onAddPeer: () => void
   onDisconnectPeer: (pubkey: string) => void
-  onReconnectSavedPeer: (pubkey: string) => void
+  onConnectSavedPeer: (pubkey: string) => void
   onRemoveSavedPeer: (pubkey: string) => void
 }
 
@@ -131,10 +131,10 @@ function peerAction(
   savedPeerCount: number,
   isActing: boolean,
   disconnectingPubkey: string | null,
-  reconnectingPubkey: string | null,
+  connectingPubkey: string | null,
   removingPubkey: string | null,
   onDisconnectPeer: (pubkey: string) => void,
-  onReconnectSavedPeer: (pubkey: string) => void,
+  onConnectSavedPeer: (pubkey: string) => void,
   onRemoveSavedPeer: (pubkey: string) => void,
 ) {
   if (peer.isDiscoveryOnly) {
@@ -149,7 +149,7 @@ function peerAction(
   }
 
   if (peer.isSaved) {
-    const isReconnecting = isActing && reconnectingPubkey === peer.pubkey
+    const isConnecting = isActing && connectingPubkey === peer.pubkey
     const isRemoving = isActing && removingPubkey === peer.pubkey
 
     return (
@@ -159,9 +159,9 @@ function peerAction(
             outline
             className="text-xs"
             disabled={isActing}
-            onClick={() => onReconnectSavedPeer(peer.pubkey)}
+            onClick={() => onConnectSavedPeer(peer.pubkey)}
           >
-            {isReconnecting ? "Reconnecting…" : "Reconnect"}
+            {isConnecting ? "Connecting…" : "Connect"}
           </Button>
         ) : null}
         <Button
@@ -202,20 +202,20 @@ function PeerListItem({
   savedPeerCount,
   isActing,
   disconnectingPubkey,
-  reconnectingPubkey,
+  connectingPubkey,
   removingPubkey,
   onDisconnectPeer,
-  onReconnectSavedPeer,
+  onConnectSavedPeer,
   onRemoveSavedPeer,
 }: {
   peer: PeerRow
   savedPeerCount: number
   isActing: boolean
   disconnectingPubkey: string | null
-  reconnectingPubkey: string | null
+  connectingPubkey: string | null
   removingPubkey: string | null
   onDisconnectPeer: (pubkey: string) => void
-  onReconnectSavedPeer: (pubkey: string) => void
+  onConnectSavedPeer: (pubkey: string) => void
   onRemoveSavedPeer: (pubkey: string) => void
 }) {
   return (
@@ -270,10 +270,10 @@ function PeerListItem({
           savedPeerCount,
           isActing,
           disconnectingPubkey,
-          reconnectingPubkey,
+          connectingPubkey,
           removingPubkey,
           onDisconnectPeer,
-          onReconnectSavedPeer,
+          onConnectSavedPeer,
           onRemoveSavedPeer,
         )}
       </div>
@@ -286,11 +286,11 @@ export function PeersSection({
   connectedPeers,
   isActing,
   disconnectingPubkey,
-  reconnectingPubkey,
+  connectingPubkey,
   removingPubkey,
   onAddPeer,
   onDisconnectPeer,
-  onReconnectSavedPeer,
+  onConnectSavedPeer,
   onRemoveSavedPeer,
 }: PeersSectionProps) {
   const { saved, other } = useMemo(
@@ -305,9 +305,8 @@ export function PeersSection({
       <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <Subheading level={2}>Peers</Subheading>
         <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          Saved peers reconnect automatically when your node starts. Use Reconnect
-          if a saved peer drops offline. Bootnodes and other active connections
-          are listed below for visibility.
+          Connect saved peers from here after starting your node. Bootnodes and
+          other active connections are listed below for visibility.
         </Text>
       </div>
 
@@ -327,10 +326,10 @@ export function PeersSection({
               savedPeerCount={saved.length}
               isActing={isActing}
               disconnectingPubkey={disconnectingPubkey}
-              reconnectingPubkey={reconnectingPubkey}
+              connectingPubkey={connectingPubkey}
               removingPubkey={removingPubkey}
               onDisconnectPeer={onDisconnectPeer}
-              onReconnectSavedPeer={onReconnectSavedPeer}
+              onConnectSavedPeer={onConnectSavedPeer}
               onRemoveSavedPeer={onRemoveSavedPeer}
             />
           ))}
@@ -350,10 +349,10 @@ export function PeersSection({
               savedPeerCount={saved.length}
               isActing={isActing}
               disconnectingPubkey={disconnectingPubkey}
-              reconnectingPubkey={reconnectingPubkey}
+              connectingPubkey={connectingPubkey}
               removingPubkey={removingPubkey}
               onDisconnectPeer={onDisconnectPeer}
-              onReconnectSavedPeer={onReconnectSavedPeer}
+              onConnectSavedPeer={onConnectSavedPeer}
               onRemoveSavedPeer={onRemoveSavedPeer}
             />
           ))}

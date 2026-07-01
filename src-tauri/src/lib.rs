@@ -35,7 +35,7 @@ pub fn run() {
             commands::network::connect_peer,
             commands::network::add_saved_peer,
             commands::network::remove_saved_peer,
-            commands::network::reconnect_saved_peer,
+            commands::network::connect_saved_peer,
             commands::network::disconnect_peer,
             commands::network::get_network_graph,
             commands::wallet::get_wallet_page,
