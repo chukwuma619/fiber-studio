@@ -12,6 +12,7 @@
     "generate-icons": "rsvg-convert -w 1024 -h 1024 app-icon.svg -o app-icon.png && tauri icon app-icon.png -o src-tauri/icons"
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
     "@headlessui/react": "^2.2.10",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-router": "^1.170.15",
