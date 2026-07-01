@@ -13,6 +13,7 @@ import {
 } from "../../lib/fnn/network"
 import { useNetworkActions } from "../../lib/fnn/useNetworkActions"
 import { useNetworkPage } from "../../lib/fnn/useNetworkPage"
+import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { type FiberNetwork } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -23,7 +24,7 @@ import { GraphBrowserSection } from "./GraphBrowserSection"
 import { PeersSection } from "./PeersSection"
 
 export function NetworkPage() {
-  const { running, config } = useNodeControlContext()
+  const { running, status, config } = useNodeControlContext()
   const { data, isRefreshing, error, refresh } = useNetworkPage(running)
   const networkActions = useNetworkActions(refresh)
 
@@ -40,6 +41,11 @@ export function NetworkPage() {
   const graphReady = data?.graphReady ?? false
   const savedPeerConnectedCount = data?.savedPeerConnectedCount ?? 0
   const savedPeerTotal = data?.savedPeers.length ?? 0
+  const unavailableState = nodeDataEmptyState(
+    status,
+    available,
+    "Start your node to view connected peers and network graph data.",
+  )
 
   const openConnectDialog = useCallback(() => {
     networkActions.clearActionError()
@@ -152,11 +158,11 @@ export function NetworkPage() {
         </div>
       ) : null}
 
-      {!available ? (
+      {unavailableState ? (
         <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
           <HomeEmptyState
-            title="Node not running"
-            description="Start your node to view connected peers and network graph data."
+            title={unavailableState.title}
+            description={unavailableState.description}
           />
         </section>
       ) : (

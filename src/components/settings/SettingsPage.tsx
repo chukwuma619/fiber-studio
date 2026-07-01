@@ -62,7 +62,11 @@ export function SettingsPage() {
       ) : null}
 
       {actionError ? (
-        <PageErrorBanner message={actionError} onRetry={() => void refresh()} />
+        <PageErrorBanner
+          message={actionError}
+          onRetry={() => void refresh()}
+          retryLabel="Reload settings"
+        />
       ) : null}
 
       {successMessage ? (

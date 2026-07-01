@@ -10,7 +10,8 @@ import {
   paymentRouteBadgeLabel,
   paymentStatusTone,
 } from "../../lib/fnn/format"
-import type { HomeIncomingInvoice, HomePayment } from "../../lib/fnn/types"
+import type { HomeIncomingInvoice, HomePayment, NodeStatusState } from "../../lib/fnn/types"
+import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { Subheading } from "../ui/heading"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
@@ -22,6 +23,7 @@ type RecentActivitySectionProps = {
   payments: HomePayment[]
   incomingInvoices: HomeIncomingInvoice[]
   available: boolean
+  status: NodeStatusState | null
   isLoading?: boolean
 }
 
@@ -49,11 +51,17 @@ export function RecentActivitySection({
   payments,
   incomingInvoices,
   available,
+  status,
   isLoading = false,
 }: RecentActivitySectionProps) {
   const hasIncoming = incomingInvoices.length > 0
   const hasPayments = payments.length > 0
   const hasActivity = hasIncoming || hasPayments
+  const unavailableState = nodeDataEmptyState(
+    status,
+    available,
+    "Payment history appears here once your node is running.",
+  )
 
   return (
     <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
@@ -66,10 +74,10 @@ export function RecentActivitySection({
 
       {isLoading ? (
         <ActivityListSkeleton rows={4} />
-      ) : !available ? (
+      ) : unavailableState ? (
         <HomeEmptyState
-          title="No recent activity"
-          description="Payment history appears here once your node is running."
+          title={unavailableState.title}
+          description={unavailableState.description}
         />
       ) : !hasActivity ? (
         <HomeEmptyState

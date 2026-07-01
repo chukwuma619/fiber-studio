@@ -319,7 +319,7 @@ export function SendPaymentPanel({
                 <Label>Recipient node</Label>
                 <Input
                   type="text"
-                  placeholder="02… or 03…"
+                  placeholder="66-character hex pubkey (02 or 03…)"
                   className="font-mono text-xs"
                   value={targetPubkey}
                   onChange={(event) => setTargetPubkey(event.target.value)}

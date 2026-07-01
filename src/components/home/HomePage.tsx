@@ -115,6 +115,7 @@ export function HomePage() {
         <ChannelLiquiditySection
           channels={dashboard?.channels ?? []}
           available={available}
+          status={status}
           isLoading={isDashboardInitialLoad}
         />
         <NodeStatusPanel
@@ -135,6 +136,7 @@ export function HomePage() {
         payments={dashboard?.payments ?? []}
         incomingInvoices={dashboard?.incomingInvoices ?? []}
         available={available}
+        status={status}
         isLoading={isDashboardInitialLoad}
       />
     </div>

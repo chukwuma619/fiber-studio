@@ -10,7 +10,7 @@ const FEATURES = [
   {
     title: "Keys stay on device",
     description:
-      "Your CKB key file is stored under your data directory and encrypted with a password.",
+      "Your CKB key file is stored locally under your data directory. A wallet password is kept in your OS keychain for fnn to use on startup.",
   },
   {
     title: "Public network access",
@@ -26,8 +26,9 @@ export function WelcomeStep() {
         <Heading level={2} tabIndex={-1}>Welcome to Fiber Studio</Heading>
         <Text className="mt-2 leading-relaxed">
           Fiber Studio is a local-first desktop app for running and managing your
-          Fiber Network Node (fnn). Your CKB keys and wallet data stay on this
-          device — nothing is sent to a remote server.
+          Fiber Network Node (fnn). Your keys and wallet data stay on this
+          device. Fiber Studio does not host your wallet — your node connects
+          outbound to public Fiber peers.
         </Text>
       </div>
 

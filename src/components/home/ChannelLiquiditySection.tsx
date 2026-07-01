@@ -17,7 +17,8 @@ import {
   formatCkb,
   parseHexU128,
 } from "../../lib/fnn/format"
-import type { HomeChannel } from "../../lib/fnn/types"
+import type { HomeChannel, NodeStatusState } from "../../lib/fnn/types"
+import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { truncatePubkey } from "../../lib/public-relays"
 import { TableRowsSkeleton } from "../ui/skeleton"
 import { HomeEmptyState } from "./HomeEmptyState"
@@ -25,6 +26,7 @@ import { HomeEmptyState } from "./HomeEmptyState"
 type ChannelLiquiditySectionProps = {
   channels: HomeChannel[]
   available: boolean
+  status: NodeStatusState | null
   isLoading?: boolean
 }
 
@@ -35,8 +37,14 @@ function channelBadgeColor(state: string, localPercent: number) {
 export function ChannelLiquiditySection({
   channels,
   available,
+  status,
   isLoading = false,
 }: ChannelLiquiditySectionProps) {
+  const unavailableState = nodeDataEmptyState(
+    status,
+    available,
+    "Start your node to see channel liquidity.",
+  )
   return (
     <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
       <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
@@ -61,10 +69,10 @@ export function ChannelLiquiditySection({
             <TableRowsSkeleton rows={3} cols={5} />
           </TableBody>
         </Table>
-      ) : !available ? (
+      ) : unavailableState ? (
         <HomeEmptyState
-          title="Node not running"
-          description="Start your node to see channel liquidity."
+          title={unavailableState.title}
+          description={unavailableState.description}
         />
       ) : channels.length === 0 ? (
         <HomeEmptyState

@@ -62,8 +62,8 @@ export function NodeSettingsSection({
         </SettingsRows>
         {!nodeStopped ? (
           <p className="border-t border-zinc-200 px-5 py-3 text-xs text-amber-700 dark:border-zinc-800 dark:text-amber-400">
-            Stop your node before switching networks. Manage peers and relays on
-            the Network page.
+            Stop your node before switching networks. Manage saved peers on the
+            Network page.
           </p>
         ) : null}
       </SettingsSection>

@@ -9,7 +9,7 @@ export function BackupPathsSection({ paths }: BackupPathsSectionProps) {
   return (
     <SettingsSection
       title="Backup paths"
-      subtitle="Critical files under your data directory — back up before upgrades"
+      subtitle="Back up these files before app updates, network switches, or reinstalling."
     >
       <SettingsRows>
         {paths.map((path) => (

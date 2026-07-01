@@ -71,7 +71,7 @@ export function ConnectPeerForm({
         <Label>Pubkey (required)</Label>
         <Input
           type="text"
-          placeholder="02… or 03… (hex secp256k1 pubkey)"
+          placeholder="66-character hex pubkey (often starts with 02 or 03)"
           value={pubkey}
           onChange={(e) => onPubkeyChange(e.target.value)}
           className="font-mono text-xs"

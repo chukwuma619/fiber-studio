@@ -14,6 +14,7 @@ import {
 } from "../../lib/fnn/pageCache"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
+import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import type { HomeChannel } from "../../lib/fnn/types"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB, truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
@@ -69,7 +70,7 @@ function channelLiquidityCell(channel: HomeChannel) {
 }
 
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
-  const { running } = useNodeControlContext()
+  const { running, status } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
 
   const handleMutationSuccess = useCallback(() => {
@@ -85,6 +86,11 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const available = data?.available ?? false
   const channels = data?.channels ?? []
   const minFundingCkb = data?.minFundingCkb ?? CHANNEL_OPEN_MIN_FUNDING_CKB
+  const unavailableState = nodeDataEmptyState(
+    status,
+    available,
+    "Start your node to view and manage payment channels.",
+  )
 
   const selectedChannel = useMemo(
     () => channels.find((channel) => channel.channelId === selectedChannelId) ?? null,
@@ -224,10 +230,10 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
       </div>
 
       <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
-        {!available ? (
+        {unavailableState ? (
           <HomeEmptyState
-            title="Node not running"
-            description="Start your node to view and manage payment channels."
+            title={unavailableState.title}
+            description={unavailableState.description}
           />
         ) : channels.length === 0 ? (
           <HomeEmptyState

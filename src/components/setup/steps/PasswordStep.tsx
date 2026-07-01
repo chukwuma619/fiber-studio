@@ -15,8 +15,8 @@ export function PasswordStep({ password, onChange, error }: PasswordStepProps) {
       <div>
         <Heading level={2} tabIndex={-1}>Wallet password</Heading>
         <Text className="mt-1 leading-relaxed">
-          Choose a password to protect your key on this computer. Fiber uses it
-          to unlock your wallet when the node starts.
+          Choose a password for fnn to use when starting your node. Fiber Studio
+          stores it in your OS keychain.
         </Text>
       </div>
 

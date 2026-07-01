@@ -79,7 +79,7 @@ fn backup_paths() -> Vec<BackupPathEntry> {
     vec![
         BackupPathEntry {
             relative_path: "ckb/key".into(),
-            description: "CKB wallet private key".into(),
+            description: "CKB wallet key file (sensitive — back up securely)".into(),
         },
         BackupPathEntry {
             relative_path: "fiber/sk".into(),
@@ -200,7 +200,7 @@ async fn build_node_settings(
         fnn_version,
         node_pub_key,
         ckb_wallet_address,
-        wallet_password_stored: data_provisioned,
+        wallet_password_stored: data_provisioned && keychain::get_wallet_password().is_ok(),
         node_status,
         relay_status,
         setup_completed_at: studio_metadata

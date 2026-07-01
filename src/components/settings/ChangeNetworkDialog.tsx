@@ -24,6 +24,7 @@ import {
 } from "../ui/dialog"
 import { ErrorMessage, Field, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
+import { Text } from "../ui/text"
 import { SelectionCard } from "../setup/SelectionCard"
 
 type ChangeNetworkDialogProps = {
@@ -172,6 +173,13 @@ export function ChangeNetworkDialog({
                 />
                 <Label>Use the same CKB key as my current network</Label>
               </CheckboxField>
+              {copyKeyFromCurrent ? (
+                <Text className="text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+                  Reuses your current wallet on the other network. Mainnet and
+                  testnet data stay in separate folders, but the on-chain address
+                  will be the same.
+                </Text>
+              ) : null}
 
               {!copyKeyFromCurrent ? (
                 <Field>

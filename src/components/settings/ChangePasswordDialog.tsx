@@ -65,9 +65,7 @@ export function ChangePasswordDialog({
       </DialogDescription>
       <DialogBody>
         <Text className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-          fnn uses this password via{" "}
-          <code className="font-mono text-xs">FIBER_SECRET_KEY_PASSWORD</code> to
-          decrypt your key file on startup.
+          fnn uses this password on startup to access your wallet key file.
         </Text>
         <div className="space-y-4">
           <Field>

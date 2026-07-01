@@ -109,7 +109,7 @@ export function nodeHeaderLabel(status: NodeStatusState | null, isLoading: boole
 
   switch (status.state) {
     case "running":
-      return "fnn connected"
+      return "fnn running"
     case "stopped":
       return "fnn stopped"
     case "starting":

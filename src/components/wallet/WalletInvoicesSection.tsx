@@ -6,7 +6,8 @@ import {
   invoiceStatusTone,
   type InvoiceListFilter,
 } from "../../lib/fnn/format"
-import type { WalletInvoiceItem } from "../../lib/fnn/types"
+import type { NodeStatusState, WalletInvoiceItem } from "../../lib/fnn/types"
+import { nodeUnavailableEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
@@ -24,6 +25,7 @@ import {
 } from "../ui/table"
 
 type WalletInvoicesSectionProps = {
+  status: NodeStatusState | null
   running: boolean
   available: boolean
   isWalletLoading: boolean
@@ -37,6 +39,7 @@ type WalletInvoicesSectionProps = {
 }
 
 export function WalletInvoicesSection({
+  status,
   running,
   available,
   isWalletLoading,
@@ -50,6 +53,12 @@ export function WalletInvoicesSection({
 }: WalletInvoicesSectionProps) {
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const filteredInvoices = filterInvoices(invoices, invoiceFilter)
+  const nodeUnavailable = !running
+    ? nodeUnavailableEmptyState(
+        status,
+        "Start your node to create and manage invoices.",
+      )
+    : null
 
   return (
     <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
@@ -115,10 +124,10 @@ export function WalletInvoicesSection({
             <TableRowsSkeleton rows={4} cols={4} />
           </TableBody>
         </Table>
-      ) : !running ? (
+      ) : nodeUnavailable ? (
         <HomeEmptyState
-          title="No invoices yet"
-          description="Start your node to create and manage invoices."
+          title={nodeUnavailable.title}
+          description={nodeUnavailable.description}
         />
       ) : !available ? (
         <HomeEmptyState

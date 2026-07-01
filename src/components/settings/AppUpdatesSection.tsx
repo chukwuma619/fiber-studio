@@ -48,7 +48,7 @@ export function AppUpdatesSection() {
   const statusLabel = hasPendingUpdate
     ? `${availableUpdate?.version} available`
     : lastCheckedAt
-      ? "Up to date"
+      ? "No update found"
       : "Not checked yet"
 
   return (

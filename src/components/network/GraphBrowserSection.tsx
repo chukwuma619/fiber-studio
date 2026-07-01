@@ -90,7 +90,7 @@ export function GraphBrowserSection({ running, graphReady }: GraphBrowserSection
         graph.nodes.length === 0 && !graph.isLoading ? (
           <HomeEmptyState
             title="No gossip nodes loaded"
-            description="Your node has not synced graph nodes yet, or the first page is empty."
+            description="Your node has not synced gossip data yet. Wait a few minutes after connecting to a saved peer."
           />
         ) : (
           <Table dense>

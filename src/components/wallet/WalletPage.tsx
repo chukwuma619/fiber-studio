@@ -35,7 +35,7 @@ type WalletPageProps = {
 }
 
 export function WalletPage({ initialAction }: WalletPageProps) {
-  const { running } = useNodeControlContext()
+  const { running, status } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useWalletPage(running)
 
   const handleMutationSuccess = useCallback(() => {
@@ -273,6 +273,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <WalletInvoicesSection
+          status={status}
           running={running}
           available={available}
           isWalletLoading={isWalletLoading}

@@ -86,7 +86,7 @@ export function NodeStatusPanel({
 
           {dashboard?.available ? (
             <>
-              <DescriptionTerm>Public relay</DescriptionTerm>
+              <DescriptionTerm>Saved peers</DescriptionTerm>
               <DescriptionDetails>
                 {formatRelayStatus(dashboard, config)}
               </DescriptionDetails>
