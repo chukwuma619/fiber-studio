@@ -28,17 +28,17 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 ## Download
 
-Pre-release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing):
+Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing).
 
 | OS | Download this file | Install |
 |----|-------------------|---------|
-| **macOS (Apple Silicon, M1/M2/M3)** | `Fiber-Studio-*-macOS-Apple-Silicon-dmg.dmg` | Open the DMG, drag Fiber Studio to Applications. |
-| **macOS (Intel)** | `Fiber-Studio-*-macOS-Intel-dmg.dmg` | Open the DMG, drag Fiber Studio to Applications. |
-| **Windows** | `Fiber-Studio-*-Windows-x64-nsis-setup.exe` or `...-msi.msi` | Run the setup wizard. |
-| **Linux x64** | `Fiber-Studio-*-Linux-x64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) | AppImage: `chmod +x Fiber-Studio-*-appimage.AppImage` then run. Debian/Ubuntu: `sudo apt install ./Fiber-Studio-*-deb.deb`. Fedora/RHEL: `sudo dnf install ./Fiber-Studio-*-rpm.rpm`. |
-| **Linux ARM64** | `Fiber-Studio-*-Linux-ARM64-appimage.AppImage` (or `-deb.deb` / `-rpm.rpm`) | Same as Linux x64, using the ARM64 filenames. |
+| **macOS (Apple Silicon, M1/M2/M3)** | `Fiber Studio_*_aarch64.dmg` | Open the DMG, drag Fiber Studio to Applications. |
+| **macOS (Intel)** | `Fiber Studio_*_x64.dmg` | Open the DMG, drag Fiber Studio to Applications. |
+| **Windows** | `Fiber Studio_*_x64-setup.exe` (NSIS) or `Fiber Studio_*_x64_en-US.msi` | Run the setup wizard. |
+| **Linux x64** | `Fiber Studio_*_amd64.AppImage`, `fiber-studio_*_amd64.deb`, or `fiber-studio-*-1.x86_64.rpm` | AppImage: `chmod +x "Fiber Studio_"*"_amd64.AppImage"` then run. Debian/Ubuntu: `sudo apt install ./fiber-studio_*_amd64.deb`. Fedora/RHEL: `sudo dnf install ./fiber-studio-*-1.x86_64.rpm`. |
+| **Linux ARM64** | `Fiber Studio_*_aarch64.AppImage`, `fiber-studio_*_arm64.deb`, or `fiber-studio-*-1.aarch64.rpm` | Same as Linux x64, using the `aarch64` / `arm64` filenames. |
 
-Download only the installer row for your platform (`-dmg`, `-nsis-setup.exe`, `-msi`, `-appimage`, `-deb`, or `-rpm`). Ignore `latest.json` and files like `*-app.app.tar.gz` — those are for in-app updates, not manual install.
+Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, or `.rpm`). Ignore `latest.json` and files like `*.app.tar.gz` — those are for in-app updates, not manual install.
 
 ### macOS: “Apple could not verify…” on first launch
 
@@ -91,6 +91,7 @@ bun run build            # production frontend build
 bun run fetch-fnn        # download fnn sidecar for current platform
 bun run fetch-fnn -- --all                    # all supported platforms
 bun run fetch-fnn -- --triple aarch64-apple-darwin  # one platform (CI)
+bun run version:bump patch   # bump patch | minor | major | x.y.z
 bun run tauri dev        # run the desktop app in development
 bun run tauri build      # production installers → src-tauri/target/release/bundle/
 bun run generate-icons   # regenerate app icons from app-icon.svg
@@ -138,7 +139,7 @@ fiber-studio/
 │   ├── binaries/        # fnn sidecar (gitignored; populated by fetch-fnn)
 │   └── .updater/        # updater signing private key (gitignored)
 ├── shared/              # Shared data (e.g. relay definitions)
-├── scripts/             # fetch-fnn and other build helpers
+├── scripts/             # fetch-fnn, version-bump, and other build helpers
 └── public/              # Static assets
 ```
 
@@ -146,8 +147,10 @@ fiber-studio/
 
 | Workflow | Trigger | Purpose |
 |----------|---------|---------|
-| **Build** (`.github/workflows/build.yml`) | Push / PR to `main` | Frontend typecheck + build; Tauri compile smoke test on all platforms |
-| **Release** (`.github/workflows/release.yml`) | Tag push `v*` | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release + `latest.json` |
+| **build** (`.github/workflows/build.yml`) | Push / PR to `main` | Frontend typecheck + build; cross-platform Tauri compile smoke test (no release) |
+| **publish** (`.github/workflows/publish.yml`) | Tag push `v*`, or manual **workflow_dispatch** | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release, signed updater artifacts, and `latest.json` |
+
+Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. GitHub Actions workflow permissions must allow **read and write** for releases.
 
 ## Related projects
 
