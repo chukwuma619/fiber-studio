@@ -24,7 +24,6 @@ import {
 } from "../ui/dialog"
 import { ErrorMessage, Field, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
-import { Text } from "../ui/text"
 import { SelectionCard } from "../setup/SelectionCard"
 
 type ChangeNetworkDialogProps = {
