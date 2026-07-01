@@ -1,21 +1,16 @@
-# Build signed updater artifacts and publish a GitHub Release on tag push.
-#
-# Setup (once):
-#   1. Generate keys locally:
-#        CI=true bun tauri signer generate -w src-tauri/.updater/fiber-studio.key -f --password=""
-#   2. Public key is already in src-tauri/tauri.conf.json (safe to commit).
-#   3. Add GitHub repo secret TAURI_SIGNING_PRIVATE_KEY with the private key file contents.
+# Build signed updater artifacts and publish a GitHub Release.
 #
 # Release:
 #   1. Bump version in package.json, src-tauri/tauri.conf.json, src-tauri/Cargo.toml.
 #   2. Commit and push to main.
 #   3. git tag v0.1.0 && git push origin v0.1.0
 #
-# tauri-action uploads installers, updater bundles, and latest.json.
+# Requires repository secret TAURI_SIGNING_PRIVATE_KEY (see README → Releases and updates).
 
-name: Release
+name: publish
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
@@ -24,11 +19,11 @@ permissions:
   contents: write
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: publish-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
+  publish-tauri:
     strategy:
       fail-fast: false
       matrix:
@@ -56,17 +51,20 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Add Rust cross-compilation target
         if: matrix.rust_target != ''
         run: rustup target add ${{ matrix.rust_target }}
 
-      - name: Install Linux dependencies
+      - name: install dependencies (ubuntu only)
         if: startsWith(matrix.platform, 'ubuntu-22.04')
         run: |
           sudo apt-get update
@@ -84,12 +82,14 @@ jobs:
             file \
             xdg-utils
 
-      - uses: swatinem/rust-cache@v2
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
+          workspaces: ./src-tauri -> target
           prefix-key: v1-rust-${{ matrix.fnn_triple }}
 
-      - run: bun install --frozen-lockfile
+      - name: install frontend dependencies
+        run: bun install --frozen-lockfile
 
       - name: Fetch fnn sidecar binary
         run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}
@@ -104,30 +104,22 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
-      - name: Build and publish release assets
-        uses: tauri-apps/tauri-action@v0
+      - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: Fiber Studio ${{ github.ref_name }}
-          prerelease: false
+          releaseName: Fiber Studio v__VERSION__
+          generateReleaseNotes: true
           releaseBody: |
-            ## Fiber Studio ${{ github.ref_name }}
+            Download the asset for your platform below.
 
-            **Unsigned app installers with signed in-app updates.** Wallet, Channels, and Network flows continue in M2.
+            - **macOS:** `.dmg` for Apple Silicon or Intel
+            - **Windows:** `-setup.exe` NSIS installer
+            - **Linux:** `.AppImage` (`chmod +x` then run)
 
-            ### Install
-            - **macOS:** download the `.dmg` for your chip (Apple Silicon or Intel), open it, drag Fiber Studio to Applications. If Gatekeeper warns, right-click → Open.
-            - **Windows:** download the `-setup.exe` NSIS installer. If SmartScreen warns, choose More info → Run anyway.
-            - **Linux:** download the `.AppImage`, then `chmod +x Fiber\ Studio_*.AppImage` and run it.
-
-            ### In-app updates
-            Installed copies check GitHub Releases for updates automatically on launch. You can also use **Settings → Updates**.
-
-            ### M1 scope
-            - Guided setup, node start/stop, logs, home dashboard
-            - Official fnn v0.8.1 bundled locally
+            In-app updates are available via **Settings → Updates**.
+          prerelease: false
           args: ${{ matrix.args }}

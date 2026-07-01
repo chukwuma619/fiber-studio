@@ -1,4 +1,4 @@
-name: Build
+name: build
 
 on:
   push:
@@ -10,9 +10,9 @@ jobs:
   build-frontend:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
-      - run: bun install
+      - run: bun install --frozen-lockfile
       - run: bun run build
 
   build-tauri:
@@ -44,24 +44,20 @@ jobs:
 
     runs-on: ${{ matrix.platform }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: oven-sh/setup-bun@v2
 
-      - name: Install Rust stable
+      - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Add Rust cross-compilation target
         if: matrix.rust_target != ''
         run: rustup target add ${{ matrix.rust_target }}
 
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-          prefix-key: v1-rust-${{ matrix.fnn_triple }}
-
-      - name: Install Linux dependencies
+      - name: install dependencies (ubuntu only)
         if: startsWith(matrix.platform, 'ubuntu-22.04')
         run: |
           sudo apt-get update
@@ -79,7 +75,14 @@ jobs:
             file \
             xdg-utils
 
-      - run: bun install --frozen-lockfile
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+          prefix-key: v1-rust-${{ matrix.fnn_triple }}
+
+      - name: install frontend dependencies
+        run: bun install --frozen-lockfile
 
       - name: Fetch fnn sidecar binary
         run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}
@@ -95,7 +98,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
