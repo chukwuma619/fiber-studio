@@ -1010,7 +1010,7 @@ dependencies = [
 
 [[package]]
 name = "fiber-studio"
-version = "0.1.3"
+version = "0.1.4"
 dependencies = [
  "bech32",
  "blake2",
