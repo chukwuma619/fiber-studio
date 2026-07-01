@@ -50,9 +50,7 @@ export function ReviewStep({
     <div className="space-y-4">
       <div>
         <Heading level={2} tabIndex={-1}>Review & start</Heading>
-        <Text className="mt-1">
-          Check your choices, then start your local node.
-        </Text>
+        <Text className="mt-1">Check your choices, then start your node.</Text>
       </div>
 
       <DescriptionList>
@@ -67,11 +65,6 @@ export function ReviewStep({
           </div>
         ))}
       </DescriptionList>
-
-      <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-        Fiber Studio will set up your data folder and launch fnn on this
-        computer.
-      </Text>
 
       {startError ? (
         <div

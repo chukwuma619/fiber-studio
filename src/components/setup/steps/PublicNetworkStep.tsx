@@ -31,8 +31,7 @@ export function PublicNetworkStep({
         <div>
           <Heading level={2} tabIndex={-1}>Connect to public network</Heading>
           <Text className="mt-1">
-            Pick a public relay or enter a peer pubkey. Fiber Studio connects
-            outbound on start — no public IP or VPS required.
+            Pick a public node or enter a peer pubkey.
           </Text>
         </div>
       ) : null}

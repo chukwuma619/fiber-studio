@@ -3,19 +3,16 @@ import { Text } from "../../ui/text"
 
 const FEATURES = [
   {
-    title: "Runs fnn locally",
-    description:
-      "Start, stop, and monitor your node from a single interface.",
+    title: "Run fnn locally",
+    description: "Start, stop, and monitor your node.",
   },
   {
     title: "Keys stay on device",
-    description:
-      "Your CKB key file is stored locally under your data directory. A wallet password is kept in your OS keychain for fnn to use on startup.",
+    description: "Your wallet key and password stay on this computer.",
   },
   {
-    title: "Public network access",
-    description:
-      "Use Fiber's recommended relays or connect to any public Fiber node — no VPS required.",
+    title: "Connect to the public network",
+    description: "Outbound only — no public IP or VPS required.",
   },
 ] as const
 
@@ -25,10 +22,7 @@ export function WelcomeStep() {
       <div>
         <Heading level={2} tabIndex={-1}>Welcome to Fiber Studio</Heading>
         <Text className="mt-2 leading-relaxed">
-          Fiber Studio is a local-first desktop app for running and managing your
-          Fiber Network Node (fnn). Your keys and wallet data stay on this
-          device. Fiber Studio does not host your wallet — your node connects
-          outbound to public Fiber peers.
+          Run and manage your Fiber Network Node (fnn) from one desktop app.
         </Text>
       </div>
 

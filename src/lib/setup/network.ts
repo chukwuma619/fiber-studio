@@ -12,13 +12,13 @@ export const NETWORK_OPTIONS: NetworkOption[] = [
   {
     value: "mainnet",
     label: "Mainnet",
-    description: "Live Fiber network with real CKB.",
+    description: "Real CKB on the live network.",
     enabled: false,
   },
   {
     value: "testnet",
     label: "Testnet",
-    description: "Staging network with test CKB.",
+    description: "Test CKB for trying Fiber.",
     enabled: true,
   },
 ]

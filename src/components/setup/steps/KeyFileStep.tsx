@@ -21,14 +21,11 @@ export function KeyFileStep({
   return (
     <div className="space-y-5">
       <div>
-        <Heading level={2} tabIndex={-1}>Add your wallet key</Heading>
-        <Text className="mt-1 leading-relaxed">
-          Fiber needs your CKB wallet key to open payment channels and move CKB
-          on-chain. Your key stays on this computer — it is never uploaded
-          anywhere.
+        <Heading level={2} tabIndex={-1}>Wallet key</Heading>
+        <Text className="mt-1">
+          Paste your CKB private key. It stays on this computer.
         </Text>
       </div>
-
 
       <Field>
         <Label>CKB private key (hex)</Label>
@@ -45,15 +42,12 @@ export function KeyFileStep({
         {displayError ? <ErrorMessage>{displayError}</ErrorMessage> : null}
       </Field>
 
-
-
       <div className="rounded-lg bg-zinc-950/2.5 px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10">
         <p className="text-xs font-medium text-zinc-950 dark:text-white">
           Don&apos;t have a key yet?
         </p>
         <p className="mt-1 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
-          Create or open a CKB wallet in Neuron or JoyID, export your private
-          key, then paste the hex string here.
+          Export from Neuron or JoyID if you don&apos;t have one yet.
         </p>
       </div>
     </div>

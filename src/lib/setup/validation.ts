@@ -13,7 +13,7 @@ export function validateSetupStep(
     case "public-network": {
       const pubkey = config.customPublicNodePubkey.trim()
       if (!pubkey) {
-        return "A peer pubkey is required."
+        return "Peer pubkey is required."
       }
       const normalized = pubkey.startsWith("0x") ? pubkey.slice(2) : pubkey
       if (!/^[0-9a-fA-F]+$/.test(normalized)) {

@@ -40,7 +40,7 @@ export const SETUP_STEPS: SetupStep[] = [
 export const STEP_TITLES: Record<SetupStep, string> = {
   welcome: "Welcome",
   network: "Network",
-  "public-network": "Connect to peer",
+  "public-network": "Public network",
   "key-file": "Wallet key",
   password: "Wallet password",
   review: "Review & start",

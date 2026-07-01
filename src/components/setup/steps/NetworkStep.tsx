@@ -22,7 +22,7 @@ export function NetworkStep({
   onChange,
   options = NETWORK_OPTIONS,
   hideHeading = false,
-  description = "This sets the fnn network your node will join. Data is stored in a dedicated folder for that network.",
+  description = "Testnet only for now. Each network uses its own data folder.",
 }: NetworkStepProps) {
   return (
     <div className="space-y-4">
@@ -57,8 +57,6 @@ export function NetworkStep({
               badge={
                 disabled ? (
                   <Badge color="zinc">Coming soon</Badge>
-                ) : selected ? (
-                  <Badge color="zinc">{option.value}</Badge>
                 ) : undefined
               }
             />
