@@ -99,7 +99,8 @@ bun run generate-icons   # regenerate app icons from app-icon.svg
 ### Publishing a release
 
 ```bash
-# Bump version in package.json, src-tauri/tauri.conf.json, and src-tauri/Cargo.toml
+# Bump version (updates package.json + Cargo.toml; Tauri reads package.json)
+bun run version:bump patch   # or minor | major | 0.2.0
 git commit -am "chore: release v0.1.0"
 git push origin main
 git tag v0.1.0
