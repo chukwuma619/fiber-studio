@@ -1,4 +1,3 @@
-import clsx from "clsx"
 import type { ComponentPropsWithoutRef } from "react"
 import { FiberMark } from "./FiberMark"
 
