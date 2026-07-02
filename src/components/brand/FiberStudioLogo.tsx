@@ -14,8 +14,8 @@ export function FiberStudioLogo({
   subtitle,
 }: FiberStudioLogoProps) {
   return (
-    <div className={clsx("flex items-center gap-2.5", className)}>
-      <FiberMarkIcon className={clsx("size-9", iconClassName)} />
+    <div className={clsx("flex items-center", className)}>
+      <FiberMarkIcon className={clsx(iconClassName)} />
       <FiberStudioWordmark subtitle={subtitle} />
     </div>
   )

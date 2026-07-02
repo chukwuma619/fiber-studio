@@ -20,7 +20,7 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="border-r">
-        <SidebarItem href="/">
+        <SidebarItem href="/" className="[&>a]:gap-0">
           <FiberMarkIcon data-slot="avatar" />
           <SidebarLabel>
             <FiberStudioWordmark layout="inline" />
