@@ -30,84 +30,176 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 Fiber Studio is a **local node + wallet**. Each person runs their own copy of the app on their machine. Payments move CKB off-chain over the Fiber network — there is no central account or hosted wallet.
 
-Both users must be on the **same network** (testnet is enabled today; mainnet is not yet available in the setup wizard). Each user needs a running node, a connection to the public Fiber network, and enough **in-channel liquidity** to send (or an open channel path to the recipient).
+Both users must be on the **same Fiber network** (testnet is enabled today; mainnet is not yet available in the setup wizard). Payments move over **channels** — a peer connection alone is not enough to send or receive CKB.
 
-### 1. Set up both nodes
+Fiber Studio supports two ways for two users to transact:
+
+| Mode | Route | Best for |
+|------|--------|----------|
+| **Direct** | User A ⟷ User B (one channel between you) | Paying a specific person you know; simplest routing |
+| **Multi-hop** | User A → Hub → User B (two channels via a shared public peer) | Payment processing, merchants, or when you do not want a direct channel |
+
+### Common setup (both modes)
 
 Each user installs Fiber Studio from [GitHub Releases](#download), then completes the setup wizard:
 
 1. **Network** — choose **Testnet**.
-2. **Public network** — connect via an official public relay (**Use public node1** / **node2**) or paste a custom peer pubkey.
+2. **Public network** — connect to the network (official relay, community peer, or custom pubkey). You need _some_ peer connectivity for gossip; the exact peer depends on which mode you use below.
 3. **Wallet key** — import a CKB key file (export one with [ckb-cli](https://github.com/nervosnetwork/ckb-cli) if needed).
 4. **Wallet password** — protects your key in the OS keychain.
-5. **Review & start** — start the node and confirm the home dashboard shows the node as running.
+5. **Review & start** — start the node and keep it **running** while sending or receiving.
 
-After setup, keep the node **running** while sending or receiving. The home dashboard shows relay connectivity and channel balance.
+**Share pubkeys** out of band (chat, email, etc.):
 
-### 2. Share identity (pubkey)
+- **Wallet** page — footer (`Node pubkey`).
+- **Network** page — for connected/saved peers.
 
-To pay someone directly (keysend) or open a channel with them, you need their **node pubkey**:
+**Fund on-chain first** (first-time channel openers):
 
-- **Wallet** page — copy from the footer at the bottom (`Node pubkey`).
-- **Network** page — visible for connected and saved peers.
+1. Send testnet CKB to your **on-chain funding wallet** on **Channels**.
+2. You need enough CKB for channel capacity (minimum **1,000 CKB** per open), plus reserve and on-chain fees.
 
-Share pubkeys out of band (chat, email, etc.). Both users should stay on the same network.
+### Peer connection vs channel
 
-### 3. Fund liquidity (first-time senders)
+| | Peer connection | Channel (`ChannelReady`) |
+|--|-----------------|--------------------------|
+| What it is | P2P link for gossip and discovery | Off-chain CKB lane between two nodes |
+| Enough to pay? | **No** | **Yes** (directly or as a hop in a route) |
+| In Fiber Studio | **Network → Peers** | **Channels** |
 
-Off-chain Fiber payments spend **in-channel** CKB, not the on-chain funding wallet balance shown on **Wallet** or **Channels**.
+Bootnodes under **Discovery & other connections** are discovery-only — you cannot open channels with them.
 
-To send CKB you typically:
+---
 
-1. Send testnet CKB to your node’s **on-chain funding wallet** address (shown on **Channels** — this is L1 CKB for opening channels).
-2. Open a channel on **Channels → Open channel** with a saved, connected peer (minimum **1,000 CKB** capacity; your wallet also needs reserve and fee buffer).
-3. Wait until the channel state is **ChannelReady**, then check **In channels** balance on **Wallet**.
+## Option A — Direct payment (channel with each other)
 
-For a **direct relationship** between two users, each person can open a channel with the other’s pubkey (add them as a saved peer on **Network → Add saved peer** first). That gives the most reliable route for invoice and keysend payments between you.
+One **direct channel** between User A and User B. Payments are a single hop — no public hub in the middle.
 
-You can also rely on public relays and the wider network graph for routing without a direct channel, but delivery is more reliable when a path exists and your node is connected to saved peers.
+```text
+User A ══════ channel ══════ User B
+```
 
-### 4. Receive a payment (invoice — recommended)
+### Steps
 
-**Receiver (User B):**
+**1. Connect to each other (both users)**
 
-1. Open **Wallet → Create invoice**.
-2. Enter amount (CKB), expiry, and an optional note.
-3. Share the Bech32m invoice string or QR code with the payer.
+1. **Network → Add saved peer** — paste the other person’s **pubkey** (66-character hex).
+2. Optionally add a **multiaddr** if they gave you one; otherwise connect outbound with pubkey only once the network has learned their address from gossip.
+3. Click **Connect** on each side until the other appears as a **connected** saved peer.
 
-**Sender (User A):**
+**2. Open a channel (one user opens; the other accepts)**
 
-1. Open **Wallet**, scroll to **Send payment**, and choose **Invoice**.
-2. Paste the invoice string (or scan the QR outside the app and paste).
-3. Confirm the parsed amount and **route preview**, then **Review payment** and send.
-4. Wait for settlement; the payment appears under sent payments.
+Typically one person opens; the other’s node auto-accepts when configured to do so.
 
-**Receiver:** the invoice row updates to **Received** when the payment settles (the wallet refreshes status automatically).
+1. **Channels → Open channel** — select the other user’s pubkey.
+2. Set capacity (minimum **1,000 CKB**; include reserve/fee buffer).
+3. Wait until state is **ChannelReady** on **both** nodes.
 
-### 5. Send without an invoice (keysend)
+**3. Fund sending side**
 
-Use keysend when you know the recipient’s pubkey and want to push CKB without them creating an invoice first.
+The opener usually funds the channel with local (outbound) liquidity. Check **In channels** balance on **Wallet** before sending.
 
-**Sender (User A):**
+**4. Pay**
 
-1. Open **Wallet → Send payment → Keysend**.
-2. Pick the recipient from **Recipient node** (relay, channel peer, or connected peer), or paste their 66-character hex pubkey.
-3. Enter amount (CKB), review the route, and send.
+- **Invoice (recommended):** Receiver creates an invoice on **Wallet → Create invoice** and shares it. Sender pays on **Wallet → Send payment → Invoice** and confirms the route preview.
+- **Keysend:** Sender uses **Wallet → Send payment → Keysend** with the receiver’s pubkey.
 
-**Receiver (User B):** no invoice step — incoming keysend appears in activity / payment history once settled.
+Route preview should show a **direct** path (one hop). If you see `PathFind error: no path found`, confirm the channel is **ChannelReady** and the invoice pubkey matches the peer you channeled with.
 
-Keysend works best when you have a direct channel or a clear route to the recipient. If route preview fails, connect to a public relay on **Network**, open or wait for a ready channel, and try again.
+### Direct payment checklist
 
-### Quick checklist
+| Step | User A | User B |
+|------|--------|--------|
+| Setup + node running | ✓ | ✓ |
+| Saved + **connected** to each other | ✓ | ✓ |
+| **ChannelReady** with each other | ✓ | ✓ |
+| In-channel balance (sender) | ✓ | — |
+| Create & share invoice (or keysend pubkey) | — | ✓ / — |
+| Pay invoice or keysend | ✓ | — |
+
+---
+
+## Option B — Multi-hop payment (shared public hub)
+
+Both users open channels with the **same public peer** (official relay or community hub). The payer sends CKB through the hub to the payee.
+
+```text
+User A ──channel──► Hub (public peer) ──channel──► User B
+```
+
+### Steps
+
+**1. Pick a hub (agree out of band)**
+
+Use the same hub pubkey for both users, for example:
+
+- **Official testnet relays** — **Use public node1** / **node2** in setup (`shared/relays.json`).
+- **Community peer** — any public testnet node both of you can connect to and open a channel with.
+
+**2. Connect to the hub (both users)**
+
+1. **Network → Add saved peer** — hub pubkey + multiaddr (if known).
+2. **Connect** — wait until the hub shows as connected.
+3. Wait for bootnodes/gossip if needed (**Network** graph node count &gt; 0 helps pathfinding).
+
+**3. Open a channel with the hub (both users)**
+
+1. **Channels → Open channel** — select the **hub** pubkey (not each other).
+2. Wait until **ChannelReady** on both nodes.
+3. **Sender** — fund your side (local balance to send).
+4. **Receiver** — channel must be ready so the hub can forward inbound liquidity to you.
+
+Peer-only connection to the hub is **not** enough — the **receiver must have a channel** with the same hub.
+
+**4. Pay**
+
+1. **Receiver** — **Wallet → Create invoice** (from their own node; pubkey on invoice must be theirs).
+2. **Sender** — **Wallet → Send payment → Invoice** — route preview should show a path via the hub (multi-hop).
+3. If preview fails with `PathFind error: no path found`, see [Troubleshooting multi-hop](#troubleshooting-multi-hop) below.
+
+### Multi-hop checklist
 
 | Step | User A (sender) | User B (receiver) |
 |------|-----------------|-------------------|
-| Install & setup | ✓ | ✓ |
-| Node running | ✓ | ✓ |
-| Connected to public network | ✓ | ✓ |
-| In-channel balance to send | ✓ | — |
-| Create & share invoice | — | ✓ (invoice flow) |
-| Pay invoice or keysend | ✓ | — |
+| Setup + node running | ✓ | ✓ |
+| Connected to **same hub** | ✓ | ✓ |
+| **ChannelReady** with **same hub** | ✓ | ✓ |
+| In-channel balance (sender) | ✓ | — |
+| Network graph synced (nodes/channels &gt; 0) | ✓ | ✓ |
+| Create & share invoice | — | ✓ |
+| Pay invoice | ✓ | — |
+
+### Troubleshooting multi-hop
+
+Route preview runs before send. `PathFind error: no path found` does **not** always mean the receiver is offline. Check:
+
+- **Graph empty** — wait after node start; ensure peers/bootnodes are connected.
+- **Receiver has no hub channel** — peer connect only is insufficient.
+- **Different hubs** — you channeled with hub A, they channeled with hub B, no route between A and B.
+- **Liquidity** — missing outbound capacity on your channel or on hub → receiver.
+- **Receiver offline** — possible; rule out the above first.
+
+Official relays (bottle/bracer) are documented for testnet channel auto-accept. Community hubs work the same way if both parties open **ChannelReady** channels with them.
+
+---
+
+## Send a payment (both modes)
+
+### Invoice (recommended)
+
+**Receiver:** **Wallet → Create invoice** → share Bech32m string or QR.
+
+**Sender:** **Wallet → Send payment → Invoice** → paste invoice → confirm amount and **route preview** → **Review payment** → send.
+
+**Receiver:** invoice status updates to **Received** when settled.
+
+### Keysend
+
+**Sender:** **Wallet → Send payment → Keysend** → recipient pubkey → amount → route preview → send.
+
+**Receiver:** payment appears in history when settled.
+
+Works for **direct** (channel peer) or **multi-hop** (routable path). Route preview must succeed before sending.
 
 For protocol details beyond the app UI, see the [Fiber documentation](https://www.fiber.world/docs).
 
