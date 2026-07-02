@@ -7,3 +7,6 @@
   --font-sans: "Inter Variable", Inter, sans-serif;
   --font-sans--font-feature-settings: 'cv11';
 }
+html, body {
+  overscroll-behavior: none;
+}
