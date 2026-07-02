@@ -26,6 +26,91 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
 - **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
 
+## How two users can transact
+
+Fiber Studio is a **local node + wallet**. Each person runs their own copy of the app on their machine. Payments move CKB off-chain over the Fiber network — there is no central account or hosted wallet.
+
+Both users must be on the **same network** (testnet is enabled today; mainnet is not yet available in the setup wizard). Each user needs a running node, a connection to the public Fiber network, and enough **in-channel liquidity** to send (or an open channel path to the recipient).
+
+### 1. Set up both nodes
+
+Each user installs Fiber Studio from [GitHub Releases](#download), then completes the setup wizard:
+
+1. **Network** — choose **Testnet**.
+2. **Public network** — connect via an official public relay (**Use public node1** / **node2**) or paste a custom peer pubkey.
+3. **Wallet key** — import a CKB key file (export one with [ckb-cli](https://github.com/nervosnetwork/ckb-cli) if needed).
+4. **Wallet password** — protects your key in the OS keychain.
+5. **Review & start** — start the node and confirm the home dashboard shows the node as running.
+
+After setup, keep the node **running** while sending or receiving. The home dashboard shows relay connectivity and channel balance.
+
+### 2. Share identity (pubkey)
+
+To pay someone directly (keysend) or open a channel with them, you need their **node pubkey**:
+
+- **Wallet** page — copy from the footer at the bottom (`Node pubkey`).
+- **Network** page — visible for connected and saved peers.
+
+Share pubkeys out of band (chat, email, etc.). Both users should stay on the same network.
+
+### 3. Fund liquidity (first-time senders)
+
+Off-chain Fiber payments spend **in-channel** CKB, not the on-chain funding wallet balance shown on **Wallet** or **Channels**.
+
+To send CKB you typically:
+
+1. Send testnet CKB to your node’s **on-chain funding wallet** address (shown on **Channels** — this is L1 CKB for opening channels).
+2. Open a channel on **Channels → Open channel** with a saved, connected peer (minimum **1,000 CKB** capacity; your wallet also needs reserve and fee buffer).
+3. Wait until the channel state is **ChannelReady**, then check **In channels** balance on **Wallet**.
+
+For a **direct relationship** between two users, each person can open a channel with the other’s pubkey (add them as a saved peer on **Network → Add saved peer** first). That gives the most reliable route for invoice and keysend payments between you.
+
+You can also rely on public relays and the wider network graph for routing without a direct channel, but delivery is more reliable when a path exists and your node is connected to saved peers.
+
+### 4. Receive a payment (invoice — recommended)
+
+**Receiver (User B):**
+
+1. Open **Wallet → Create invoice**.
+2. Enter amount (CKB), expiry, and an optional note.
+3. Share the Bech32m invoice string or QR code with the payer.
+
+**Sender (User A):**
+
+1. Open **Wallet**, scroll to **Send payment**, and choose **Invoice**.
+2. Paste the invoice string (or scan the QR outside the app and paste).
+3. Confirm the parsed amount and **route preview**, then **Review payment** and send.
+4. Wait for settlement; the payment appears under sent payments.
+
+**Receiver:** the invoice row updates to **Received** when the payment settles (the wallet refreshes status automatically).
+
+### 5. Send without an invoice (keysend)
+
+Use keysend when you know the recipient’s pubkey and want to push CKB without them creating an invoice first.
+
+**Sender (User A):**
+
+1. Open **Wallet → Send payment → Keysend**.
+2. Pick the recipient from **Recipient node** (relay, channel peer, or connected peer), or paste their 66-character hex pubkey.
+3. Enter amount (CKB), review the route, and send.
+
+**Receiver (User B):** no invoice step — incoming keysend appears in activity / payment history once settled.
+
+Keysend works best when you have a direct channel or a clear route to the recipient. If route preview fails, connect to a public relay on **Network**, open or wait for a ready channel, and try again.
+
+### Quick checklist
+
+| Step | User A (sender) | User B (receiver) |
+|------|-----------------|-------------------|
+| Install & setup | ✓ | ✓ |
+| Node running | ✓ | ✓ |
+| Connected to public network | ✓ | ✓ |
+| In-channel balance to send | ✓ | — |
+| Create & share invoice | — | ✓ (invoice flow) |
+| Pay invoice or keysend | ✓ | — |
+
+For protocol details beyond the app UI, see the [Fiber documentation](https://www.fiber.world/docs).
+
 ## Download
 
 Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing).
