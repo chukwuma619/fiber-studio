@@ -13,7 +13,6 @@ pub enum RelayConnectStatus {
     NotConfigured,
     AlreadyConnected,
     Connected,
-    Connecting,
     Failed,
 }
 

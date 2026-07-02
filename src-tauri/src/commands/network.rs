@@ -190,7 +190,6 @@ fn count_channels_to_peer(channels: &[Channel], pubkey: &str) -> u32 {
 fn connect_status_label(status: RelayConnectStatus) -> &'static str {
     match status {
         RelayConnectStatus::AlreadyConnected | RelayConnectStatus::Connected => "connected",
-        RelayConnectStatus::Connecting => "connecting",
         RelayConnectStatus::Failed => "failed",
         RelayConnectStatus::NotConfigured => "not_configured",
     }
