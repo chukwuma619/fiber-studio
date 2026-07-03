@@ -54,8 +54,16 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
                 .ok_or(ProvisionError::MissingImportedKey)?;
 
             let first_line = private_key.lines().next().unwrap_or(private_key).trim();
+            let normalized = if let Some(stripped) = first_line
+                .strip_prefix("0x")
+                .or_else(|| first_line.strip_prefix("0X"))
+            {
+                stripped
+            } else {
+                first_line
+            };
             let key_path = data_dir.join("ckb").join("key");
-            fs::write(&key_path, format!("{first_line}\n"))?;
+            fs::write(&key_path, format!("{normalized}\n"))?;
             #[cfg(unix)]
             {
                 let mut permissions = fs::metadata(&key_path)?.permissions();

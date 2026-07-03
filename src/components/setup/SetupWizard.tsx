@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router"
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
+import { normalizeCkbPrivateKey } from "../../lib/ckb-key"
 import {
   getDataDirectoryDisplayForNetwork,
   resolveDataDirectoryForNetwork,
@@ -72,7 +73,7 @@ function renderStepContent(
   config: SetupConfig,
   updateConfig: (patch: Partial<SetupConfig>) => void,
   startError: string | null,
-  stepValidationError: string | null,
+  displayedStepError: string | null,
 ) {
   switch (step) {
     case "welcome":
@@ -89,7 +90,7 @@ function renderStepContent(
         <PublicNetworkStep
           config={config}
           onChange={(patch) => updateConfig(patch)}
-          error={stepValidationError}
+          error={displayedStepError}
         />
       )
     case "key-file":
@@ -99,15 +100,19 @@ function renderStepContent(
           onPrivateKeyChange={(importedPrivateKey) =>
             updateConfig({ importedPrivateKey })
           }
-          error={stepValidationError}
+          error={displayedStepError}
         />
       )
     case "password":
       return (
         <PasswordStep
           password={config.password}
-          onChange={(password) => updateConfig({ password })}
-          error={stepValidationError}
+          passwordConfirm={config.passwordConfirm}
+          onPasswordChange={(password) => updateConfig({ password })}
+          onPasswordConfirmChange={(passwordConfirm) =>
+            updateConfig({ passwordConfirm })
+          }
+          error={displayedStepError}
         />
       )
     case "review":
@@ -126,8 +131,14 @@ export function SetupWizard() {
   const [config, setConfig] = useState<SetupConfig>(createDefaultSetupConfig)
   const [isStarting, setIsStarting] = useState(false)
   const [startError, setStartError] = useState<string | null>(null)
+  const [stepErrorsShown, setStepErrorsShown] = useState(false)
 
   const stepValidationError = validateSetupStep(currentStep, config)
+  const displayedStepError = stepErrorsShown ? stepValidationError : null
+
+  useEffect(() => {
+    setStepErrorsShown(false)
+  }, [currentStep])
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -138,6 +149,15 @@ export function SetupWizard() {
     return () => {
       window.cancelAnimationFrame(frame)
     }
+  }, [currentStep])
+
+  useEffect(() => {
+    if (currentStep !== "password") return
+    setConfig((prev) =>
+      prev.password || prev.passwordConfirm
+        ? { ...prev, password: "", passwordConfirm: "" }
+        : prev,
+    )
   }, [currentStep])
 
   const stepIndex = SETUP_STEPS.indexOf(currentStep)
@@ -155,12 +175,24 @@ export function SetupWizard() {
   }
 
   function goNext() {
-    if (!isLastStep && !isStarting && stepValidationError === null) {
-      setCurrentStep(SETUP_STEPS[stepIndex + 1])
+    if (isLastStep || isStarting) return
+
+    const error = validateSetupStep(currentStep, config)
+    if (error) {
+      setStepErrorsShown(true)
+      return
     }
+
+    if (currentStep === "key-file" && config.importedPrivateKey.trim()) {
+      setConfig((prev) => ({
+        ...prev,
+        importedPrivateKey: normalizeCkbPrivateKey(prev.importedPrivateKey),
+      }))
+    }
+    setCurrentStep(SETUP_STEPS[stepIndex + 1])
   }
 
-  const canProceed = stepValidationError === null
+  const canProceed = !isStarting
 
   async function handleComplete() {
     setStartError(null)
@@ -172,13 +204,14 @@ export function SetupWizard() {
 
       await completeSetupAndStart(setupConfig)
 
-      const { password: _password, importedPrivateKey: _key, ...persisted } =
+      const { password: _password, passwordConfirm: _confirm, importedPrivateKey: _key, ...persisted } =
         setupConfig
       completeSetup({
         ...persisted,
         dataDirectory: getDataDirectoryDisplayForNetwork(config.network),
         fnnVersion: FNN_VERSION,
         password: "",
+        passwordConfirm: "",
         importedPrivateKey: "",
       })
       navigate({ to: "/" })
@@ -209,7 +242,7 @@ export function SetupWizard() {
             config,
             updateConfig,
             startError,
-            stepValidationError,
+            displayedStepError,
           )}
         </Suspense>
       </div>

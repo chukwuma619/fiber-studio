@@ -30,11 +30,18 @@ export function validateSetupStep(
       }
       return validateCkbPrivateKey(config.importedPrivateKey)
     }
-    case "password":
+    case "password": {
       if (!config.password.trim()) {
         return "Password is required."
       }
+      if (!config.passwordConfirm.trim()) {
+        return "Confirm your password."
+      }
+      if (config.password !== config.passwordConfirm) {
+        return "Passwords do not match."
+      }
       return null
+    }
     default: {
       const _exhaustive: never = step
       return _exhaustive

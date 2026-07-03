@@ -25,6 +25,8 @@ export type SetupConfig = {
   importedPrivateKey: string
   /** Setup-time only — stored in OS keychain, not localStorage. */
   password: string
+  /** Setup-time only — confirm field for onboarding password entry. */
+  passwordConfirm: string
   fnnVersion?: string
 }
 
@@ -59,5 +61,6 @@ export function createDefaultSetupConfig(): SetupConfig {
     keyFilePath: "",
     importedPrivateKey: "",
     password: "",
+    passwordConfirm: "",
   }
 }

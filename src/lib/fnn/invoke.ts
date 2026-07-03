@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
+import { normalizeCkbPrivateKey } from "../ckb-key"
 import type { SetupConfig } from "../setup/types"
 import type {
   AbandonChannelPayload,
@@ -40,12 +41,16 @@ import type {
 } from "./types"
 
 function toCompleteSetupPayload(config: SetupConfig): CompleteSetupPayload {
+  const importedPrivateKey = config.importedPrivateKey.trim()
+    ? normalizeCkbPrivateKey(config.importedPrivateKey)
+    : undefined
+
   return {
     network: config.network,
     dataDirectory: config.dataDirectory,
     keyFileMode: config.keyFileMode,
     keyFilePath: config.keyFilePath,
-    importedPrivateKey: config.importedPrivateKey || undefined,
+    importedPrivateKey,
     password: config.password,
     customPublicNodePubkey: config.customPublicNodePubkey,
     customPublicNodeMultiaddr: config.customPublicNodeMultiaddr,
