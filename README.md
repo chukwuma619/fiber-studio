@@ -28,38 +28,15 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 ## How two users can transact
 
-Fiber Studio is a **local node + wallet**. Each person runs their own copy of the app on their machine. Payments move CKB off-chain over the Fiber network — there is no central account or hosted wallet.
+Fiber Studio is a **desktop app** (macOS, Windows, Linux) that runs on your **laptop or PC**. Each person installs their own copy, runs their own [Fiber Network Node (`fnn`)](https://github.com/nervosnetwork/fiber) in the background, and uses the UI to manage channels and payments. There is no central account or hosted wallet — CKB moves off-chain between **your node** and **their node** over the Fiber network.
 
-Both users must be on the **same Fiber network** (testnet is enabled today; mainnet is not yet available in the setup wizard). Payments move over **channels** — a peer connection alone is not enough to send or receive CKB.
+Today the setup wizard supports **testnet** only (mainnet is not available there yet). Both users must use the same Fiber network (e.g. both on testnet).
 
-Fiber Studio supports two ways for two users to transact:
+### What you need to understand first
 
-| Mode | Route | Best for |
-|------|--------|----------|
-| **Direct** | User A ⟷ User B (one channel between you) | Paying a specific person you know; simplest routing |
-| **Multi-hop** | User A → Hub → User B (two channels via a shared public peer) | Payment processing, merchants, or when you do not want a direct channel |
+**1. Peer connection is not payment**
 
-### Common setup (both modes)
-
-Each user installs Fiber Studio from [GitHub Releases](#download), then completes the setup wizard:
-
-1. **Network** — choose **Testnet**.
-2. **Public network** — connect to the network (official relay, community peer, or custom pubkey). You need _some_ peer connectivity for gossip; the exact peer depends on which mode you use below.
-3. **Wallet key** — import a CKB key file (export one with [ckb-cli](https://github.com/nervosnetwork/ckb-cli) if needed).
-4. **Wallet password** — protects your key in the OS keychain.
-5. **Review & start** — start the node and keep it **running** while sending or receiving.
-
-**Share pubkeys** out of band (chat, email, etc.):
-
-- **Wallet** page — footer (`Node pubkey`).
-- **Network** page — for connected/saved peers.
-
-**Fund on-chain first** (first-time channel openers):
-
-1. Send testnet CKB to your **on-chain funding wallet** on **Channels**.
-2. You need enough CKB for channel capacity (minimum **1,000 CKB** per open), plus reserve and on-chain fees.
-
-### Peer connection vs channel
+Your node must **connect** to another node (P2P link on **Network**) and **open a channel** with them (**Channels**, state **ChannelReady**) before CKB can flow. Connecting as a peer alone does not let you pay or receive.
 
 | | Peer connection | Channel (`ChannelReady`) |
 |--|-----------------|--------------------------|
@@ -67,119 +44,209 @@ Each user installs Fiber Studio from [GitHub Releases](#download), then complete
 | Enough to pay? | **No** | **Yes** (directly or as a hop in a route) |
 | In Fiber Studio | **Network → Peers** | **Channels** |
 
-Bootnodes under **Discovery & other connections** are discovery-only — you cannot open channels with them.
+Bootnodes under **Discovery & other connections** help you find the network; you cannot open payment channels with them.
+
+**2. How you reach the other laptop depends on where you are**
+
+Fiber nodes listen on port **8228** on your machine. To **connect** to someone, your node needs a **dialable address** for theirs — not just a pubkey.
+
+| Situation | Typical approach | Direct channel between you? |
+|-----------|------------------|----------------------------|
+| **Same Wi‑Fi / LAN** (e.g. two laptops in one room) | Share **pubkey** + **LAN multiaddr** (`/ip4/192.168.x.x/tcp/8228/p2p/…`) | **Yes** — easiest way to pay each other directly |
+| **Different cities / countries** (home internet, no port forwarding) | **Multi-hop** via a shared **public hub** (Option B) | Indirect — you each channel with the same hub |
+| **Different locations, but one side has port forwarding** | Share **pubkey** + **public multiaddr** (public IP, port 8228 forwarded) | **Yes** — direct channel over the internet |
+
+The **Wallet** page shows your **node pubkey** (copy button at the bottom). It does **not** show a multiaddr. For LAN or port-forwarded setups, you must share the multiaddr separately (chat, email, etc.).
+
+**3. Two ways to pay**
+
+| Mode | Route | When to use |
+|------|--------|-------------|
+| **Direct** | Your laptop ⟷ Their laptop (one channel) | Same LAN, or you can reach each other on the internet (multiaddr) |
+| **Multi-hop** | You → public hub → them (two channels) | Far apart on home Wi‑Fi, no port forwarding — **most common for remote friends** |
+
+Payments use the public internet (or your LAN). You do **not** need to be on the same Wi‑Fi for multi-hop. You **do** need a reachable address or a shared hub for the mode you choose.
+
+For protocol details, see the [Fiber documentation](https://www.fiber.world/docs).
+
+---
+
+### Before you start (both modes)
+
+1. **Install** Fiber Studio from [GitHub Releases](#download) on each laptop.
+2. **Complete setup** on each machine:
+   - **Network** — **Testnet**
+   - **Public network** — connect to at least one peer (official relay, community hub, or custom peer) so your node can join gossip. Which peer you pick depends on Option A or B below.
+   - **Wallet key** — import a CKB key file ([ckb-cli](https://github.com/nervosnetwork/ckb-cli) can export one)
+   - **Wallet password** — stored in the OS keychain
+   - **Review & start** — start the node and **keep it running** while sending or receiving
+3. **Fund on-chain** (first channel open):
+   - Send testnet CKB to your **on-chain funding wallet** on **Channels**
+   - Minimum **1,000 CKB** per channel open, plus reserve and on-chain fees
+4. **Share details** out of band before connecting to each other:
+   - **Pubkey** (always) — **Wallet** footer, 66-character hex (`02…` or `03…`)
+   - **Multiaddr** (for direct connect) — see Option A; format `/ip4/HOST/tcp/8228/p2p/Qm…`
 
 ---
 
 ## Option A — Direct payment (channel with each other)
 
-One **direct channel** between User A and User B. Payments are a single hop — no public hub in the middle.
+One **direct channel** between you and the other person. Payments are a single hop — no hub in the middle.
 
 ```text
-User A ══════ channel ══════ User B
+Your laptop ══════ channel ══════ Their laptop
 ```
 
-### Steps
+Use this when you can **connect** to each other: same LAN, or over the internet with a public multiaddr.
 
-**1. Connect to each other (both users)**
+### A1 — Same Wi‑Fi / LAN (two laptops nearby)
 
-1. **Network → Add saved peer** — paste the other person’s **pubkey** (66-character hex).
-2. Optionally add a **multiaddr** if they gave you one; otherwise connect outbound with pubkey only once the network has learned their address from gossip.
-3. Click **Connect** on each side until the other appears as a **connected** saved peer.
+This is the straightforward case for **direct** payment: both nodes are on the same local network, so you dial each other’s **LAN IP** — no router port forwarding required.
 
-**2. Open a channel (one user opens; the other accepts)**
+**1. Both users — keep nodes running**
 
-Typically one person opens; the other’s node auto-accepts when configured to do so.
+Start Fiber Studio and ensure the node is up on both laptops.
 
-1. **Channels → Open channel** — select the other user’s pubkey.
-2. Set capacity (minimum **1,000 CKB**; include reserve/fee buffer).
-3. Wait until state is **ChannelReady** on **both** nodes.
+**2. Share pubkey + LAN address**
 
-**3. Fund sending side**
+- **Pubkey:** **Wallet** → copy **Node pubkey** at the bottom.
+- **LAN multiaddr:** On the laptop that will be dialed first, find its local IP (e.g. macOS **System Settings → Network**, Windows `ipconfig`, Linux `ip addr`). Build:
 
-The opener usually funds the channel with local (outbound) liquidity. Check **In channels** balance on **Wallet** before sending.
+  ```text
+  /ip4/192.168.x.x/tcp/8228/p2p/QmPEER_ID
+  ```
 
-**4. Pay**
+  - Port is **8228** (default Fiber P2P port).
+  - The `/p2p/Qm…` part is your node’s libp2p peer id. After your node connects to bootnodes, check **Network** (connected peer addresses) or your node log (`fiber-studio-fnn.log` in your data directory) for a `/p2p/Qm…` suffix.
 
-- **Invoice (recommended):** Receiver creates an invoice on **Wallet → Create invoice** and shares it. Sender pays on **Wallet → Send payment → Invoice** and confirms the route preview.
-- **Keysend:** Sender uses **Wallet → Send payment → Keysend** with the receiver’s pubkey.
+  Pubkey-only connect (`connect_peer` with just a pubkey) only works if your node already knows their address from **gossip**. Fresh home nodes usually do not — **use the LAN multiaddr**.
 
-Route preview should show a **direct** path (one hop). If you see `PathFind error: no path found`, confirm the channel is **ChannelReady** and the invoice pubkey matches the peer you channeled with.
+**3. Connect (both users)**
+
+1. **Network → Add saved peer** — paste their **pubkey** and **LAN multiaddr**.
+2. Click **Connect** until they show as a **connected** saved peer.
+3. Optionally repeat from the other laptop so both sides are connected.
+
+**4. Open a channel**
+
+1. **Channels → Open channel** — select the other person’s pubkey.
+2. Capacity at least **1,000 CKB** (plus fees).
+3. Wait until **ChannelReady** on **both** laptops.
+
+**5. Pay**
+
+- **Invoice (recommended):** They create an invoice on **Wallet → Create invoice** and send you the string (or QR). You pay on **Wallet → Send payment → Invoice**. Route preview should show **one hop** (direct).
+- **Keysend:** **Wallet → Send payment → Keysend** with their pubkey.
+
+The invoice **payee pubkey** must match the node you opened the channel with. If they send an invoice from a different wallet/node, payment will not route correctly.
+
+### A2 — Far apart (direct over the internet)
+
+Direct payment is still possible across cities or continents if **at least one** laptop is reachable from the public internet.
+
+**1. Reachable side — port forwarding**
+
+On the laptop that will accept inbound connections:
+
+1. Forward router port **8228** → that machine’s LAN IP.
+2. Edit `config.yml` in your Fiber Studio data directory (see template in `src-tauri/resources/fnn-config/testnet.yml`):
+   - Under `fiber.announced_addrs`, add your **public** IP, e.g. `/ip4/YOUR_PUBLIC_IP/tcp/8228`
+3. Restart the node.
+4. Share **pubkey** + full multiaddr `/ip4/YOUR_PUBLIC_IP/tcp/8228/p2p/Qm…` with the other person.
+
+**2. Other side — connect, channel, pay**
+
+Same as LAN steps 3–5: **Network** (pubkey + multiaddr) → **ChannelReady** → pay invoice or keysend.
+
+If neither side can port-forward, use **Option B** instead — do not expect pubkey-only connect to work across home networks.
+
+### Direct payment — troubleshooting
+
+`PathFind error: no path found` on route preview — check in order:
+
+| Problem | What to do |
+|---------|------------|
+| Peer not **connected** | Missing or wrong multiaddr; on LAN use `192.168.x.x`, not public IP; both nodes must be running |
+| Connected but no channel | **Channels → Open channel** → wait for **ChannelReady** on both sides |
+| Wrong invoice | Invoice payee pubkey ≠ peer you channeled with — ask for a new invoice from the correct node |
+| No liquidity | Sender needs enough **In channels** balance for amount + fees |
 
 ### Direct payment checklist
 
-| Step | User A | User B |
-|------|--------|--------|
-| Setup + node running | ✓ | ✓ |
-| Saved + **connected** to each other | ✓ | ✓ |
+| Step | You | Them |
+|------|-----|------|
+| Fiber Studio installed, node running | ✓ | ✓ |
+| Pubkey shared | ✓ | ✓ |
+| Multiaddr shared (LAN or public) | ✓ | ✓ |
+| **Connected** on **Network** | ✓ | ✓ |
 | **ChannelReady** with each other | ✓ | ✓ |
 | In-channel balance (sender) | ✓ | — |
-| Create & share invoice (or keysend pubkey) | — | ✓ / — |
-| Pay invoice or keysend | ✓ | — |
+| Invoice created & shared | — | ✓ |
+| Invoice paid | ✓ | — |
 
 ---
 
 ## Option B — Multi-hop payment (shared public hub)
 
-Both users open channels with the **same public peer** (official relay or community hub). The payer sends CKB through the hub to the payee.
+**Use this when you are far apart on normal home internet** and neither side has set up port forwarding. You do **not** need the same Wi‑Fi. Each laptop connects to the **same public Fiber node** (a “hub”), opens a channel with it, and payments route through that hub.
 
 ```text
-User A ──channel──► Hub (public peer) ──channel──► User B
+Your laptop ──channel──► Hub (public peer) ──channel──► Their laptop
 ```
 
 ### Steps
 
 **1. Pick a hub (agree out of band)**
 
-Use the same hub pubkey for both users, for example:
+Both users must use the **same** hub pubkey, for example:
 
 - **Official testnet relays** — **Use public node1** / **node2** in setup (`shared/relays.json`).
-- **Community peer** — any public testnet node both of you can connect to and open a channel with.
+- **Community hub** — any public testnet node with a known IP that **both** of you can connect to (e.g. from **Network** after joining via bootnodes).
 
-**2. Connect to the hub (both users)**
+Official relays may not accept connections from every network. If node1/node2 never show as connected, pick a community hub that works for both of you and use its pubkey + multiaddr.
 
-1. **Network → Add saved peer** — hub pubkey + multiaddr (if known).
-2. **Connect** — wait until the hub shows as connected.
-3. Wait for bootnodes/gossip if needed (**Network** graph node count &gt; 0 helps pathfinding).
+**2. Connect to the hub (both laptops)**
 
-**3. Open a channel with the hub (both users)**
+1. **Network → Add saved peer** — hub **pubkey** + **multiaddr** from `shared/relays.json` or your hub operator.
+2. **Connect** — wait until the hub appears as connected.
+3. Give gossip a minute after node start; **Network** graph counts &gt; 0 help pathfinding.
+
+**3. Open a channel with the hub (both laptops)**
 
 1. **Channels → Open channel** — select the **hub** pubkey (not each other).
-2. Wait until **ChannelReady** on both nodes.
-3. **Sender** — fund your side (local balance to send).
-4. **Receiver** — channel must be ready so the hub can forward inbound liquidity to you.
+2. Wait until **ChannelReady** on both machines.
+3. **Sender** — fund your side (local/outbound balance).
+4. **Receiver** — must also have a **ChannelReady** hub channel so the hub can forward inbound CKB to you.
 
-Peer-only connection to the hub is **not** enough — the **receiver must have a channel** with the same hub.
+Peer-only connection to the hub is **not** enough for receiving payments.
 
 **4. Pay**
 
-1. **Receiver** — **Wallet → Create invoice** (from their own node; pubkey on invoice must be theirs).
-2. **Sender** — **Wallet → Send payment → Invoice** — route preview should show a path via the hub (multi-hop).
-3. If preview fails with `PathFind error: no path found`, see [Troubleshooting multi-hop](#troubleshooting-multi-hop) below.
+1. **Receiver** — **Wallet → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
+2. **Sender** — **Wallet → Send payment → Invoice** — route preview should show a path **via the hub** (multi-hop).
+3. Confirm and send.
 
 ### Multi-hop checklist
 
-| Step | User A (sender) | User B (receiver) |
-|------|-----------------|-------------------|
-| Setup + node running | ✓ | ✓ |
+| Step | Sender | Receiver |
+|------|--------|----------|
+| Node running | ✓ | ✓ |
 | Connected to **same hub** | ✓ | ✓ |
 | **ChannelReady** with **same hub** | ✓ | ✓ |
 | In-channel balance (sender) | ✓ | — |
-| Network graph synced (nodes/channels &gt; 0) | ✓ | ✓ |
-| Create & share invoice | — | ✓ |
-| Pay invoice | ✓ | — |
+| Graph synced (nodes/channels &gt; 0) | ✓ | ✓ |
+| Invoice created & shared | — | ✓ |
+| Invoice paid | ✓ | — |
 
-### Troubleshooting multi-hop
+### Multi-hop troubleshooting
 
-Route preview runs before send. `PathFind error: no path found` does **not** always mean the receiver is offline. Check:
+`PathFind error: no path found` does not always mean the receiver is offline:
 
-- **Graph empty** — wait after node start; ensure peers/bootnodes are connected.
+- **Empty graph** — wait after start; ensure bootnodes/hub are connected.
 - **Receiver has no hub channel** — peer connect only is insufficient.
-- **Different hubs** — you channeled with hub A, they channeled with hub B, no route between A and B.
-- **Liquidity** — missing outbound capacity on your channel or on hub → receiver.
+- **Different hubs** — you used hub A, they used hub B; no route between them.
+- **Liquidity** — not enough outbound on your hub channel or on hub → receiver.
 - **Receiver offline** — possible; rule out the above first.
-
-Official relays (bottle/bracer) are documented for testnet channel auto-accept. Community hubs work the same way if both parties open **ChannelReady** channels with them.
 
 ---
 

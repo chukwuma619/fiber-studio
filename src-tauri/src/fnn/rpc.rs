@@ -182,7 +182,9 @@ pub struct SessionRoute {
 pub struct PaymentSummary {
     pub payment_hash: String,
     pub status: String,
+    #[serde(deserialize_with = "deserialize_hex_or_u64")]
     pub created_at: u64,
+    #[serde(deserialize_with = "deserialize_hex_or_u64")]
     pub last_updated_at: u64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failed_error: Option<String>,
@@ -468,7 +470,6 @@ pub async fn new_invoice(
         "currency": currency,
         "expiry": format!("0x{expiry_seconds:x}"),
         "hash_algorithm": "sha256",
-        "allow_mpp": true,
     });
 
     if let Some(desc) = description.filter(|value| !value.trim().is_empty()) {
@@ -665,6 +666,60 @@ pub async fn disconnect_peer(pubkey: &str) -> Result<(), RpcError> {
 pub fn parse_hex_u128(hex: &str) -> Option<u128> {
     let trimmed = hex.strip_prefix("0x").unwrap_or(hex);
     u128::from_str_radix(trimmed, 16).ok()
+}
+
+fn parse_hex_u64(hex: &str) -> Option<u64> {
+    parse_hex_u128(hex).and_then(|value| u64::try_from(value).ok())
+}
+
+/// Accepts fnn timestamps as either JSON numbers or hex strings (`0x…`).
+fn deserialize_hex_or_u64<'de, D>(deserializer: D) -> Result<u64, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Visitor};
+    use std::fmt;
+
+    struct HexOrU64Visitor;
+
+    impl<'de> Visitor<'de> for HexOrU64Visitor {
+        type Value = u64;
+
+        fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+            formatter.write_str("a u64 integer or hex string")
+        }
+
+        fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            Ok(value)
+        }
+
+        fn visit_i64<E>(self, value: i64) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            u64::try_from(value).map_err(de::Error::custom)
+        }
+
+        fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            parse_hex_u64(value)
+                .ok_or_else(|| de::Error::custom(format!("invalid hex u64: {value}")))
+        }
+
+        fn visit_string<E>(self, value: String) -> Result<Self::Value, E>
+        where
+            E: de::Error,
+        {
+            self.visit_str(&value)
+        }
+    }
+
+    deserializer.deserialize_any(HexOrU64Visitor)
 }
 
 /// Returns the PascalCase variant name for a channel state JSON value.
@@ -879,6 +934,34 @@ mod tests {
         let result = payload.result.expect("result should be present");
         assert_eq!(result.payments.len(), 1);
         assert_eq!(result.payments[0].status, "Success");
+    }
+
+    const LIST_PAYMENTS_FNN_0_8_1: &str = r#"{
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": {
+            "payments": [{
+                "payment_hash": "0x5170c8113966e6b1a4e0087f19d88ba66441ad5d0aa116cda547fef797cacff2",
+                "status": "Failed",
+                "created_at": "0x19f25284afe",
+                "last_updated_at": "0x19f252855b1",
+                "failed_error": "Send payment error: Failed to build enough routes for MPP payment",
+                "fee": "0x0",
+                "custom_records": {"0x10000": "0x1dace"}
+            }],
+            "last_cursor": "0x5170c8113966e6b1a4e0087f19d88ba66441ad5d0aa116cda547fef797cacff2"
+        }
+    }"#;
+
+    #[test]
+    fn deserializes_list_payments_fnn_0_8_1_hex_timestamps() {
+        let payload: RpcResponse<ListPaymentsResult> =
+            serde_json::from_str(LIST_PAYMENTS_FNN_0_8_1).unwrap();
+        let result = payload.result.expect("result should be present");
+        assert_eq!(result.payments.len(), 1);
+        assert_eq!(result.payments[0].status, "Failed");
+        assert_eq!(result.payments[0].created_at, 0x19f25284afe);
+        assert_eq!(result.payments[0].last_updated_at, 0x19f252855b1);
     }
 
     #[test]
