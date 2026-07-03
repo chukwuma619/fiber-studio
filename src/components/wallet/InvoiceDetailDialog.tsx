@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "../ui/dialog"
 import { Button } from "../ui/button"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 import { InvoiceQrCodeLazy } from "./InvoiceQrCodeLazy"
 
@@ -167,9 +168,10 @@ export function InvoiceDetailDialog({
             </DescriptionList>
 
             {actionError ? (
-              <Text className="text-sm text-red-600 dark:text-red-400">
-                {actionError}
-              </Text>
+              <PageErrorBanner
+                message={actionError}
+                onDismiss={onClearError}
+              />
             ) : null}
 
             {confirmCancel ? (

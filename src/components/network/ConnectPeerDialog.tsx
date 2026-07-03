@@ -6,6 +6,7 @@ import {
   type ConfiguredPeerFields,
 } from "../setup/steps/PublicNetworkStep"
 import { Button } from "../ui/button"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import {
   Dialog,
   DialogActions,
@@ -75,9 +76,11 @@ export function ConnectPeerDialog({
       </DialogDescription>
       <DialogBody>
         {actionError ? (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {actionError}
-          </div>
+          <PageErrorBanner
+            className="mb-4"
+            message={actionError}
+            onDismiss={onClearError}
+          />
         ) : null}
 
         <PublicNetworkStep

@@ -23,6 +23,7 @@ import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CapacityBar } from "../ui/capacity-bar"
 import { Heading } from "../ui/heading"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 import {
   Table,
@@ -186,9 +187,10 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-          Failed to load channels: {error}
-        </div>
+        <PageErrorBanner
+          message={`Failed to load channels: ${error}`}
+          onRetry={() => void refresh()}
+        />
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

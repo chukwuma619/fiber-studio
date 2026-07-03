@@ -23,6 +23,7 @@ import {
 } from "../ui/dialog"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Select } from "../ui/select"
 import { Text } from "../ui/text"
 
@@ -323,9 +324,11 @@ export function OpenChannelDialog({
           </Text>
         ) : null}
         {actionError ? (
-          <Text className="mt-4 text-sm text-red-600 dark:text-red-400">
-            {actionError}
-          </Text>
+          <PageErrorBanner
+            className="mt-4"
+            message={actionError}
+            onDismiss={onClearError}
+          />
         ) : null}
       </DialogBody>
 

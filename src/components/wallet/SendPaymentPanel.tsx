@@ -349,6 +349,7 @@ export function SendPaymentPanel({
               preview={parsedInvoice}
               isLoading={parseLoading}
               error={parseError}
+              onDismissError={() => setParseError(null)}
             />
           </div>
         ) : null}
@@ -359,6 +360,7 @@ export function SendPaymentPanel({
             isLoading={previewLoading}
             error={previewError}
             compact
+            onDismissError={() => setPreviewError(null)}
             emptyHint={
               sendMode === "invoice"
                 ? "Paste an invoice to preview the route"

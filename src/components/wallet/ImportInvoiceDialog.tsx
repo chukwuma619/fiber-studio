@@ -9,7 +9,7 @@ import {
 } from "../ui/dialog"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
-import { Text } from "../ui/text"
+import { PageErrorBanner } from "../ui/page-error-banner"
 
 type ImportInvoiceDialogProps = {
   open: boolean
@@ -83,9 +83,13 @@ export function ImportInvoiceDialog({
           </Field>
 
           {displayError ? (
-            <Text className="text-sm text-red-600 dark:text-red-400">
-              {displayError}
-            </Text>
+            <PageErrorBanner
+              message={displayError}
+              onDismiss={() => {
+                setLocalError(null)
+                onClearError()
+              }}
+            />
           ) : null}
         </FieldGroup>
       </DialogBody>

@@ -22,6 +22,7 @@ import { Text } from "../ui/text"
 import { ConnectPeerDialog } from "./ConnectPeerDialog"
 import { GraphBrowserSection } from "./GraphBrowserSection"
 import { PeersSection } from "./PeersSection"
+import { PageErrorBanner } from "../ui/page-error-banner"
 
 export function NetworkPage() {
   const { running, status, config } = useNodeControlContext()
@@ -125,15 +126,17 @@ export function NetworkPage() {
       </div>
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-          Failed to load network: {error}
-        </div>
+        <PageErrorBanner
+          message={`Failed to load network: ${error}`}
+          onRetry={() => void refresh()}
+        />
       ) : null}
 
       {networkActions.actionError && !connectDialogOpen ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-          {networkActions.actionError}
-        </div>
+        <PageErrorBanner
+          message={networkActions.actionError}
+          onDismiss={networkActions.clearActionError}
+        />
       ) : null}
 
       {available ? (

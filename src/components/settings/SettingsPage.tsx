@@ -37,6 +37,7 @@ export function SettingsPage() {
     actionError,
     isActing,
     successMessage,
+    clearActionError,
     refresh,
     handleOpenConfig,
     handleOpenDataDirectory,
@@ -66,6 +67,7 @@ export function SettingsPage() {
           message={actionError}
           onRetry={() => void refresh()}
           retryLabel="Reload settings"
+          onDismiss={clearActionError}
         />
       ) : null}
 

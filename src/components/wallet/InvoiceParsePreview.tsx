@@ -1,16 +1,20 @@
 import type { ParseInvoicePreview } from "../../lib/fnn/types"
+import { sanitizePaymentError } from "../../lib/fnn/format"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
 type InvoiceParsePreviewProps = {
   preview: ParseInvoicePreview | null
   isLoading?: boolean
   error?: string | null
+  onDismissError?: () => void
 }
 
 export function InvoiceParsePreview({
   preview,
   isLoading = false,
   error = null,
+  onDismissError,
 }: InvoiceParsePreviewProps) {
   if (isLoading) {
     return (
@@ -24,9 +28,11 @@ export function InvoiceParsePreview({
 
   if (error) {
     return (
-      <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 dark:border-red-900/50 dark:bg-red-950/30">
-        <Text className="text-xs text-red-700 dark:text-red-300">{error}</Text>
-      </div>
+      <PageErrorBanner
+        message={sanitizePaymentError(error)}
+        onDismiss={onDismissError}
+        className="px-3 py-2.5 text-xs"
+      />
     )
   }
 

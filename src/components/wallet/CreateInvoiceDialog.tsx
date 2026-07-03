@@ -9,6 +9,7 @@ import {
 } from "../ui/dialog"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 import type { CreateInvoicePayload } from "../../lib/fnn/types"
 import { invoiceCurrencyLabel } from "../../lib/fnn/format"
@@ -134,9 +135,13 @@ export function CreateInvoiceDialog({
           </Field>
 
           {displayError ? (
-            <Text className="text-sm text-red-600 dark:text-red-400">
-              {displayError}
-            </Text>
+            <PageErrorBanner
+              message={displayError}
+              onDismiss={() => {
+                setLocalError(null)
+                onClearError()
+              }}
+            />
           ) : null}
 
           {invoiceAddress ? (

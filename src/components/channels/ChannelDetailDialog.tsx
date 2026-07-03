@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
 type Step = "detail" | "confirm-close" | "confirm-abandon"
@@ -291,9 +292,11 @@ export function ChannelDetailDialog({
         )}
 
         {actionError ? (
-          <Text className="mt-4 text-sm text-red-600 dark:text-red-400">
-            {actionError}
-          </Text>
+          <PageErrorBanner
+            className="mt-4"
+            message={actionError}
+            onDismiss={onClearError}
+          />
         ) : null}
       </DialogBody>
 

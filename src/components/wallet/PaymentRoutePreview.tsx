@@ -1,8 +1,9 @@
+import type { PreviewSendPaymentResult } from "../../lib/fnn/types"
+import { paymentRouteTitle, sanitizePaymentError } from "../../lib/fnn/format"
+import { truncatePubkey } from "../../lib/public-relays"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Badge } from "../ui/badge"
 import { Text } from "../ui/text"
-import type { PreviewSendPaymentResult } from "../../lib/fnn/types"
-import { paymentRouteTitle } from "../../lib/fnn/format"
-import { truncatePubkey } from "../../lib/public-relays"
 
 type PaymentRoutePreviewProps = {
   preview: PreviewSendPaymentResult | null
@@ -10,6 +11,7 @@ type PaymentRoutePreviewProps = {
   error?: string | null
   compact?: boolean
   emptyHint?: string
+  onDismissError?: () => void
 }
 
 export function PaymentRoutePreview({
@@ -18,6 +20,7 @@ export function PaymentRoutePreview({
   error = null,
   compact = false,
   emptyHint = "Enter payment details to preview the route",
+  onDismissError,
 }: PaymentRoutePreviewProps) {
   if (isLoading) {
     return (
@@ -35,13 +38,11 @@ export function PaymentRoutePreview({
 
   if (error) {
     return (
-      <div
-        className={`rounded-lg border border-red-200 bg-red-50 dark:border-red-900/50 dark:bg-red-950/30 ${
-          compact ? "px-3 py-2.5" : "px-4 py-3"
-        }`}
-      >
-        <Text className="text-xs text-red-700 dark:text-red-300">{error}</Text>
-      </div>
+      <PageErrorBanner
+        message={sanitizePaymentError(error)}
+        onDismiss={onDismissError}
+        className={compact ? "px-3 py-2.5 text-xs" : undefined}
+      />
     )
   }
 
