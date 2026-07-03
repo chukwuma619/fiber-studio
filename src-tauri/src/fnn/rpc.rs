@@ -501,7 +501,6 @@ pub async fn parse_invoice(invoice: &str) -> Result<ParseInvoiceResult, RpcError
 pub async fn send_payment(request: SendPaymentRequest<'_>) -> Result<SendPaymentResult, RpcError> {
     let mut params = serde_json::json!({
         "dry_run": request.dry_run,
-        "allow_self_payment": true,
     });
 
     match request.kind {
