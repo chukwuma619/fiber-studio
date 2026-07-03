@@ -43,8 +43,7 @@ pub fn relay_status_for_saved_peers(
 
     match fallback_status {
         "connecting" => "connecting".to_string(),
-        "failed" | "connected" => "failed".to_string(),
-        _ => "not_configured".to_string(),
+        _ => "failed".to_string(),
     }
 }
 
@@ -284,6 +283,17 @@ mod tests {
             multiaddr: String::new(),
         }];
         let status = relay_status_for_saved_peers(&[], &saved_peers, "connected");
+
+        assert_eq!(status, "failed");
+    }
+
+    #[test]
+    fn relay_status_failed_when_saved_peers_exist_but_not_connected() {
+        let saved_peers = vec![SavedPeer {
+            pubkey: "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71".into(),
+            multiaddr: String::new(),
+        }];
+        let status = relay_status_for_saved_peers(&[], &saved_peers, "");
 
         assert_eq!(status, "failed");
     }

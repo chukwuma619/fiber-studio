@@ -42,7 +42,7 @@ export function getRelayContext(
 export function formatRelayStatusLabel(status: RelayConnectionStatus): string {
   switch (status) {
     case "failed":
-      return "Connection failed — ensure a saved peer is online"
+      return "Saved peer not connected"
     case "connecting":
       return "Connecting to saved peers…"
     case "not_configured":
@@ -65,9 +65,9 @@ export function relaySendPaymentWarning(
     case "connecting":
       return "Saved peers are still connecting — route preview may fail until a connection is ready."
     case "failed":
-      return "Saved peer connection failed — payments may not route until your node reconnects. Try refreshing or restarting the node."
+      return "Saved peer not connected — connect on the Network page before sending."
     case "not_configured":
-      return "No saved peers configured — multi-hop payments may fail unless you pay a direct channel peer."
+      return "No saved peers — add one on the Network page during setup or after."
     default: {
       const exhaustive: never = status
       return exhaustive
@@ -83,7 +83,7 @@ export function formatRelayStatus(
 
   switch (context.relayStatus) {
     case "failed":
-      return `Connection failed — try restarting the node`
+      return "Saved peer not connected — open Network to connect"
     case "connecting":
       return `Connecting…`
     case "not_configured":
