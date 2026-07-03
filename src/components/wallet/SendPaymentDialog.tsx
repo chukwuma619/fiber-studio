@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react"
-import { formatCkb, parseHexU128, paymentRouteBadgeLabel } from "../../lib/fnn/format"
+import { formatCkb, parseHexU128, paymentErrorSummary, paymentRouteBadgeLabel, sanitizePaymentError } from "../../lib/fnn/format"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -214,6 +214,19 @@ export function SendPaymentDialog({
     : "—"
   const isKeysend = mode === "keysend"
 
+  const rawFailureError = result?.failedError ?? actionError ?? null
+  const failureSummary =
+    rawFailureError ??
+    (isPendingPaymentStatus(result?.status ?? "")
+      ? "Payment timed out while waiting for confirmation."
+      : isKeysend
+        ? "Failed to route keysend. Try a saved peer or a direct channel peer."
+        : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")
+  const failureDetail =
+    rawFailureError && paymentErrorSummary(rawFailureError) !== sanitizePaymentError(rawFailureError)
+      ? sanitizePaymentError(rawFailureError)
+      : null
+
   const title =
     step === "review"
       ? isKeysend
@@ -361,22 +374,23 @@ export function SendPaymentDialog({
             ) : null}
           </div>
         ) : (
-          <div className="flex flex-col items-center py-4 text-center">
+          <div className="flex w-full min-w-0 flex-col items-center py-4 text-center">
             <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/50">
               <StatusDot tone="danger" />
             </div>
             <Text className="text-sm font-medium text-zinc-950 dark:text-white">
               Payment could not be sent
             </Text>
-            <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {result?.failedError ??
-                actionError ??
-                (isPendingPaymentStatus(result?.status ?? "")
-                  ? "Payment timed out while waiting for confirmation."
-                  : isKeysend
-                    ? "Failed to route keysend. Try a saved peer or a direct channel peer."
-                    : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")}
+            <Text className="mt-1 w-full text-pretty text-sm text-zinc-500 dark:text-zinc-400">
+              {rawFailureError ? paymentErrorSummary(rawFailureError) : failureSummary}
             </Text>
+            {failureDetail ? (
+              <div className="mt-3 w-full max-h-24 overflow-auto rounded-md bg-zinc-100 px-3 py-2 text-left dark:bg-zinc-800/50">
+                <p className="font-mono text-xs break-all text-zinc-500 dark:text-zinc-400">
+                  {failureDetail}
+                </p>
+              </div>
+            ) : null}
             <div className="mt-3">
               <Badge color="red">
                 <StatusDot tone="danger" />

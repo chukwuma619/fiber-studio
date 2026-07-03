@@ -303,3 +303,20 @@ export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
   }
   return `${truncated.slice(0, maxHops).join(" → ")} → …`
 }
+
+export function sanitizePaymentError(error: string): string {
+  return error
+    .replace(/\s*\[data:[^\]]*\]\s*/gi, "")
+    .replace(/^RPC error:\s*\(-?\d+\)\s*/i, "")
+    .trim()
+}
+
+export function paymentErrorSummary(error: string): string {
+  if (/no path found/i.test(error)) {
+    return "No route found to the invoice payee. Open a channel with them (or via the same hub), ensure peers are connected, and wait for the network graph to sync."
+  }
+  if (/Failed to build route/i.test(error)) {
+    return "Failed to build a payment route. Open a channel, ensure your peer is connected, and wait for the network graph to sync."
+  }
+  return sanitizePaymentError(error)
+}

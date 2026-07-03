@@ -1,11 +1,13 @@
 import {
   formatCkb,
   parseHexU128,
+  paymentErrorSummary,
   paymentKindLabel,
   paymentRouteBadgeLabel,
   paymentRouteTitle,
   paymentStatusBadgeColor,
   paymentStatusTone,
+  sanitizePaymentError,
 } from "../../lib/fnn/format"
 import type { WalletPaymentItem } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
@@ -100,9 +102,19 @@ export function PaymentDetailDialog({
             </DescriptionList>
 
             {payment.failedError ? (
-              <Text className="text-sm text-red-600 dark:text-red-400">
-                {payment.failedError}
-              </Text>
+              <div className="space-y-2">
+                <Text className="text-sm text-red-600 dark:text-red-400">
+                  {paymentErrorSummary(payment.failedError)}
+                </Text>
+                {paymentErrorSummary(payment.failedError) !==
+                sanitizePaymentError(payment.failedError) ? (
+                  <div className="max-h-24 overflow-auto rounded-md bg-red-50 px-3 py-2 dark:bg-red-950/30">
+                    <p className="font-mono text-xs break-all text-red-700 dark:text-red-300">
+                      {sanitizePaymentError(payment.failedError)}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
             ) : null}
 
             {hopCount === 0 && payment.paymentKind === "unknown" ? (
