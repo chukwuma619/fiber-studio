@@ -44,7 +44,7 @@ export default defineConfig(async () => ({
   },
   
    // Env variables starting with the item of `envPrefix` will be exposed in tauri's source code through `import.meta.env`.
-   envPrefix: ['VITE_', 'TAURI_ENV_*'],
+   envPrefix: ['VITE_', 'TAURI_ENV_'],
 
   build: {
     target: tauriPlatform === "windows" ? "chrome105" : "safari13",

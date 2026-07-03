@@ -1,5 +1,5 @@
+import { isTauri } from "@tauri-apps/api/core"
 import { useAppUpdateContext } from "../../lib/updates/AppUpdateProvider"
-import { isDesktopApp } from "../../lib/updates/appUpdater"
 import { RELEASES_URL } from "../../lib/updates/constants"
 import { Button } from "../ui/button"
 import {
@@ -34,7 +34,7 @@ export function AppUpdatesSection() {
     releaseNotesUrl,
   } = useAppUpdateContext()
 
-  if (!isDesktopApp()) {
+  if (!isTauri()) {
     return (
       <section className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
         <Subheading level={2}>Updates</Subheading>

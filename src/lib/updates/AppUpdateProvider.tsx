@@ -14,7 +14,6 @@ import {
   checkForAppUpdate,
   getAppVersion,
   installAppUpdate,
-  isDesktopApp,
   type AppUpdateInfo,
 } from "./appUpdater"
 import { releaseNotesUrl, UPDATE_CHECK_DELAY_MS } from "./constants"
@@ -24,6 +23,7 @@ import {
   isVersionSkipped,
   skipVersion,
 } from "./updatePreferences"
+import { isTauri } from "@tauri-apps/api/core";
 
 export type AppUpdateContextValue = {
   currentVersion: string | null
@@ -63,7 +63,7 @@ export function AppUpdateProvider({
   const [lastCheckedAt, setLastCheckedAt] = useState<Date | null>(null)
 
   useEffect(() => {
-    if (!isDesktopApp()) {
+    if (!isTauri()) {
       return
     }
 
@@ -71,7 +71,7 @@ export function AppUpdateProvider({
   }, [])
 
   const checkForUpdates = useCallback(async (options?: { silent?: boolean }) => {
-    if (!isDesktopApp()) {
+    if (!isTauri()) {
       return null
     }
 
@@ -156,7 +156,7 @@ export function AppUpdateProvider({
   }, [availableUpdate])
 
   useEffect(() => {
-    if (!checkOnLaunch || checkedOnLaunch.current || !isDesktopApp()) {
+    if (!checkOnLaunch || checkedOnLaunch.current || !isTauri()) {
       return
     }
 
@@ -211,7 +211,7 @@ export function AppUpdateProvider({
   return (
     <AppUpdateContext.Provider value={value}>
       {children}
-      {isDesktopApp() ? (
+      {isTauri() ? (
         <UpdateAvailableDialog
           open={shouldShowPrompt}
           update={availableUpdate}

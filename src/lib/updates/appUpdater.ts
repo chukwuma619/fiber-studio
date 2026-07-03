@@ -1,11 +1,10 @@
 import { getVersion } from "@tauri-apps/api/app"
+import { isTauri } from "@tauri-apps/api/core"
 import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater"
 import { relaunch } from "@tauri-apps/plugin-process"
 import { stopNode } from "../fnn/invoke"
 
-export function isDesktopApp(): boolean {
-  return import.meta.env.TAURI_ENV_PLATFORM != null
-}
+
 
 export type AppUpdateInfo = {
   version: string
@@ -15,14 +14,14 @@ export type AppUpdateInfo = {
 }
 
 export async function getAppVersion(): Promise<string> {
-  if (!isDesktopApp()) {
+  if (!isTauri()) {
     return "web"
   }
   return getVersion()
 }
 
 export async function checkForAppUpdate(): Promise<AppUpdateInfo | null> {
-  if (!isDesktopApp()) {
+  if (!isTauri()) {
     return null
   }
 
