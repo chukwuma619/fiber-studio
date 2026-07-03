@@ -1,6 +1,6 @@
 [package]
 name = "fiber-studio"
-version = "0.1.5"
+version = "0.1.6"
 description = "Fiber Studio is a native app for running the official Fiber Network node (fnn) on your machine"
 authors = ["Chukwuma Ebube"]
 edition = "2021"
