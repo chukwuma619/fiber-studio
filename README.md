@@ -4,7 +4,7 @@ Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Ner
 
 Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/).
 
-> **Status:** Early development (v0.1.2). This repo is the ground-up v1 rebuild. The earlier prototype lives at [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop).
+> **Status:** Early development (v0.1.7). This repo is the ground-up v1 rebuild. The earlier prototype lives at [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop).
 
 ## What Fiber Studio is
 
@@ -16,13 +16,13 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 
 ### Implemented
 
-- **Guided setup wizard** — choose mainnet or testnet, connect via official relays or a custom peer, pick a data directory, import a CKB key file, and set a wallet password
+- **Guided setup wizard** — choose testnet (mainnet is shown but not available yet), connect via official relays or enter a custom peer pubkey/multiaddr, pick a data directory, import a CKB key file, and set a wallet password
 - **Node lifecycle** — start and stop `fnn`, view recent logs, and stop the node when the app exits
-- **Home dashboard** — local balance, channel and peer counts, relay connectivity, channel liquidity, and recent activity
+- **Home dashboard** — local balance, channel and peer counts, saved peer connectivity, channel liquidity, and recent activity
 - **Wallet** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
-- **Channels** — open, list, monitor, and close channels; on-chain funding wallet balance
+- **Channels** — open, list, monitor, and close channels; on-chain wallet balance
 - **Network** — connect to public relays and custom peers, view relay and graph status
-- **Settings** — node and wallet configuration, theme, data directory migration, network switch, password updates, in-app updates
+- **Settings** — node and wallet configuration, theme, network switch, password updates, open config/data directory, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
 - **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
 
@@ -48,7 +48,7 @@ Bootnodes under **Discovery & other connections** help you find the network; you
 
 **2. How you reach the other laptop depends on where you are**
 
-Fiber nodes listen on port **8228** on your machine. To **connect** to someone, your node needs a **dialable address** for theirs — not just a pubkey.
+Your Fiber node listens on port **8228** on your machine (see `fiber.listening_addr` in the bundled config templates). Official testnet relays in `shared/relays.json` use port **8119** instead — use each peer’s own multiaddr as given. To **connect** to someone, your node needs a **dialable address** for theirs — not just a pubkey.
 
 | Situation | Typical approach | Direct channel between you? |
 |-----------|------------------|----------------------------|
@@ -76,12 +76,12 @@ For protocol details, see the [Fiber documentation](https://www.fiber.world/docs
 1. **Install** Fiber Studio from [GitHub Releases](#download) on each laptop.
 2. **Complete setup** on each machine:
    - **Network** — **Testnet**
-   - **Public network** — connect to at least one peer (official relay, community hub, or custom peer) so your node can join gossip. Which peer you pick depends on Option A or B below.
+   - **Public network** — pick at least one saved peer (official relay, community hub, or custom pubkey/multiaddr). The node connects after setup on **Network**. Which peer you pick depends on Option A or B below.
    - **Wallet key** — import a CKB key file ([ckb-cli](https://github.com/nervosnetwork/ckb-cli) can export one)
    - **Wallet password** — stored in the OS keychain
    - **Review & start** — start the node and **keep it running** while sending or receiving
 3. **Fund on-chain** (first channel open):
-   - Send testnet CKB to your **on-chain funding wallet** on **Channels**
+   - Send testnet CKB to your **On-chain wallet** on **Channels**
    - Minimum **1,000 CKB** per channel open, plus reserve and on-chain fees
 4. **Share details** out of band before connecting to each other:
    - **Pubkey** (always) — **Wallet** footer, 66-character hex (`02…` or `03…`)
@@ -123,8 +123,8 @@ Start Fiber Studio and ensure the node is up on both laptops.
 
 **3. Connect (both users)**
 
-1. **Network → Add saved peer** — paste their **pubkey** and **LAN multiaddr**.
-2. Click **Connect** until they show as a **connected** saved peer.
+1. **Network → Add saved peer** — paste their **pubkey** and **LAN multiaddr**, then **Add & connect**.
+2. If the peer is already saved but not connected, click **Connect** until they show as **Connected**.
 3. Optionally repeat from the other laptop so both sides are connected.
 
 **4. Open a channel**
@@ -135,8 +135,8 @@ Start Fiber Studio and ensure the node is up on both laptops.
 
 **5. Pay**
 
-- **Invoice (recommended):** They create an invoice on **Wallet → Create invoice** and send you the string (or QR). You pay on **Wallet → Send payment → Invoice**. Route preview should show **one hop** (direct).
-- **Keysend:** **Wallet → Send payment → Keysend** with their pubkey.
+- **Invoice (recommended):** They create an invoice on **Wallet → Create invoice** and send you the string (or QR). You pay on **Wallet → Send payment** (Invoice tab). Route preview should show **one hop** (direct).
+- **Keysend:** **Wallet → Send payment** (Keysend tab) with their pubkey.
 
 The invoice **payee pubkey** must match the node you opened the channel with. If they send an invoice from a different wallet/node, payment will not route correctly.
 
@@ -178,7 +178,7 @@ If neither side can port-forward, use **Option B** instead — do not expect pub
 | Fiber Studio installed, node running | ✓ | ✓ |
 | Pubkey shared | ✓ | ✓ |
 | Multiaddr shared (LAN or public) | ✓ | ✓ |
-| **Connected** on **Network** | ✓ | ✓ |
+| **Connected** peer on **Network → Peers** | ✓ | ✓ |
 | **ChannelReady** with each other | ✓ | ✓ |
 | In-channel balance (sender) | ✓ | — |
 | Invoice created & shared | — | ✓ |
@@ -200,16 +200,16 @@ Your laptop ──channel──► Hub (public peer) ──channel──► Thei
 
 Both users must use the **same** hub pubkey, for example:
 
-- **Official testnet relays** — **Use public node1** / **node2** in setup (`shared/relays.json`).
+- **Official testnet relays** — **Use public node1** / **Use public node2** in setup or on **Network** (`shared/relays.json`). Their multiaddrs use port **8119**, not 8228.
 - **Community hub** — any public testnet node with a known IP that **both** of you can connect to (e.g. from **Network** after joining via bootnodes).
 
-Official relays may not accept connections from every network. If node1/node2 never show as connected, pick a community hub that works for both of you and use its pubkey + multiaddr.
+Official relays may not accept connections from every network. If node1/node2 never show as connected, pick a community hub that works for both of you and use its pubkey + multiaddr (with that hub’s actual port).
 
 **2. Connect to the hub (both laptops)**
 
-1. **Network → Add saved peer** — hub **pubkey** + **multiaddr** from `shared/relays.json` or your hub operator.
-2. **Connect** — wait until the hub appears as connected.
-3. Give gossip a minute after node start; **Network** graph counts &gt; 0 help pathfinding.
+1. **Network → Add saved peer** — hub **pubkey** + **multiaddr** from `shared/relays.json` or your hub operator, then **Add & connect** (or **Connect** if already saved).
+2. Wait until the hub appears as **Connected** in the **Peers** list.
+3. Give gossip a minute after node start; **Network** shows gossip node counts — values above 0 help pathfinding.
 
 **3. Open a channel with the hub (both laptops)**
 
@@ -223,7 +223,7 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 **4. Pay**
 
 1. **Receiver** — **Wallet → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
-2. **Sender** — **Wallet → Send payment → Invoice** — route preview should show a path **via the hub** (multi-hop).
+2. **Sender** — **Wallet → Send payment** (Invoice tab) — route preview should show a path **via the hub** (multi-hop).
 3. Confirm and send.
 
 ### Multi-hop checklist
@@ -234,7 +234,7 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 | Connected to **same hub** | ✓ | ✓ |
 | **ChannelReady** with **same hub** | ✓ | ✓ |
 | In-channel balance (sender) | ✓ | — |
-| Graph synced (nodes/channels &gt; 0) | ✓ | ✓ |
+| Graph synced (gossip nodes &gt; 0 on **Network**) | ✓ | ✓ |
 | Invoice created & shared | — | ✓ |
 | Invoice paid | ✓ | — |
 
@@ -256,13 +256,13 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 
 **Receiver:** **Wallet → Create invoice** → share Bech32m string or QR.
 
-**Sender:** **Wallet → Send payment → Invoice** → paste invoice → confirm amount and **route preview** → **Review payment** → send.
+**Sender:** **Wallet → Send payment** (Invoice tab) → paste invoice → confirm amount and **route preview** → **Review payment** → send.
 
 **Receiver:** invoice status updates to **Received** when settled.
 
 ### Keysend
 
-**Sender:** **Wallet → Send payment → Keysend** → recipient pubkey → amount → route preview → send.
+**Sender:** **Wallet → Send payment** (Keysend tab) → recipient pubkey → amount → route preview → send.
 
 **Receiver:** payment appears in history when settled.
 
@@ -272,7 +272,7 @@ For protocol details beyond the app UI, see the [Fiber documentation](https://ww
 
 ## Download
 
-Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats (unsigned until M3 app signing).
+Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS and Windows builds are not yet notarized or code-signed.
 
 | OS | Download this file | Install |
 |----|-------------------|---------|
@@ -286,7 +286,7 @@ Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.A
 
 ### macOS: “Apple could not verify…” on first launch
 
-Fiber Studio is not Apple-notarized yet (planned for M3). After you download from GitHub, macOS Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. The app is safe to run; macOS just does not recognize the developer yet.
+Fiber Studio is not Apple-notarized yet. After you download from GitHub, macOS Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. The app is safe to run; macOS just does not recognize the developer yet.
 
 **Do not click Move to Bin.**
 
