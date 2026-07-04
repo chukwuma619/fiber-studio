@@ -10,7 +10,6 @@ import {
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
 import { PageErrorBanner } from "../ui/page-error-banner"
-import { Text } from "../ui/text"
 import type { CreateInvoicePayload } from "../../lib/fnn/types"
 import { invoiceCurrencyLabel } from "../../lib/fnn/format"
 import { InvoiceSharePanel } from "./InvoiceSharePanel"
