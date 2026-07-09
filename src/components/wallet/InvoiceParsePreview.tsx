@@ -1,5 +1,5 @@
 import type { ParseInvoicePreview } from "../../lib/fnn/types"
-import { sanitizePaymentError } from "../../lib/fnn/format"
+import { paymentErrorSummary } from "../../lib/fnn/format"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
@@ -29,7 +29,7 @@ export function InvoiceParsePreview({
   if (error) {
     return (
       <PageErrorBanner
-        message={sanitizePaymentError(error)}
+        message={paymentErrorSummary(error)}
         onDismiss={onDismissError}
         className="px-3 py-2.5 text-xs"
       />

@@ -1,5 +1,5 @@
 import type { PreviewSendPaymentResult } from "../../lib/fnn/types"
-import { paymentRouteTitle, sanitizePaymentError } from "../../lib/fnn/format"
+import { paymentErrorSummary, paymentRouteTitle } from "../../lib/fnn/format"
 import { truncatePubkey } from "../../lib/public-relays"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Badge } from "../ui/badge"
@@ -39,7 +39,7 @@ export function PaymentRoutePreview({
   if (error) {
     return (
       <PageErrorBanner
-        message={sanitizePaymentError(error)}
+        message={paymentErrorSummary(error)}
         onDismiss={onDismissError}
         className={compact ? "px-3 py-2.5 text-xs" : undefined}
       />
@@ -80,7 +80,7 @@ export function PaymentRoutePreview({
           </span>
         </div>
       </div>
-      <p className="mt-2 font-mono text-xs text-zinc-600 dark:text-zinc-400">
+      <p className="mt-2 break-all font-mono text-xs text-zinc-600 dark:text-zinc-400">
         {hops.join(" → ")}
       </p>
       {!compact ? (

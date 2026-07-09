@@ -42,7 +42,9 @@ export function PageErrorBanner({
         className,
       )}
     >
-      <p className="min-w-0 flex-1 text-pretty">{message}</p>
+      <p className="min-w-0 flex-1 break-words text-pretty [overflow-wrap:anywhere]">
+        {message}
+      </p>
       <div className="flex shrink-0 items-center gap-2">
         {onRetry ? (
           <Button outline className="text-xs" onClick={onRetry}>

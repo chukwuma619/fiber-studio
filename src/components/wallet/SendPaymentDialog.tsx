@@ -1,5 +1,14 @@
 import { useEffect, useRef, useState } from "react"
-import { formatCkb, parseHexU128, paymentErrorSummary, paymentRouteBadgeLabel, sanitizePaymentError } from "../../lib/fnn/format"
+import { getErrorMessage } from "../../lib/fnn/errors"
+import {
+  formatCkb,
+  parseExistingPaymentSession,
+  parseHexU128,
+  paymentErrorSuggestsOpenChannels,
+  paymentErrorSummary,
+  paymentRouteBadgeLabel,
+  sanitizePaymentError,
+} from "../../lib/fnn/format"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -177,6 +186,59 @@ export function SendPaymentDialog({
     onClose()
   }
 
+  const applyPaymentResult = (paymentResult: SendPaymentResult) => {
+    setResult(paymentResult)
+
+    if (paymentResult.status === "Success") {
+      setStep("success")
+      onPaymentSettled()
+      return
+    }
+
+    if (paymentResult.status === "Failed") {
+      setStep("failure")
+      onPaymentSettled()
+      return
+    }
+
+    if (isPendingPaymentStatus(paymentResult.status)) {
+      setStep("inflight")
+      return
+    }
+
+    setStep("failure")
+  }
+
+  const recoverExistingPaymentSession = async (
+    error: unknown,
+  ): Promise<boolean> => {
+    const existing = parseExistingPaymentSession(getErrorMessage(error))
+    if (!existing) return false
+
+    try {
+      const paymentResult = await onGetPayment(existing.paymentHash)
+      onClearError()
+      applyPaymentResult(paymentResult)
+      return true
+    } catch {
+      if (
+        existing.status === "Success" ||
+        isPendingPaymentStatus(existing.status)
+      ) {
+        onClearError()
+        applyPaymentResult({
+          paymentHash: existing.paymentHash,
+          status: existing.status,
+          fee: "0x0",
+          failedError: null,
+          routeHops: [],
+        })
+        return true
+      }
+      return false
+    }
+  }
+
   const handleConfirm = async () => {
     onClearError()
     pollStartedAtRef.current = null
@@ -187,21 +249,12 @@ export function SendPaymentDialog({
         mode === "keysend" && keysendPayload
           ? await onSendKeysendPayment({ ...keysendPayload, ...sendOptions })
           : await onSendPayment({ invoice, ...sendOptions })
-      setResult(paymentResult)
-
-      if (paymentResult.status === "Success") {
-        setStep("success")
-        onPaymentSettled()
-      } else if (paymentResult.status === "Failed") {
-        setStep("failure")
-        onPaymentSettled()
-      } else if (isPendingPaymentStatus(paymentResult.status)) {
-        setStep("inflight")
-      } else {
+      applyPaymentResult(paymentResult)
+    } catch (error) {
+      const recovered = await recoverExistingPaymentSession(error)
+      if (!recovered) {
         setStep("failure")
       }
-    } catch {
-      setStep("failure")
     }
   }
 
@@ -215,6 +268,9 @@ export function SendPaymentDialog({
   const isKeysend = mode === "keysend"
 
   const rawFailureError = result?.failedError ?? actionError ?? null
+  const existingSession = rawFailureError
+    ? parseExistingPaymentSession(rawFailureError)
+    : null
   const failureSummary =
     rawFailureError ??
     (isPendingPaymentStatus(result?.status ?? "")
@@ -223,9 +279,22 @@ export function SendPaymentDialog({
         ? "Failed to route keysend. Try a saved peer or a direct channel peer."
         : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")
   const failureDetail =
-    rawFailureError && paymentErrorSummary(rawFailureError) !== sanitizePaymentError(rawFailureError)
+    rawFailureError &&
+    !existingSession &&
+    paymentErrorSummary(rawFailureError) !== sanitizePaymentError(rawFailureError)
       ? sanitizePaymentError(rawFailureError)
       : null
+  const showOpenChannelsCta = paymentErrorSuggestsOpenChannels(rawFailureError)
+  const failureBadgeLabel =
+    existingSession?.status === "Success"
+      ? "Already paid"
+      : (result?.status ?? existingSession?.status ?? "Failed")
+  const failureBadgeColor =
+    existingSession?.status === "Success" ? "green" : "red"
+  const failureHeadline =
+    existingSession?.status === "Success"
+      ? "Payment already completed"
+      : "Payment could not be sent"
 
   const title =
     step === "review"
@@ -375,14 +444,26 @@ export function SendPaymentDialog({
           </div>
         ) : (
           <div className="flex w-full min-w-0 flex-col items-center py-4 text-center">
-            <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-950/50">
-              <StatusDot tone="danger" />
+            <div
+              className={`mb-3 flex size-12 items-center justify-center rounded-full ${
+                existingSession?.status === "Success"
+                  ? "bg-emerald-100 dark:bg-emerald-950/50"
+                  : "bg-red-100 dark:bg-red-950/50"
+              }`}
+            >
+              <StatusDot
+                tone={
+                  existingSession?.status === "Success" ? "running" : "danger"
+                }
+              />
             </div>
             <Text className="text-sm font-medium text-zinc-950 dark:text-white">
-              Payment could not be sent
+              {failureHeadline}
             </Text>
             <Text className="mt-1 w-full text-pretty text-sm text-zinc-500 dark:text-zinc-400">
-              {rawFailureError ? paymentErrorSummary(rawFailureError) : failureSummary}
+              {rawFailureError
+                ? paymentErrorSummary(rawFailureError)
+                : failureSummary}
             </Text>
             {failureDetail ? (
               <div className="mt-3 w-full max-h-24 overflow-auto rounded-md bg-zinc-100 px-3 py-2 text-left dark:bg-zinc-800/50">
@@ -392,14 +473,20 @@ export function SendPaymentDialog({
               </div>
             ) : null}
             <div className="mt-3">
-              <Badge color="red">
-                <StatusDot tone="danger" />
-                {result?.status ?? "Failed"}
+              <Badge color={failureBadgeColor}>
+                <StatusDot
+                  tone={
+                    existingSession?.status === "Success" ? "running" : "danger"
+                  }
+                />
+                {failureBadgeLabel}
               </Badge>
             </div>
-            <Button href="/channels" outline className="mt-4 text-xs">
-              Open channels
-            </Button>
+            {showOpenChannelsCta ? (
+              <Button href="/channels" outline className="mt-4 text-xs">
+                Open channels
+              </Button>
+            ) : null}
           </div>
         )}
       </DialogBody>

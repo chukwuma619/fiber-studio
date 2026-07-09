@@ -46,14 +46,8 @@ export function useWalletActions(onSuccess?: () => void) {
 
   const handlePreviewSendPayment = useCallback(
     async (payload: SendPaymentPayload): Promise<PreviewSendPaymentResult> => {
-      setActionError(null)
-      try {
-        return await previewSendPayment(payload)
-      } catch (error) {
-        const message = getErrorMessage(error)
-        setActionError(message)
-        throw error
-      }
+      // Preview failures stay local to the send panel — do not set actionError.
+      return await previewSendPayment(payload)
     },
     [],
   )
@@ -76,13 +70,8 @@ export function useWalletActions(onSuccess?: () => void) {
 
   const handleGetPayment = useCallback(
     async (payload: PaymentHashPayload): Promise<SendPaymentResult> => {
-      try {
-        return await getPayment(payload)
-      } catch (error) {
-        const message = getErrorMessage(error)
-        setActionError(message)
-        throw error
-      }
+      // Polling errors stay local to the send dialog — do not set actionError.
+      return await getPayment(payload)
     },
     [],
   )
@@ -107,14 +96,8 @@ export function useWalletActions(onSuccess?: () => void) {
 
   const handleParseInvoicePreview = useCallback(
     async (payload: ParseInvoicePayload): Promise<ParseInvoicePreview> => {
-      setActionError(null)
-      try {
-        return await parseInvoicePreview(payload)
-      } catch (error) {
-        const message = getErrorMessage(error)
-        setActionError(message)
-        throw error
-      }
+      // Parse failures stay local to the send panel — do not set actionError.
+      return await parseInvoicePreview(payload)
     },
     [],
   )
@@ -137,14 +120,8 @@ export function useWalletActions(onSuccess?: () => void) {
 
   const handlePreviewKeysendPayment = useCallback(
     async (payload: KeysendPaymentPayload): Promise<PreviewSendPaymentResult> => {
-      setActionError(null)
-      try {
-        return await previewKeysendPayment(payload)
-      } catch (error) {
-        const message = getErrorMessage(error)
-        setActionError(message)
-        throw error
-      }
+      // Preview failures stay local to the send panel — do not set actionError.
+      return await previewKeysendPayment(payload)
     },
     [],
   )

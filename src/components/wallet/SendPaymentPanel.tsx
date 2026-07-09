@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from "react"
-import { invoiceCurrencyLabel } from "../../lib/fnn/format"
+import { getErrorMessage } from "../../lib/fnn/errors"
+import {
+  invoiceCurrencyLabel,
+  parseExistingPaymentSession,
+  paymentErrorSummary,
+} from "../../lib/fnn/format"
 import { relaySendPaymentWarning } from "../../lib/fnn/relay"
 import type {
   KeysendPaymentPayload,
@@ -21,9 +26,14 @@ import { Text } from "../ui/text"
 import { InvoiceParsePreview } from "./InvoiceParsePreview"
 import { PaymentRoutePreview } from "./PaymentRoutePreview"
 import { SendPaymentDialog } from "./SendPaymentDialog"
-import { getErrorMessage } from "../../lib/fnn/errors"
 
 const PREVIEW_DEBOUNCE_MS = 500
+
+type ExistingPaymentNotice = {
+  paymentHash: string
+  status: string
+  message: string
+}
 
 type SendPaymentPanelProps = {
   running: boolean
@@ -84,6 +94,8 @@ export function SendPaymentPanel({
   )
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [existingPayment, setExistingPayment] =
+    useState<ExistingPaymentNotice | null>(null)
 
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
@@ -107,6 +119,7 @@ export function SendPaymentPanel({
       setRoutePreview(null)
       setPreviewError(null)
       setPreviewLoading(false)
+      setExistingPayment(null)
       return
     }
 
@@ -118,6 +131,8 @@ export function SendPaymentPanel({
         setPreviewLoading(true)
         setParseError(null)
         setPreviewError(null)
+        setExistingPayment(null)
+        setRoutePreview(null)
 
         try {
           const preview = await onParseInvoicePreview(trimmed)
@@ -125,16 +140,37 @@ export function SendPaymentPanel({
           setParsedInvoice(preview)
           setParseLoading(false)
 
-          const route = await onPreviewSendPayment({ invoice: trimmed })
+          try {
+            const route = await onPreviewSendPayment({ invoice: trimmed })
+            if (cancelled) return
+            setRoutePreview(route)
+            setPreviewError(null)
+            setExistingPayment(null)
+          } catch (routeErr) {
+            if (cancelled) return
+            const message = getErrorMessage(routeErr)
+            const existing = parseExistingPaymentSession(message)
+            setRoutePreview(null)
+            if (existing) {
+              setExistingPayment({
+                paymentHash: existing.paymentHash,
+                status: existing.status,
+                message: paymentErrorSummary(message),
+              })
+              setPreviewError(null)
+            } else {
+              setExistingPayment(null)
+              setPreviewError(paymentErrorSummary(message))
+            }
+          }
+        } catch (parseErr) {
           if (cancelled) return
-          setRoutePreview(route)
-        } catch (err) {
-          if (cancelled) return
-          const message = getErrorMessage(err)
+          const message = getErrorMessage(parseErr)
           setParsedInvoice(null)
-          setParseError(message)
+          setParseError(paymentErrorSummary(message))
           setRoutePreview(null)
-          setPreviewError(message)
+          setPreviewError(null)
+          setExistingPayment(null)
         } finally {
           if (cancelled) return
           setParseLoading(false)
@@ -160,6 +196,8 @@ export function SendPaymentPanel({
     if (sendMode !== "keysend") {
       return
     }
+
+    setExistingPayment(null)
 
     if (!running || !available) {
       setRoutePreview(null)
@@ -191,7 +229,7 @@ export function SendPaymentPanel({
         })
         .catch((err) => {
           setRoutePreview(null)
-          setPreviewError(getErrorMessage(err))
+          setPreviewError(paymentErrorSummary(getErrorMessage(err)))
         })
         .finally(() => {
           setPreviewLoading(false)
@@ -217,6 +255,7 @@ export function SendPaymentPanel({
     !previewLoading &&
     parsedInvoice !== null &&
     parseError === null &&
+    existingPayment === null &&
     routePreview !== null &&
     previewError === null &&
     parsedInvoice.networkMatch
@@ -355,20 +394,39 @@ export function SendPaymentPanel({
           </div>
         ) : null}
 
-        <div className="mt-4">
-          <PaymentRoutePreview
-            preview={routePreview}
-            isLoading={previewLoading}
-            error={previewError}
-            compact
-            onDismissError={() => setPreviewError(null)}
-            emptyHint={
-              sendMode === "invoice"
-                ? "Paste an invoice to preview the route"
-                : "Enter recipient and amount to preview the route"
-            }
-          />
-        </div>
+        {existingPayment ? (
+          <div
+            className={`mt-4 rounded-lg px-3 py-2.5 text-xs ${
+              existingPayment.status === "Success"
+                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                : existingPayment.status === "Failed"
+                  ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+                  : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+            }`}
+          >
+            <p className="font-medium">{existingPayment.message}</p>
+            <p className="mt-1 font-mono opacity-80">
+              {existingPayment.paymentHash.length > 18
+                ? `${existingPayment.paymentHash.slice(0, 14)}…`
+                : existingPayment.paymentHash}
+            </p>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <PaymentRoutePreview
+              preview={routePreview}
+              isLoading={previewLoading}
+              error={previewError}
+              compact
+              onDismissError={() => setPreviewError(null)}
+              emptyHint={
+                sendMode === "invoice"
+                  ? "Paste an invoice to preview the route"
+                  : "Enter recipient and amount to preview the route"
+              }
+            />
+          </div>
+        )}
 
         {sendMode === "invoice" &&
         parsedInvoice &&

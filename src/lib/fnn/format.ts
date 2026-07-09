@@ -330,8 +330,42 @@ export function sanitizePaymentError(error: string): string {
   return sanitizeRpcError(error)
 }
 
+/** FNN rejects duplicate send_payment when a session for the same hash already exists. */
+export type ExistingPaymentSession = {
+  paymentHash: string
+  status: string
+}
+
+export function parseExistingPaymentSession(
+  error: string,
+): ExistingPaymentSession | null {
+  const cleaned = sanitizeRpcError(error)
+  const match = cleaned.match(
+    /Payment session already exists:\s*Hash256\((0x[0-9a-fA-F]+)\)\s*with payment session status:\s*(\w+)/i,
+  )
+  if (!match) return null
+  return {
+    paymentHash: match[1],
+    status: match[2],
+  }
+}
+
 export function paymentErrorSummary(error: string): string {
   const cleaned = sanitizeRpcError(error)
+  const existing = parseExistingPaymentSession(cleaned)
+  if (existing) {
+    switch (existing.status) {
+      case "Success":
+        return "This payment was already completed successfully."
+      case "Failed":
+        return "A previous attempt for this payment already failed. Use a new invoice to try again."
+      case "Created":
+      case "Inflight":
+        return "This payment is already in progress."
+      default:
+        return `A payment session for this invoice already exists (${existing.status}).`
+    }
+  }
   if (/no path found/i.test(cleaned)) {
     return "No route found to the invoice payee. Open a channel with them (or via the same hub), ensure peers are connected, and wait for the network graph to sync."
   }
@@ -342,4 +376,14 @@ export function paymentErrorSummary(error: string): string {
     return "Failed to build a payment route. Open a channel, ensure your peer is connected, and wait for the network graph to sync."
   }
   return cleaned
+}
+
+/** Whether the failure UI should suggest opening channels. */
+export function paymentErrorSuggestsOpenChannels(error: string | null): boolean {
+  if (!error) return false
+  if (parseExistingPaymentSession(error)) return false
+  const cleaned = sanitizeRpcError(error)
+  return /no path found|Failed to build route|outbound liquidity|Insufficient balance/i.test(
+    cleaned,
+  )
 }
