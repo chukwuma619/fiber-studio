@@ -19,6 +19,7 @@ import {
 } from "../../lib/setup/types"
 import { Skeleton } from "../ui/skeleton"
 import { SetupLayout } from "./SetupLayout"
+import { getErrorMessage } from "../../lib/fnn/errors"
 
 const WelcomeStep = lazy(() =>
   import("./steps/WelcomeStep").then((module) => ({ default: module.WelcomeStep })),
@@ -217,7 +218,7 @@ export function SetupWizard() {
       navigate({ to: "/" })
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : String(error)
+        getErrorMessage(error)
       setStartError(message)
     } finally {
       setIsStarting(false)

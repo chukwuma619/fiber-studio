@@ -21,11 +21,35 @@ pub struct JsonRpcError {
 
 impl fmt::Display for JsonRpcError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "({}) {}", self.code, self.message)?;
-        if let Some(data) = &self.data {
-            write!(f, " [data: {data}]")?;
+        // Surface FNN's human-readable `message` only. Codes and `data` (often the
+        // original request params) are noisy for UI; keep them on the struct for logs.
+        let message = self.message.trim();
+        if message.is_empty() {
+            write!(f, "RPC request failed ({})", self.code)
+        } else if let Some(detail) = self.data.as_ref().and_then(json_rpc_error_detail) {
+            if detail.eq_ignore_ascii_case(message) {
+                write!(f, "{message}")
+            } else {
+                write!(f, "{message}: {detail}")
+            }
+        } else {
+            write!(f, "{message}")
         }
-        Ok(())
+    }
+}
+
+/// Prefer short string `data` details (e.g. Invalid params); ignore object payloads.
+fn json_rpc_error_detail(data: &serde_json::Value) -> Option<&str> {
+    match data {
+        serde_json::Value::String(value) => {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed)
+            }
+        }
+        _ => None,
     }
 }
 
@@ -230,13 +254,14 @@ struct RpcResponse<T> {
 
 #[derive(Debug, Error)]
 pub enum RpcError {
-    #[error("fnn RPC request failed: {0}")]
+    #[error("Could not reach the Fiber node RPC: {0}")]
     Request(#[from] reqwest::Error),
-    #[error("fnn RPC error: {0}")]
+    /// JSON-RPC application error from FNN — display the node message only.
+    #[error("{0}")]
     Rpc(#[from] JsonRpcError),
-    #[error("fnn RPC did not become ready within {0} seconds")]
+    #[error("Fiber node RPC did not become ready within {0} seconds")]
     Timeout(u64),
-    #[error("fnn RPC response missing result")]
+    #[error("Fiber node RPC response was empty")]
     MissingResult,
 }
 
@@ -867,7 +892,38 @@ mod tests {
             message: "invoice not found".into(),
             data: None,
         };
-        assert_eq!(error.to_string(), "(-32000) invoice not found");
+        assert_eq!(error.to_string(), "invoice not found");
+
+        let with_string_data = JsonRpcError {
+            code: -32602,
+            message: "Invalid params".into(),
+            data: Some(serde_json::Value::String(
+                "failed to decode hex string".into(),
+            )),
+        };
+        assert_eq!(
+            with_string_data.to_string(),
+            "Invalid params: failed to decode hex string"
+        );
+
+        let with_object_data = JsonRpcError {
+            code: -32000,
+            message: "Send payment error: Failed to build route, Insufficient balance: max outbound liquidity 0 is insufficient, required amount: 1123229509486".into(),
+            data: Some(serde_json::json!({
+                "invoice": "fibt…",
+                "dry_run": true
+            })),
+        };
+        assert_eq!(
+            with_object_data.to_string(),
+            "Send payment error: Failed to build route, Insufficient balance: max outbound liquidity 0 is insufficient, required amount: 1123229509486"
+        );
+
+        let rpc_error = RpcError::Rpc(with_object_data);
+        assert_eq!(
+            rpc_error.to_string(),
+            "Send payment error: Failed to build route, Insufficient balance: max outbound liquidity 0 is insufficient, required amount: 1123229509486"
+        );
     }
 
     const LIST_CHANNELS_SUCCESS: &str = r#"{

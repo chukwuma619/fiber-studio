@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { connectPeer, disconnectPeer, addSavedPeer, removeSavedPeer, connectSavedPeer } from "./invoke"
 import type {
   AddSavedPeerPayload,
@@ -26,7 +27,7 @@ export function useNetworkActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {
@@ -50,7 +51,7 @@ export function useNetworkActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {
@@ -68,7 +69,7 @@ export function useNetworkActions(onSuccess?: () => void) {
         await removeSavedPeer(payload)
         onSuccess?.()
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {
@@ -92,7 +93,7 @@ export function useNetworkActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {
@@ -114,7 +115,7 @@ export function useNetworkActions(onSuccess?: () => void) {
         await disconnectPeer(payload)
         onSuccess?.()
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {

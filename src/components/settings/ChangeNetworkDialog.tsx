@@ -26,6 +26,7 @@ import { ErrorMessage, Field, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
 import { Text } from "../ui/text"
 import { SelectionCard } from "../setup/SelectionCard"
+import { getErrorMessage } from "../../lib/fnn/errors"
 
 type ChangeNetworkDialogProps = {
   open: boolean
@@ -115,7 +116,7 @@ export function ChangeNetworkDialog({
             : undefined,
       })
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      setError(getErrorMessage(caught))
     }
   }
 

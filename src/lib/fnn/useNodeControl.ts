@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react"
 import { resolveConfiguredDataDirectory } from "../data-directory"
 import { loadSetupConfig } from "../setup/storage"
+import { getErrorMessage } from "./errors"
 import { getNodeStatus, migrateLegacyDataDirectory, startNode, stopNode } from "./invoke"
 import { isNodeRunning } from "./status"
 import type { NodeStatusResponse, NodeStatusState } from "./types"
@@ -25,7 +26,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
       const status = await getNodeStatus(dataDirectory)
       setNodeStatus(status)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error))
+      setActionError(getErrorMessage(error))
     } finally {
       setIsLoading(false)
     }
@@ -60,7 +61,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
       const status = await startNode({ dataDirectory })
       setNodeStatus(status)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error))
+      setActionError(getErrorMessage(error))
     } finally {
       setIsActing(false)
     }
@@ -73,7 +74,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
       const status = await stopNode()
       setNodeStatus(status)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error))
+      setActionError(getErrorMessage(error))
     } finally {
       setIsActing(false)
     }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { getNetworkPage } from "./invoke"
 import {
   getPageCache,
@@ -69,7 +70,7 @@ export function useNetworkPage(running: boolean, pollIntervalMs = DEFAULT_POLL_I
           setData(response)
           setError(null)
         } catch (err) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(getErrorMessage(err))
         }
       },
       { force: manual },

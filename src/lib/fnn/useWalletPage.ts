@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { getWalletPage } from "./invoke"
 import {
   getPageCache,
@@ -79,7 +80,7 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
           setData(response)
           setError(null)
         } catch (err) {
-          setError(err instanceof Error ? err.message : String(err))
+          setError(getErrorMessage(err))
         }
       },
       { force: manual },

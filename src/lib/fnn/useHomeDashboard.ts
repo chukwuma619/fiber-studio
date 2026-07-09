@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { getHomeDashboard } from "./invoke"
 import {
   getPageCache,
@@ -91,7 +92,7 @@ export function useHomeDashboard(
             setDashboard(data)
             setError(null)
           } catch (err) {
-            setError(err instanceof Error ? err.message : String(err))
+            setError(getErrorMessage(err))
           }
         },
         { force: manual },

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { getErrorMessage } from "./errors"
 import {
   cancelInvoice,
   createInvoice,
@@ -34,7 +35,7 @@ export function useWalletActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -49,7 +50,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await previewSendPayment(payload)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       }
@@ -64,7 +65,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await sendPayment(payload)
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -78,7 +79,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await getPayment(payload)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       }
@@ -95,7 +96,7 @@ export function useWalletActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -110,7 +111,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await parseInvoicePreview(payload)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       }
@@ -125,7 +126,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await sendKeysendPayment(payload)
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -140,7 +141,7 @@ export function useWalletActions(onSuccess?: () => void) {
       try {
         return await previewKeysendPayment(payload)
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       }
@@ -157,7 +158,7 @@ export function useWalletActions(onSuccess?: () => void) {
         onSuccess?.()
         return result
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)

@@ -24,6 +24,7 @@ import {
   skipVersion,
 } from "./updatePreferences"
 import { isTauri } from "@tauri-apps/api/core";
+import { getErrorMessage } from "../fnn/errors"
 
 export type AppUpdateContextValue = {
   currentVersion: string | null
@@ -88,7 +89,7 @@ export function AppUpdateProvider({
     } catch (checkError) {
       if (!options?.silent) {
         const message =
-          checkError instanceof Error ? checkError.message : String(checkError)
+          getErrorMessage(checkError)
         setError(message)
       }
       return null
@@ -136,7 +137,7 @@ export function AppUpdateProvider({
       })
     } catch (installError) {
       const message =
-        installError instanceof Error ? installError.message : String(installError)
+        getErrorMessage(installError)
       setError(message)
       setIsInstalling(false)
     }

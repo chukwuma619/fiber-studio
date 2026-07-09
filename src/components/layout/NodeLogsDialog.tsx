@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "../ui/dialog"
 import { Text } from "../ui/text"
+import { getErrorMessage } from "../../lib/fnn/errors"
 
 type NodeLogsDialogProps = {
   open: boolean
@@ -49,7 +50,7 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
         return
       }
 
-      setLoadError(error instanceof Error ? error.message : String(error))
+      setLoadError(getErrorMessage(error))
     } finally {
       if (requestId === requestIdRef.current && isInitial) {
         setIsInitialLoading(false)

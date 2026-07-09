@@ -21,6 +21,7 @@ import { Text } from "../ui/text"
 import { InvoiceParsePreview } from "./InvoiceParsePreview"
 import { PaymentRoutePreview } from "./PaymentRoutePreview"
 import { SendPaymentDialog } from "./SendPaymentDialog"
+import { getErrorMessage } from "../../lib/fnn/errors"
 
 const PREVIEW_DEBOUNCE_MS = 500
 
@@ -129,7 +130,7 @@ export function SendPaymentPanel({
           setRoutePreview(route)
         } catch (err) {
           if (cancelled) return
-          const message = err instanceof Error ? err.message : String(err)
+          const message = getErrorMessage(err)
           setParsedInvoice(null)
           setParseError(message)
           setRoutePreview(null)
@@ -190,7 +191,7 @@ export function SendPaymentPanel({
         })
         .catch((err) => {
           setRoutePreview(null)
-          setPreviewError(err instanceof Error ? err.message : String(err))
+          setPreviewError(getErrorMessage(err))
         })
         .finally(() => {
           setPreviewLoading(false)

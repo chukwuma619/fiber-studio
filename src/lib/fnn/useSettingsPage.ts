@@ -5,6 +5,7 @@ import {
 } from "../data-directory"
 import { saveSetupConfig } from "../setup/storage"
 import type { NetworkChoice, SetupConfig } from "../setup/types"
+import { getErrorMessage } from "./errors"
 import {
   getNodeSettings,
   openConfigFile,
@@ -49,7 +50,7 @@ export function useSettingsPage(config: SetupConfig | null) {
       setSettings(data)
       invalidatePageCaches(PAGE_CACHE_KEYS.settings)
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : String(error))
+      setLoadError(getErrorMessage(error))
     } finally {
       setIsLoading(false)
     }
@@ -89,7 +90,7 @@ export function useSettingsPage(config: SetupConfig | null) {
         }
         return result
       } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
+        const message = getErrorMessage(error)
         setActionError(message)
         throw error
       } finally {
@@ -105,7 +106,7 @@ export function useSettingsPage(config: SetupConfig | null) {
       const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
       await openConfigFile(dataDirectory)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error))
+      setActionError(getErrorMessage(error))
     }
   }, [config?.network])
 
@@ -115,7 +116,7 @@ export function useSettingsPage(config: SetupConfig | null) {
       const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
       await openDataDirectory(dataDirectory)
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : String(error))
+      setActionError(getErrorMessage(error))
     }
   }, [config?.network])
 

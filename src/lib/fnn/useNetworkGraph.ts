@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { getNetworkGraph } from "./invoke"
 import type {
   NetworkGraphChannelEntry,
@@ -62,7 +63,7 @@ export function useNetworkGraph(running: boolean, kind: NetworkGraphKind) {
         setHasMore(response.hasMore)
         setError(null)
       } catch (err) {
-        setError(err instanceof Error ? err.message : String(err))
+        setError(getErrorMessage(err))
       } finally {
         setIsLoading(false)
         setIsLoadingMore(false)

@@ -46,7 +46,7 @@ pub enum ManagerError {
     AlreadyRunning,
     #[error("failed to spawn fnn: {0}")]
     Spawn(String),
-    #[error("fnn RPC did not become ready: {0}")]
+    #[error("Fiber node did not become ready: {0}")]
     Rpc(#[from] rpc::RpcError),
     #[error("failed to stop fnn: {0}")]
     Stop(String),

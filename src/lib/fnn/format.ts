@@ -304,19 +304,42 @@ export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
   return `${truncated.slice(0, maxHops).join(" → ")} → …`
 }
 
-export function sanitizePaymentError(error: string): string {
-  return error
+/**
+ * Strip transport / JSON-RPC wrappers so UI shows FNN's human-readable message.
+ * Handles both current backend formatting and older `fnn RPC error: (-32000) …` strings.
+ */
+export function sanitizeRpcError(error: string): string {
+  let message = error.trim()
+  if (!message) return message
+
+  message = message
     .replace(/\s*\[data:[^\]]*\]\s*/gi, "")
-    .replace(/^RPC error:\s*\(-?\d+\)\s*/i, "")
+    .replace(/^fnn\s+RPC\s+error:\s*/i, "")
+    .replace(/^RPC\s+error:\s*/i, "")
+    .replace(/^\(-?\d+\)\s*/u, "")
+    .replace(/^Could not reach the Fiber node RPC:\s*/i, "")
+    .replace(/^Fiber node RPC did not become ready:\s*/i, "")
+    .replace(/^Fiber node did not become ready:\s*/i, "")
     .trim()
+
+  return message
+}
+
+/** @deprecated Prefer sanitizeRpcError — kept for payment UI call sites. */
+export function sanitizePaymentError(error: string): string {
+  return sanitizeRpcError(error)
 }
 
 export function paymentErrorSummary(error: string): string {
-  if (/no path found/i.test(error)) {
+  const cleaned = sanitizeRpcError(error)
+  if (/no path found/i.test(cleaned)) {
     return "No route found to the invoice payee. Open a channel with them (or via the same hub), ensure peers are connected, and wait for the network graph to sync."
   }
-  if (/Failed to build route/i.test(error)) {
+  if (/Insufficient balance|max outbound liquidity/i.test(cleaned)) {
+    return "Not enough outbound channel liquidity for this payment. Reconnect peers, wait for the graph to sync, or open/fund a channel with enough local balance."
+  }
+  if (/Failed to build route/i.test(cleaned)) {
     return "Failed to build a payment route. Open a channel, ensure your peer is connected, and wait for the network graph to sync."
   }
-  return sanitizePaymentError(error)
+  return cleaned
 }

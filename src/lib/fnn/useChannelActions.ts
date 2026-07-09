@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react"
+import { getErrorMessage } from "./errors"
 import { abandonChannel, openChannel, shutdownChannel } from "./invoke"
 import type {
   AbandonChannelPayload,
@@ -18,7 +19,7 @@ export function useChannelActions(onSuccess?: () => void) {
         await openChannel(payload)
         onSuccess?.()
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -35,7 +36,7 @@ export function useChannelActions(onSuccess?: () => void) {
         await shutdownChannel(payload)
         onSuccess?.()
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)
@@ -52,7 +53,7 @@ export function useChannelActions(onSuccess?: () => void) {
         await abandonChannel(payload)
         onSuccess?.()
       } catch (error) {
-        setActionError(error instanceof Error ? error.message : String(error))
+        setActionError(getErrorMessage(error))
         throw error
       } finally {
         setIsActing(false)

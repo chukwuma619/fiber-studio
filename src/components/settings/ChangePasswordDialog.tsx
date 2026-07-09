@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from "../ui/dialog"
 import { Text } from "../ui/text"
+import { getErrorMessage } from "../../lib/fnn/errors"
 
 type ChangePasswordDialogProps = {
   open: boolean
@@ -53,7 +54,7 @@ export function ChangePasswordDialog({
       await onSave({ oldPassword, newPassword })
       onClose()
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught))
+      setError(getErrorMessage(caught))
     }
   }
 
