@@ -60,7 +60,7 @@ export function HomePage() {
     : "Start node to view channels"
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Heading level={1}>Home</Heading>
@@ -111,25 +111,27 @@ export function HomePage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <ChannelLiquiditySection
           channels={dashboard?.channels ?? []}
           available={available}
           status={status}
           isLoading={isDashboardInitialLoad}
         />
-        <NodeStatusPanel
-          dashboard={dashboard}
-          status={status}
-          isLoading={isNodeLoading || isDashboardInitialLoad}
-          dataDirectory={
-            nodeStatus?.dataDirectory ??
-            (config?.network
-              ? getDataDirectoryDisplayForNetwork(config.network)
-              : null)
-          }
-          config={config}
-        />
+        <div className="min-w-0">
+          <NodeStatusPanel
+            dashboard={dashboard}
+            status={status}
+            isLoading={isNodeLoading || isDashboardInitialLoad}
+            dataDirectory={
+              nodeStatus?.dataDirectory ??
+              (config?.network
+                ? getDataDirectoryDisplayForNetwork(config.network)
+                : null)
+            }
+            config={config}
+          />
+        </div>
       </div>
 
       <RecentActivitySection

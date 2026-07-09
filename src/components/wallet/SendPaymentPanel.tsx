@@ -96,6 +96,8 @@ export function SendPaymentPanel({
   const [previewError, setPreviewError] = useState<string | null>(null)
   const [existingPayment, setExistingPayment] =
     useState<ExistingPaymentNotice | null>(null)
+  const [reviewSnapshot, setReviewSnapshot] =
+    useState<PreviewSendPaymentResult | null>(null)
 
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
@@ -108,6 +110,11 @@ export function SendPaymentPanel({
 
   useEffect(() => {
     if (sendMode !== "invoice") {
+      return
+    }
+
+    // Keep the review modal stable — do not clear/refetch preview while it is open.
+    if (sendDialogOpen) {
       return
     }
 
@@ -189,11 +196,17 @@ export function SendPaymentPanel({
     onParseInvoicePreview,
     onPreviewSendPayment,
     running,
+    sendDialogOpen,
     sendMode,
   ])
 
   useEffect(() => {
     if (sendMode !== "keysend") {
+      return
+    }
+
+    // Keep the review modal stable — do not clear/refetch preview while it is open.
+    if (sendDialogOpen) {
       return
     }
 
@@ -244,6 +257,7 @@ export function SendPaymentPanel({
     keysendAmount,
     onPreviewKeysendPayment,
     running,
+    sendDialogOpen,
     sendMode,
     targetPubkey,
   ])
@@ -271,10 +285,16 @@ export function SendPaymentPanel({
   const canReviewPayment = canReviewInvoice || canReviewKeysend
 
   const handleReviewPayment = useCallback(() => {
-    if (!canReviewPayment) return
+    if (!canReviewPayment || !routePreview) return
     onClearError()
+    setReviewSnapshot(routePreview)
     setSendDialogOpen(true)
-  }, [canReviewPayment, onClearError])
+  }, [canReviewPayment, onClearError, routePreview])
+
+  const handleCloseSendDialog = useCallback(() => {
+    setSendDialogOpen(false)
+    setReviewSnapshot(null)
+  }, [])
 
   return (
     <>
@@ -454,11 +474,11 @@ export function SendPaymentPanel({
 
       <SendPaymentDialog
         open={sendDialogOpen}
-        onClose={() => setSendDialogOpen(false)}
+        onClose={handleCloseSendDialog}
         mode={sendMode}
         invoice={invoice.trim()}
         targetPubkey={targetPubkey.trim()}
-        preview={routePreview}
+        preview={reviewSnapshot}
         isActing={isActing}
         actionError={actionError}
         onSendPayment={onSendPayment}

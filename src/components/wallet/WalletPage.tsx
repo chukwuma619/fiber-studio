@@ -271,7 +271,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <WalletInvoicesSection
           status={status}
           running={running}

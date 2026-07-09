@@ -108,28 +108,47 @@ export function SendPaymentDialog({
   const [timeoutSeconds, setTimeoutSeconds] = useState(
     String(DEFAULT_TIMEOUT_SECONDS),
   )
+  const [frozenPreview, setFrozenPreview] =
+    useState<PreviewSendPaymentResult | null>(null)
   const pollStartedAtRef = useRef<number | null>(null)
+  const wasOpen = useRef(false)
 
   useEffect(() => {
+    const justOpened = open && !wasOpen.current
+    wasOpen.current = open
+
+    if (justOpened) {
+      setStep("review")
+      setResult(null)
+      setMaxFeeCkb("")
+      setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
+      pollStartedAtRef.current = null
+      setFrozenPreview(preview)
+      return
+    }
+
     if (!open) {
       setStep("review")
       setResult(null)
       setMaxFeeCkb("")
       setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
       pollStartedAtRef.current = null
+      setFrozenPreview(null)
     }
-  }, [open])
+  }, [open, preview])
+
+  const activePreview = frozenPreview ?? preview
 
   useEffect(() => {
-    if (!open || step !== "review" || !preview?.feeCkb || maxFeeCkb) {
+    if (!open || step !== "review" || !activePreview?.feeCkb || maxFeeCkb) {
       return
     }
 
-    const suggested = preview.feeCkb.replace(/\s*CKB$/i, "").trim()
+    const suggested = activePreview.feeCkb.replace(/\s*CKB$/i, "").trim()
     if (suggested) {
       setMaxFeeCkb(suggested)
     }
-  }, [maxFeeCkb, open, preview?.feeCkb, step])
+  }, [activePreview?.feeCkb, maxFeeCkb, open, step])
 
   useEffect(() => {
     if (step !== "inflight" || !result?.paymentHash) {
@@ -258,12 +277,11 @@ export function SendPaymentDialog({
     }
   }
 
-  const displayAmount = preview?.amountDisplay ?? "—"
-  const displayFee = preview?.feeCkb ?? "—"
-  const hopCount = preview?.routeHops.length ?? result?.routeHops.length ?? 0
-  const routeBadge = paymentRouteBadgeLabel(hopCount)
+  const displayAmount = activePreview?.amountDisplay ?? "—"
+  const displayFee = activePreview?.feeCkb ?? "—"
+  const hopCount = activePreview?.routeHops.length ?? result?.routeHops.length ?? 0
   const displayRoute = hopCount > 0
-    ? formatRouteHops(preview?.routeHops ?? result?.routeHops ?? [])
+    ? formatRouteHops(activePreview?.routeHops ?? result?.routeHops ?? [])
     : "—"
   const isKeysend = mode === "keysend"
 
@@ -313,12 +331,6 @@ export function SendPaymentDialog({
       <DialogBody>
         {step === "review" ? (
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <Badge color="sky">{routeBadge}</Badge>
-              <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                {isKeysend ? "Keysend via Fiber" : "Off-chain via Fiber"}
-              </Text>
-            </div>
 
             <dl className="space-y-4">
               <div className="flex items-center justify-between gap-4">
@@ -422,9 +434,7 @@ export function SendPaymentDialog({
             <Text className="text-sm font-medium text-zinc-950 dark:text-white">
               Payment sent successfully
             </Text>
-            <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              {displayAmount} sent off-chain via Fiber
-            </Text>
+
             {result?.routeHops.length ? (
               <Text className="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">
                 {formatRouteHops(result.routeHops)}
