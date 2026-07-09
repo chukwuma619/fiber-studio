@@ -150,6 +150,7 @@ function peerAction(
 
   if (peer.isSaved) {
     const isConnecting = isActing && connectingPubkey === peer.pubkey
+    const isDisconnecting = isActing && disconnectingPubkey === peer.pubkey
     const isRemoving = isActing && removingPubkey === peer.pubkey
 
     return (
@@ -163,7 +164,16 @@ function peerAction(
           >
             {isConnecting ? "Connecting…" : "Connect"}
           </Button>
-        ) : null}
+        ) : (
+          <Button
+            outline
+            className="text-xs"
+            disabled={isActing}
+            onClick={() => onDisconnectPeer(peer.pubkey)}
+          >
+            {isDisconnecting ? "Disconnecting…" : "Disconnect"}
+          </Button>
+        )}
         <Button
           outline
           className="text-xs text-red-600 dark:text-red-400"
