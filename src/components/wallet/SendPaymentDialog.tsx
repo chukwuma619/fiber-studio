@@ -6,7 +6,6 @@ import {
   parseHexU128,
   paymentErrorSuggestsOpenChannels,
   paymentErrorSummary,
-  paymentRouteBadgeLabel,
   sanitizePaymentError,
 } from "../../lib/fnn/format"
 import type {
