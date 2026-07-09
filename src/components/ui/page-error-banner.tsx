@@ -1,4 +1,5 @@
 import clsx from "clsx"
+import { X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { Button } from "./button"
 
@@ -51,8 +52,13 @@ export function PageErrorBanner({
             {retryLabel}
           </Button>
         ) : null}
-        <Button plain className="text-xs" onClick={handleDismiss}>
-          {dismissLabel}
+        <Button
+          plain
+          type="button"
+          onClick={handleDismiss}
+          aria-label={dismissLabel}
+        >
+          <X className="size-4" aria-hidden="true" />
         </Button>
       </div>
     </div>
