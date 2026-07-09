@@ -1,15 +1,10 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   CHANNEL_OPEN_FEE_BUFFER_CKB,
   CHANNEL_RESERVE_CKB,
   requiredWalletCkbForOpen,
 } from "../../lib/fnn/format"
-import { formatRelayStatusLabel } from "../../lib/fnn/relay"
-import type {
-  OpenChannelPayload,
-  RelayConnectionStatus,
-  SavedPeerEntry,
-} from "../../lib/fnn/types"
+import type { OpenChannelPayload, SavedPeerEntry } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -31,7 +26,6 @@ type OpenChannelDialogProps = {
   open: boolean
   onClose: () => void
   savedPeers: SavedPeerEntry[]
-  relayStatus: RelayConnectionStatus
   minFundingCkb: number
   availableWalletCkb: number | null
   onChainWalletError: string | null
@@ -55,53 +49,17 @@ function parseFundingCkb(value: string, minimumCkb: number): number | null {
   return parsed
 }
 
-function relayStatusBadgeColor(
-  status: RelayConnectionStatus,
-): "green" | "amber" | "red" | "zinc" {
-  switch (status) {
-    case "connected":
-      return "green"
-    case "connecting":
-      return "amber"
-    case "failed":
-      return "red"
-    case "not_configured":
-      return "zinc"
-    default: {
-      const _exhaustive: never = status
-      return _exhaustive
-    }
-  }
-}
-
-function openButtonLabel(
-  isActing: boolean,
-  relayStatus: RelayConnectionStatus,
-): string {
-  if (!isActing) return "Open channel"
-  if (relayStatus !== "connected") {
-    return "Connecting to peer…"
-  }
-  return "Opening channel…"
-}
-
 function peerChannelLabel(peer: SavedPeerEntry): string {
-  if (peer.channelCount === 0) {
-    return peer.connected ? "" : " (not connected)"
-  }
-  const channelLabel =
-    peer.channelCount === 1 ? "1 channel" : `${peer.channelCount} channels`
-  if (peer.connected) {
-    return ` (${channelLabel})`
-  }
-  return ` (${channelLabel}, not connected)`
+  if (peer.channelCount === 0) return ""
+  return peer.channelCount === 1
+    ? " (1 channel)"
+    : ` (${peer.channelCount} channels)`
 }
 
 export function OpenChannelDialog({
   open,
   onClose,
   savedPeers,
-  relayStatus,
   minFundingCkb,
   availableWalletCkb,
   onChainWalletError,
@@ -114,9 +72,15 @@ export function OpenChannelDialog({
   const [capacity, setCapacity] = useState("")
   const [validationError, setValidationError] = useState<string | null>(null)
 
+  const connectedPeers = useMemo(
+    () => savedPeers.filter((peer) => peer.connected),
+    [savedPeers],
+  )
+
   const selectedPeer = useMemo(
-    () => savedPeers.find((peer) => peer.pubkey === selectedPubkey) ?? null,
-    [savedPeers, selectedPubkey],
+    () =>
+      connectedPeers.find((peer) => peer.pubkey === selectedPubkey) ?? null,
+    [connectedPeers, selectedPubkey],
   )
 
   const parsedCapacity = useMemo(() => {
@@ -140,30 +104,45 @@ export function OpenChannelDialog({
 
   const walletBalanceUnavailable = onChainWalletError !== null
   const noSavedPeers = savedPeers.length === 0
-  const peerNotConnected = selectedPeer ? !selectedPeer.connected : true
+  const noConnectedPeers = connectedPeers.length === 0
 
   const submitDisabled =
     isActing ||
     !selectedPubkey ||
-    peerNotConnected ||
+    noConnectedPeers ||
     noSavedPeers ||
     walletBalanceUnavailable ||
     belowMinimum === true ||
     insufficientWalletBalance === true
 
+  const wasOpen = useRef(false)
   useEffect(() => {
-    if (!open) return
+    const justOpened = open && !wasOpen.current
+    wasOpen.current = open
+    if (!justOpened) return
 
     setValidationError(null)
     onClearError()
-    const defaultPeer = savedPeers[0]?.pubkey ?? ""
+    const defaultPeer = connectedPeers[0]?.pubkey ?? ""
     setSelectedPubkey(defaultPeer)
     setCapacity(defaultPeer ? String(minFundingCkb) : "")
-  }, [minFundingCkb, onClearError, open, savedPeers])
+  }, [connectedPeers, minFundingCkb, onClearError, open])
+
+  // Keep selection on a connected peer while the dialog is open.
+  useEffect(() => {
+    if (!open) return
+    if (
+      selectedPubkey &&
+      connectedPeers.some((peer) => peer.pubkey === selectedPubkey)
+    ) {
+      return
+    }
+    setSelectedPubkey(connectedPeers[0]?.pubkey ?? "")
+  }, [connectedPeers, open, selectedPubkey])
 
   async function handleSubmit() {
     if (!selectedPubkey) {
-      setValidationError("Select a saved peer to open a channel with.")
+      setValidationError("Select a connected saved peer to open a channel with.")
       return
     }
 
@@ -213,16 +192,23 @@ export function OpenChannelDialog({
       <DialogDescription>
         {noSavedPeers
           ? "Add at least one saved peer on the Network page before opening a channel."
-          : "Open a public channel with one of your saved peers. You can open multiple channels with the same peer."}
+          : noConnectedPeers
+            ? "None of your saved peers are connected. Connect a peer on the Network page first."
+            : "Open a public channel with a connected saved peer. You can open multiple channels with the same peer."}
       </DialogDescription>
 
       <DialogBody>
         <FieldGroup>
           <Field>
-            <Label>Saved peer</Label>
+            <Label>Connected peer</Label>
             {noSavedPeers ? (
               <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                 No saved peers configured.
+              </Text>
+            ) : noConnectedPeers ? (
+              <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                No connected saved peers. Connect a peer on the Network page,
+                then try again.
               </Text>
             ) : (
               <Select
@@ -230,7 +216,7 @@ export function OpenChannelDialog({
                 onChange={(event) => setSelectedPubkey(event.target.value)}
                 disabled={isActing}
               >
-                {savedPeers.map((peer) => (
+                {connectedPeers.map((peer) => (
                   <option key={peer.pubkey} value={peer.pubkey}>
                     {truncatePubkey(peer.pubkey)}
                     {peerChannelLabel(peer)}
@@ -250,8 +236,8 @@ export function OpenChannelDialog({
               </div>
             ) : null}
             <Description>
-              All saved peers are listed. Multiple channels can share the same
-              peer connection.
+              Only connected saved peers are listed. Multiple channels can share
+              the same peer connection.
             </Description>
           </Field>
 
@@ -259,15 +245,7 @@ export function OpenChannelDialog({
             <Field>
               <Label>Peer connection</Label>
               <div className="flex flex-wrap items-center gap-2">
-                <Badge
-                  color={relayStatusBadgeColor(
-                    selectedPeer.connected ? "connected" : relayStatus,
-                  )}
-                >
-                  {selectedPeer.connected
-                    ? "Connected"
-                    : formatRelayStatusLabel(relayStatus)}
-                </Badge>
+                <Badge color="green">Connected</Badge>
                 {selectedPeer.channelCount > 0 ? (
                   <Badge color="blue">
                     {selectedPeer.channelCount === 1
@@ -294,13 +272,6 @@ export function OpenChannelDialog({
           </Field>
         </FieldGroup>
 
-        {peerNotConnected && selectedPubkey ? (
-          <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
-            {relayStatus === "connecting"
-              ? "Saved peer connection is still in progress. Wait until the peer shows as connected."
-              : "Selected peer is not connected. Restart your node or check the Network page."}
-          </Text>
-        ) : null}
         {walletBalanceUnavailable ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
             Could not read on-chain wallet balance. Check your network connection
@@ -340,7 +311,7 @@ export function OpenChannelDialog({
           onClick={() => void handleSubmit()}
           disabled={submitDisabled}
         >
-          {openButtonLabel(isActing, relayStatus)}
+          {isActing ? "Opening channel…" : "Open channel"}
         </Button>
       </DialogActions>
     </Dialog>

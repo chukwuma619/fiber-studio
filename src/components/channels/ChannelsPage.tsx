@@ -317,7 +317,6 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
         savedPeers={data?.savedPeers ?? []}
-        relayStatus={data?.relayStatus ?? "not_configured"}
         minFundingCkb={minFundingCkb}
         availableWalletCkb={data?.onChainWalletCkb ?? null}
         onChainWalletError={data?.onChainWalletError ?? null}
