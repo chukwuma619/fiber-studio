@@ -6,13 +6,23 @@ on:
   pull_request:
     branches: [main]
 
-defaults:
-  run:
-    working-directory: app
-
 jobs:
-  build-frontend:
+  build-app-frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run build
+
+  build-website:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
     steps:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
@@ -21,6 +31,9 @@ jobs:
 
   build-tauri:
     if: github.event_name != 'pull_request' || !github.event.pull_request.head.repo.fork
+    defaults:
+      run:
+        working-directory: app
     strategy:
       fail-fast: false
       matrix:

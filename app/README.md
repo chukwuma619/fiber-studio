@@ -386,7 +386,8 @@ fiber-studio/
 │   ├── shared/          # Shared data (e.g. relay definitions)
 │   ├── scripts/         # fetch-fnn, version-bump, and other build helpers
 │   └── public/          # Static assets
-└── .github/workflows/   # CI build + publish (projectPath: app)
+├── website/             # Next.js marketing site
+└── .github/workflows/   # CI (app frontend, website, Tauri; publish for app)
 ```
 
 ## CI

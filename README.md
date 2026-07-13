@@ -1,12 +1,25 @@
 # Fiber Studio
 
-Desktop app for running a [Fiber Network](https://github.com/nervosnetwork/fiber) node (`fnn`) on your machine.
+Desktop app and marketing site for running a [Fiber Network](https://github.com/nervosnetwork/fiber) node (`fnn`) on your machine.
 
-The Tauri app lives in [`app/`](./app). See [`app/README.md`](./app/README.md) for setup, development, and release docs.
+| Path | What |
+|------|------|
+| [`app/`](./app) | Tauri desktop app — see [`app/README.md`](./app/README.md) |
+| [`website/`](./website) | Next.js website |
+
+### Desktop app
 
 ```bash
 cd app
 bun install
 bun run fetch-fnn
 bun run tauri dev
+```
+
+### Website
+
+```bash
+cd website
+bun install
+bun run dev
 ```
