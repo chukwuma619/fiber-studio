@@ -368,23 +368,25 @@ In-app updates use a separate Tauri updater key (`TAURI_SIGNING_PRIVATE_KEY`). T
 
 ```
 fiber-studio/
-├── src/                 # React UI (routes, components, lib)
-│   ├── routes/          # TanStack Router file-based routes
-│   ├── components/      # UI, setup wizard, home dashboard, layout, settings
-│   └── lib/
-│       ├── fnn/         # fnn client helpers, dashboard, node control
-│       ├── setup/       # setup wizard state and storage
-│       └── updates/     # in-app updater provider and preferences
-├── src-tauri/           # Tauri shell (Rust)
-│   ├── src/
-│   │   ├── commands/    # Tauri invoke handlers (setup, node, dashboard)
-│   │   └── fnn/         # fnn process manager, config, keychain, logs
-│   ├── resources/       # fnn config templates (mainnet, testnet)
-│   ├── binaries/        # fnn sidecar (gitignored; populated by fetch-fnn)
-│   └── .updater/        # updater signing private key (gitignored)
-├── shared/              # Shared data (e.g. relay definitions)
-├── scripts/             # fetch-fnn, version-bump, and other build helpers
-└── public/              # Static assets
+├── app/                 # Tauri desktop app (run all bun/tauri commands here)
+│   ├── src/             # React UI (routes, components, lib)
+│   │   ├── routes/      # TanStack Router file-based routes
+│   │   ├── components/  # UI, setup wizard, home dashboard, layout, settings
+│   │   └── lib/
+│   │       ├── fnn/     # fnn client helpers, dashboard, node control
+│   │       ├── setup/   # setup wizard state and storage
+│   │       └── updates/ # in-app updater provider and preferences
+│   ├── src-tauri/       # Tauri shell (Rust)
+│   │   ├── src/
+│   │   │   ├── commands/  # Tauri invoke handlers (setup, node, dashboard)
+│   │   │   └── fnn/       # fnn process manager, config, keychain, logs
+│   │   ├── resources/   # fnn config templates (mainnet, testnet)
+│   │   ├── binaries/    # fnn sidecar (gitignored; populated by fetch-fnn)
+│   │   └── .updater/    # updater signing private key (gitignored)
+│   ├── shared/          # Shared data (e.g. relay definitions)
+│   ├── scripts/         # fetch-fnn, version-bump, and other build helpers
+│   └── public/          # Static assets
+└── .github/workflows/   # CI build + publish (projectPath: app)
 ```
 
 ## CI
