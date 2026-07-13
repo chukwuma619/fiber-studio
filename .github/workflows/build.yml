@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+defaults:
+  run:
+    working-directory: app
+
 jobs:
   build-frontend:
     runs-on: ubuntu-latest
@@ -55,10 +59,13 @@ jobs:
 
       - name: Add Rust cross-compilation target
         if: matrix.rust_target != ''
+        # defaults.run.working-directory does not apply to rustup here; keep repo root
+        working-directory: .
         run: rustup target add ${{ matrix.rust_target }}
 
       - name: install dependencies (ubuntu only)
         if: startsWith(matrix.platform, 'ubuntu-22.04')
+        working-directory: .
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -78,7 +85,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./src-tauri -> target
+          workspaces: ./app/src-tauri -> target
           prefix-key: v1-rust-${{ matrix.fnn_triple }}
 
       - name: install frontend dependencies
@@ -89,9 +96,10 @@ jobs:
 
       - name: Verify updater signing secret
         shell: bash
+        working-directory: .
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of src-tauri/.updater/fiber-studio.key as a repository secret. See README → Releases and updates."
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See app/README.md → Releases and updates."
             exit 1
           fi
         env:
@@ -104,4 +112,5 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: app
           args: ${{ matrix.args }}

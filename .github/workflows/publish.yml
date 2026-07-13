@@ -1,11 +1,11 @@
 # Build signed updater artifacts and publish a GitHub Release.
 #
 # Release:
-#   1. bun run version:bump patch   # syncs package.json + Cargo.toml (Tauri reads package.json)
+#   1. cd app && bun run version:bump patch   # syncs package.json + Cargo.toml (Tauri reads package.json)
 #   2. Commit and push to main.
 #   3. git tag v0.1.0 && git push origin v0.1.0
 #
-# Requires repository secret TAURI_SIGNING_PRIVATE_KEY (see README → Releases and updates).
+# Requires repository secret TAURI_SIGNING_PRIVATE_KEY (see app/README.md → Releases and updates).
 
 name: publish
 
@@ -21,6 +21,10 @@ permissions:
 concurrency:
   group: publish-${{ github.ref }}
   cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: app
 
 jobs:
   publish-tauri:
@@ -62,10 +66,12 @@ jobs:
 
       - name: Add Rust cross-compilation target
         if: matrix.rust_target != ''
+        working-directory: .
         run: rustup target add ${{ matrix.rust_target }}
 
       - name: install dependencies (ubuntu only)
         if: startsWith(matrix.platform, 'ubuntu-22.04')
+        working-directory: .
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -85,7 +91,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./src-tauri -> target
+          workspaces: ./app/src-tauri -> target
           prefix-key: v1-rust-${{ matrix.fnn_triple }}
 
       - name: install frontend dependencies
@@ -96,9 +102,10 @@ jobs:
 
       - name: Verify updater signing secret
         shell: bash
+        working-directory: .
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of src-tauri/.updater/fiber-studio.key as a repository secret. See README → Releases and updates."
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See app/README.md → Releases and updates."
             exit 1
           fi
         env:
@@ -110,6 +117,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: app
           tagName: ${{ github.ref_name }}
           releaseName: Fiber Studio v__VERSION__
           generateReleaseNotes: true
