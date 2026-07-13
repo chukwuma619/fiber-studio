@@ -112,7 +112,7 @@ jobs:
         working-directory: .
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See app/README.md → Releases and updates."
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See README.md → Publishing a desktop release."
             exit 1
           fi
         env:

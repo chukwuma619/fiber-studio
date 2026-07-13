@@ -1,6 +1,6 @@
 # Fiber Studio website
 
-Next.js marketing site for Fiber Studio.
+Next.js marketing site. Product docs and desktop app guides live in the [root README](../README.md).
 
 ```bash
 cd website
@@ -16,5 +16,3 @@ Open [http://localhost:3000](http://localhost:3000).
 | `bun run build` | Production build |
 | `bun run start` | Serve production build |
 | `bun run lint` | ESLint |
-
-Deploy on [Vercel](https://vercel.com) with **Root Directory** set to `website`.

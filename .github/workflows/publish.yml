@@ -5,7 +5,7 @@
 #   2. Commit and push to main.
 #   3. git tag v0.1.0 && git push origin v0.1.0
 #
-# Requires repository secret TAURI_SIGNING_PRIVATE_KEY (see app/README.md → Releases and updates).
+# Requires repository secret TAURI_SIGNING_PRIVATE_KEY (see README.md → Publishing a desktop release).
 
 name: publish
 
@@ -105,7 +105,7 @@ jobs:
         working-directory: .
         run: |
           if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
-            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See app/README.md → Releases and updates."
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Add the contents of app/src-tauri/.updater/fiber-studio.key as a repository secret. See README.md → Publishing a desktop release."
             exit 1
           fi
         env:
