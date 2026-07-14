@@ -18,7 +18,7 @@ export function FiberStudioWordmark({
         )}
       >
         <span className="font-semibold">Fiber</span>{' '}
-        <span className="font-normal text-zinc-500 dark:text-zinc-400">Studio</span>
+        <span className="font-normal text-sky-700 dark:text-sky-300">Studio</span>
       </h1>
     )
   }
@@ -26,7 +26,7 @@ export function FiberStudioWordmark({
   const wordmark = (
     <>
       <span className="font-semibold">Fiber</span>{' '}
-      <span className="font-normal text-zinc-500 dark:text-zinc-400">Studio</span>
+      <span className="font-normal text-sky-700/80 dark:text-sky-300/90">Studio</span>
     </>
   )
 

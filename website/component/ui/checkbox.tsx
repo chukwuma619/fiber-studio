@@ -61,7 +61,7 @@ const base = [
   'after:absolute after:inset-0 after:rounded-[calc(0.3125rem-1px)] after:shadow-[inset_0_1px_--theme(--color-white/15%)]',
   'dark:after:-inset-px dark:after:hidden dark:after:rounded-[0.3125rem] dark:group-data-checked:after:block',
   // Focus ring
-  'group-data-focus:outline-2 group-data-focus:outline-offset-2 group-data-focus:outline-blue-500',
+  'group-data-focus:outline-2 group-data-focus:outline-offset-2 group-data-focus:outline-sky-500',
   // Disabled state
   'group-data-disabled:opacity-50',
   'group-data-disabled:border-zinc-950/25 group-data-disabled:bg-zinc-950/5 group-data-disabled:[--checkbox-check:var(--color-zinc-950)]/50 group-data-disabled:before:bg-transparent',
@@ -115,7 +115,7 @@ const colors = {
 type Color = keyof typeof colors
 
 export function Checkbox({
-  color = 'dark/zinc',
+  color = 'sky',
   className,
   ...props
 }: {

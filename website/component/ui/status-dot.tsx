@@ -3,11 +3,11 @@ import clsx from 'clsx'
 export type StatusDotTone = 'running' | 'stopped' | 'warning' | 'danger' | 'info'
 
 const TONE_CLASS: Record<StatusDotTone, string> = {
-  running: 'bg-zinc-900 dark:bg-white',
+  running: 'bg-sky-500 dark:bg-sky-400',
   stopped: 'bg-zinc-400 dark:bg-zinc-500',
   warning: 'bg-amber-500 dark:bg-amber-400',
   danger: 'bg-red-500 dark:bg-red-400',
-  info: 'bg-zinc-400 dark:bg-zinc-500',
+  info: 'bg-sky-400 dark:bg-sky-500',
 }
 
 export function StatusDot({ tone }: { tone: StatusDotTone }) {

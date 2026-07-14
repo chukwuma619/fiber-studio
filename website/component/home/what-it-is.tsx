@@ -54,7 +54,7 @@ function IllustrationLocalNode({ reduceMotion }: { reduceMotion: boolean }) {
         cx="88"
         cy="72"
         r="2.5"
-        className="fill-teal-400"
+        className="fill-sky-400"
         animate={reduceMotion ? undefined : { opacity: [1, 0.35, 1], scale: [1, 0.85, 1] }}
         transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -78,7 +78,7 @@ function IllustrationLocalNode({ reduceMotion }: { reduceMotion: boolean }) {
             width="12"
             height="3"
             rx="1"
-            className="fill-teal-500/70"
+            className="fill-sky-500/70"
             animate={
               reduceMotion
                 ? undefined
@@ -121,7 +121,7 @@ function IllustrationLocalNode({ reduceMotion }: { reduceMotion: boolean }) {
           cx="168"
           cy="36"
           r="14"
-          className="stroke-teal-500/40"
+          className="stroke-sky-500/40"
           strokeWidth="1"
           fill="none"
           animate={{ r: [14, 22], opacity: [0.5, 0] }}
@@ -186,7 +186,7 @@ function IllustrationKeysOnDevice({ reduceMotion }: { reduceMotion: boolean }) {
           strokeWidth="2"
           fill="none"
         />
-        <circle cx="148" cy="64" r="3.5" className="fill-teal-500" />
+        <circle cx="148" cy="64" r="3.5" className="fill-sky-500" />
         <path
           d="M157 62.5h22v3.5h-10v4h-4v-4h-4v7h-4V62.5Z"
           className="fill-zinc-950 dark:fill-white"
@@ -213,8 +213,8 @@ function IllustrationKeysOnDevice({ reduceMotion }: { reduceMotion: boolean }) {
           rx="4"
           className="fill-zinc-950 dark:fill-white"
         />
-        <circle cx="96" cy="104" r="2.5" className="fill-teal-400" />
-        <rect x="94.5" y="106" width="3" height="5" rx="1" className="fill-teal-400" />
+        <circle cx="96" cy="104" r="2.5" className="fill-sky-400" />
+        <rect x="94.5" y="106" width="3" height="5" rx="1" className="fill-sky-400" />
       </motion.g>
 
       {/* Stay-local check pulse */}
@@ -223,7 +223,7 @@ function IllustrationKeysOnDevice({ reduceMotion }: { reduceMotion: boolean }) {
           cx="100"
           cy="70"
           r="40"
-          className="stroke-teal-500/25"
+          className="stroke-sky-500/25"
           strokeWidth="1"
           fill="none"
           animate={{ opacity: [0, 0.6, 0], scale: [0.85, 1.05, 1.05] }}
@@ -267,7 +267,7 @@ function IllustrationOutboundNetwork({ reduceMotion }: { reduceMotion: boolean }
         cx="32"
         cy="64"
         r="3"
-        className="fill-teal-400"
+        className="fill-sky-400"
         animate={reduceMotion ? undefined : { opacity: [1, 0.4, 1] }}
         transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
       />
@@ -307,7 +307,7 @@ function IllustrationOutboundNetwork({ reduceMotion }: { reduceMotion: boolean }
         <>
           <motion.circle
             r="3"
-            className="fill-teal-500"
+            className="fill-sky-500"
             style={{ offsetPath: 'path("M72 58 C100 40, 120 34, 152 38")' }}
             {...packetTransition(0)}
           />
@@ -319,7 +319,7 @@ function IllustrationOutboundNetwork({ reduceMotion }: { reduceMotion: boolean }
           />
           <motion.circle
             r="3"
-            className="fill-teal-500"
+            className="fill-sky-500"
             style={{ offsetPath: 'path("M72 82 C100 100, 120 106, 152 102")' }}
             {...packetTransition(1.3)}
           />
@@ -376,7 +376,7 @@ function IllustrationOutboundNetwork({ reduceMotion }: { reduceMotion: boolean }
             cx={peer.cx}
             cy={peer.cy}
             r="3.5"
-            className="fill-teal-500"
+            className="fill-sky-500"
             animate={
               reduceMotion
                 ? undefined
@@ -447,7 +447,7 @@ export function WhatItIs() {
               transition={{ duration: 0.45, delay: index * 0.1, ease: 'easeOut' }}
               className="min-w-0"
             >
-              <div className="aspect-[10/7] overflow-hidden rounded-lg bg-gradient-to-b from-zinc-50 to-zinc-100/80 ring-1 ring-zinc-950/5 dark:from-zinc-900 dark:to-zinc-950/80 dark:ring-white/10">
+              <div className="aspect-[10/7] overflow-hidden rounded-lg bg-gradient-to-b from-sky-50 to-slate-100/90 ring-1 ring-zinc-950/5 dark:from-slate-900 dark:to-zinc-950/80 dark:ring-white/10">
                 <point.Illustration reduceMotion={reduceMotion} />
               </div>
               <p className="mt-4 text-base/7 font-medium text-zinc-950 sm:text-sm/6 dark:text-white">

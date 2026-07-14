@@ -99,7 +99,7 @@ export function AppPreview() {
                 }
               >
                 {current ? (
-                  <span className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-zinc-950 dark:bg-white" />
+                  <span className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-sky-500 dark:bg-sky-400" />
                 ) : null}
                 <Icon
                   className={
@@ -123,7 +123,7 @@ export function AppPreview() {
               <span className="text-sm/5 font-medium text-zinc-950 dark:text-white">
                 fnn running
               </span>
-              <Badge color="zinc">Testnet</Badge>
+              <Badge>Testnet</Badge>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <Button outline>View logs</Button>

@@ -67,7 +67,7 @@ function SiteNavbar() {
         </NavbarItem>
       </NavbarSection>
       <NavbarSection>
-        <Button href="/download" color="dark/zinc">
+        <Button href="/download">
           Download
         </Button>
       </NavbarSection>

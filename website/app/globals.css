@@ -2,11 +2,37 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --color-zinc-50: var(--color-slate-50);
+  --color-zinc-100: var(--color-slate-100);
+  --color-zinc-200: var(--color-slate-200);
+  --color-zinc-300: var(--color-slate-300);
+  --color-zinc-400: var(--color-slate-400);
+  --color-zinc-500: var(--color-slate-500);
+  --color-zinc-600: var(--color-slate-600);
+  --color-zinc-700: var(--color-slate-700);
+  --color-zinc-800: var(--color-slate-800);
+  --color-zinc-900: var(--color-slate-900);
+  --color-zinc-950: var(--color-slate-950);
 }
 
 body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-slate-900);
+  background-color: var(--color-slate-50);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, var(--color-sky-100), transparent),
+    linear-gradient(180deg, var(--color-slate-50), var(--color-white));
+}
+
+.dark body {
+  color: var(--color-slate-50);
+  background-color: var(--color-slate-950);
+  background-image:
+    radial-gradient(ellipse 70% 40% at 50% -15%, color-mix(in oklab, var(--color-sky-900) 45%, transparent), transparent),
+    linear-gradient(180deg, var(--color-slate-950), var(--color-slate-900));
 }

@@ -33,7 +33,7 @@ export function Hero() {
         </Text>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          <Button href="/download" color="dark/zinc">
+          <Button href="/download">
             Download
           </Button>
           <Button href="/get-started" outline>
