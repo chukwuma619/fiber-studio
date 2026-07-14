@@ -7,32 +7,79 @@
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
-  --color-zinc-50: var(--color-slate-50);
-  --color-zinc-100: var(--color-slate-100);
-  --color-zinc-200: var(--color-slate-200);
-  --color-zinc-300: var(--color-slate-300);
-  --color-zinc-400: var(--color-slate-400);
-  --color-zinc-500: var(--color-slate-500);
-  --color-zinc-600: var(--color-slate-600);
-  --color-zinc-700: var(--color-slate-700);
-  --color-zinc-800: var(--color-slate-800);
-  --color-zinc-900: var(--color-slate-900);
-  --color-zinc-950: var(--color-slate-950);
+  /* Geist radii: sm controls, md menus, lg fullscreen */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
+
+  /* Geist elevation (light) */
+  --shadow-xs: 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-md:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 4px 8px -4px rgb(0 0 0 / 0.04),
+    0 16px 24px -8px rgb(0 0 0 / 0.06);
+  --shadow-lg:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 8px 16px -4px rgb(0 0 0 / 0.04),
+    0 24px 32px -8px rgb(0 0 0 / 0.06);
+  --shadow-xl:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 8px 16px -4px rgb(0 0 0 / 0.04),
+    0 24px 32px -8px rgb(0 0 0 / 0.06);
+
+  --color-background: #ffffff;
+  --color-background-secondary: var(--color-zinc-50);
+  --color-foreground: var(--color-zinc-950);
+  --color-foreground-secondary: var(--color-zinc-600);
+  --color-foreground-tertiary: var(--color-zinc-500);
+  --color-border: color-mix(in oklab, var(--color-zinc-950) 10%, transparent);
+  --color-accent: var(--color-sky-600);
+  --color-accent-soft: var(--color-sky-100);
+  --color-focus: var(--color-sky-600);
+
+  --ease-geist: cubic-bezier(0.175, 0.885, 0.32, 1.1);
+}
+
+:root {
+  --ds-focus-ring:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-focus);
 }
 
 body {
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  color: var(--color-slate-900);
-  background-color: var(--color-slate-50);
-  background-image:
-    radial-gradient(ellipse 80% 50% at 50% -20%, var(--color-sky-100), transparent),
-    linear-gradient(180deg, var(--color-slate-50), var(--color-white));
+  color: var(--color-foreground);
+  background-color: var(--color-background-secondary);
 }
 
 .dark body {
-  color: var(--color-slate-50);
-  background-color: var(--color-slate-950);
-  background-image:
-    radial-gradient(ellipse 70% 40% at 50% -15%, color-mix(in oklab, var(--color-sky-900) 45%, transparent), transparent),
-    linear-gradient(180deg, var(--color-slate-950), var(--color-slate-900));
+  color: var(--color-zinc-50);
+  background-color: var(--color-zinc-950);
+  --color-background: var(--color-zinc-900);
+  --color-background-secondary: var(--color-zinc-950);
+  --color-foreground: var(--color-zinc-50);
+  --color-foreground-secondary: var(--color-zinc-400);
+  --color-foreground-tertiary: var(--color-zinc-500);
+  --color-border: color-mix(in oklab, white 10%, transparent);
+  --color-accent: var(--color-sky-400);
+  --color-accent-soft: color-mix(in oklab, var(--color-sky-500) 15%, transparent);
+  --color-focus: var(--color-sky-400);
+  --ds-focus-ring:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

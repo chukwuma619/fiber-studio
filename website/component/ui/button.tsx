@@ -5,14 +5,14 @@ import { Link } from './link'
 
 const styles = {
   base: [
-    // Base
-    'relative isolate inline-flex items-baseline justify-center gap-x-2 rounded-lg border text-base/6 font-semibold',
+    // Base 
+    'relative isolate inline-flex items-baseline justify-center gap-x-2 rounded-lg border text-base/6 font-medium',
     // Sizing
     'px-[calc(--spacing(3.5)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(3)-1px)] sm:py-[calc(--spacing(1.5)-1px)] sm:text-sm/6',
     // Focus
-    'focus:not-data-focus:outline-hidden data-focus:outline-2 data-focus:outline-offset-2 data-focus:outline-sky-500',
+    'focus:not-data-focus:outline-hidden data-focus:outline-hidden data-focus:shadow-(--ds-focus-ring)',
     // Disabled
-    'data-disabled:opacity-50',
+    'data-disabled:opacity-50 data-disabled:cursor-not-allowed',
     // Icon
     '*:data-[slot=icon]:-mx-0.5 *:data-[slot=icon]:my-0.5 *:data-[slot=icon]:size-5 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:self-center *:data-[slot=icon]:text-(--btn-icon) sm:*:data-[slot=icon]:my-1 sm:*:data-[slot=icon]:size-4 forced-colors:[--btn-icon:ButtonText] forced-colors:data-hover:[--btn-icon:ButtonText]',
   ],

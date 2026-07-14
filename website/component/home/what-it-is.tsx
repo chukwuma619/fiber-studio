@@ -447,7 +447,7 @@ export function WhatItIs() {
               transition={{ duration: 0.45, delay: index * 0.1, ease: 'easeOut' }}
               className="min-w-0"
             >
-              <div className="aspect-[10/7] overflow-hidden rounded-lg bg-gradient-to-b from-sky-50 to-slate-100/90 ring-1 ring-zinc-950/5 dark:from-slate-900 dark:to-zinc-950/80 dark:ring-white/10">
+              <div className="aspect-[10/7] overflow-hidden rounded-xl bg-zinc-50 ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
                 <point.Illustration reduceMotion={reduceMotion} />
               </div>
               <p className="mt-4 text-base/7 font-medium text-zinc-950 sm:text-sm/6 dark:text-white">

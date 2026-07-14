@@ -40,11 +40,11 @@ export function DropdownMenu({
         // Popover background
         'bg-white/75 backdrop-blur-xl dark:bg-zinc-800/75',
         // Shadows
-        'shadow-lg ring-1 ring-zinc-950/10 dark:ring-white/10 dark:ring-inset',
+        'shadow-md ring-1 ring-zinc-950/10 dark:ring-white/10 dark:ring-inset',
         // Define grid at the menu level if subgrid is supported
         'supports-[grid-template-columns:subgrid]:grid supports-[grid-template-columns:subgrid]:grid-cols-[auto_1fr_1.5rem_0.5rem_auto]',
-        // Transitions
-        'transition data-leave:duration-100 data-leave:ease-in data-closed:data-leave:opacity-0'
+        // Transitions — Geist ~200ms popovers
+        'transition data-leave:duration-200 data-leave:ease-[var(--ease-geist)] data-closed:data-leave:opacity-0'
       )}
     />
   )

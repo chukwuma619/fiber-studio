@@ -47,7 +47,7 @@ export function Combobox<T>({
           // Background color is moved to control and shadow is removed in dark mode so hide `before` pseudo
           'dark:before:hidden',
           // Focus ring
-          'after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-transparent after:ring-inset sm:focus-within:after:ring-2 sm:focus-within:after:ring-sky-500',
+          'after:pointer-events-none after:absolute after:inset-0 after:rounded-lg after:ring-transparent after:ring-inset sm:focus-within:after:shadow-(--ds-focus-ring)',
           // Disabled state
           'has-data-disabled:opacity-50 has-data-disabled:before:bg-zinc-950/5 has-data-disabled:before:shadow-none',
           // Invalid state
