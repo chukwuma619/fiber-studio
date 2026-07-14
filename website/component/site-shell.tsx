@@ -30,7 +30,6 @@ const nav = [
 ] as const
 
 const GITHUB_URL = 'https://github.com/chukwuma619/fiber-studio'
-const RELEASES_URL = `${GITHUB_URL}/releases`
 
 function BrandMark() {
   return (
@@ -114,11 +113,8 @@ function SiteFooter() {
         <TextLink href="/download">Download</TextLink>
         <TextLink href="/get-started">Get started</TextLink>
         <TextLink href="/faq">FAQ</TextLink>
-        <TextLink href={RELEASES_URL} target="_blank" rel="noopener noreferrer">
-          Releases
-        </TextLink>
-        <TextLink href="https://www.fiber.world/docs" target="_blank" rel="noopener noreferrer">
-          Fiber docs
+        <TextLink href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+          GitHub
         </TextLink>
       </div>
       <Text>Early development</Text>
