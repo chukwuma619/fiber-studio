@@ -24,7 +24,6 @@ import { Text, TextLink } from '@/component/ui/text'
 
 const nav = [
   { href: '/', label: 'Home' },
-  { href: '/download', label: 'Download' },
   { href: '/get-started', label: 'Get started' },
   { href: '/faq', label: 'FAQ' },
 ] as const
