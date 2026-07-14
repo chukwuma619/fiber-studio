@@ -60,8 +60,7 @@ export function FaqPage() {
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           Short answers about Fiber Studio, local nodes, channels, and first-launch
-          warnings. For a full walkthrough, use{' '}
-          <TextLink href="/get-started">Get started</TextLink>.
+          warnings.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button href="/download">Download</Button>
