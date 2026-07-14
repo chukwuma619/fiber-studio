@@ -7,7 +7,7 @@ import { AppPreview } from '@/component/home/app-preview'
 
 export function Hero() {
   return (
-    <section className="pb-4">
+    <section className="pb-4 sm:pt-20">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
