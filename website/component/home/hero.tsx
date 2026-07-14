@@ -17,14 +17,11 @@ export function Hero() {
 
 
         <h1 className="text-4xl font-semibold tracking-[-2.4px] text-zinc-950 sm:text-6xl sm:tracking-[-3.84px] dark:text-white">
-          Run and manage your Fiber Network Node from one desktop app.
+          A desktop app for Fiber Network payments.
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Fiber Studio wraps the official Fiber Network Node (
-          <span className="font-medium text-zinc-950 dark:text-white">fnn</span>) so you
-          can start the node, open channels, and send or receive payments without living in
-          a terminal. Your node runs locally — not a hosted wallet. Setup supports testnet
-          today.
+          Run the official Fiber node on your computer, send and receive payments, and keep
+          your keys on your device. No command line required. Testnet ready.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">
