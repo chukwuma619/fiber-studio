@@ -2,8 +2,6 @@
 
 import { motion, useReducedMotion } from 'motion/react'
 import { Divider } from '@/component/ui/divider'
-import { Heading } from '@/component/ui/heading'
-import { Strong, Text } from '@/component/ui/text'
 
 function IllustrationLocalNode({ reduceMotion }: { reduceMotion: boolean }) {
   return (
@@ -401,18 +399,18 @@ function IllustrationOutboundNetwork({ reduceMotion }: { reduceMotion: boolean }
 
 const POINTS = [
   {
-    title: 'Run fnn locally',
-    description: 'Start, stop, and monitor your node.',
+    title: 'Run it on your computer',
+    description: 'Start, stop, and check your node from one place.',
     Illustration: IllustrationLocalNode,
   },
   {
-    title: 'Keys stay on device',
-    description: 'Your wallet key and password stay on this computer.',
+    title: 'Your keys stay with you',
+    description: 'Your wallet key and password never leave this device.',
     Illustration: IllustrationKeysOnDevice,
   },
   {
-    title: 'Connect to the public network',
-    description: 'Outbound only — no public IP or VPS required.',
+    title: 'Join the public network',
+    description: 'Connect out to the network — no public IP or server required.',
     Illustration: IllustrationOutboundNetwork,
   },
 ] as const
@@ -424,18 +422,20 @@ export function WhatItIs() {
     <section className="pt-16 sm:pt-20">
       <Divider soft />
       <div className="pt-16 sm:pt-20">
-        <Heading level={2}>What Fiber Studio is</Heading>
-        <Text className="mt-4 max-w-2xl text-base/7 sm:text-base/7">
-          Fiber Network is Nervos CKB’s peer-to-peer payment and swap layer — channels,
-          routing, invoices, and off-chain value movement. To use it, you run{' '}
-          <Strong>fnn</Strong>, the official Fiber Network Node.
-        </Text>
-        <Text className="mt-4 max-w-2xl text-base/7 sm:text-base/7">
-          Fiber Studio does not replace <Strong>fnn</Strong> or fork the protocol. It is
-          the desktop interface for the same official node: guided setup and task-based
-          flows instead of CLI-only workflows. Your CKB key stays on disk; your wallet
-          password stays in the OS keychain. It is not a hosted wallet.
-        </Text>
+        <h2 className="text-2xl/8 font-semibold tracking-[-0.96px] text-zinc-950 sm:text-[32px]/[40px] sm:tracking-[-1.28px] dark:text-white">
+          What Fiber Studio is
+        </h2>
+        <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
+          Fiber Network is Nervos CKB’s network for fast peer-to-peer payments. To use it,
+          you run the official Fiber Network Node — a small program that connects you to
+          the network.
+        </p>
+        <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
+          Fiber Studio is the desktop app for that node. It guides setup and everyday
+          tasks so you don’t need the command line. Your CKB key stays on your computer,
+          and your password stays in your system’s keychain. Fiber Studio does not replace
+          the official node or change the protocol — and it is not a hosted wallet.
+        </p>
 
         <ul className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">
           {POINTS.map((point, index) => (
@@ -450,10 +450,10 @@ export function WhatItIs() {
               <div className="aspect-[10/7] overflow-hidden rounded-xl bg-zinc-50 ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
                 <point.Illustration reduceMotion={reduceMotion} />
               </div>
-              <p className="mt-4 text-base/7 font-medium text-zinc-950 sm:text-sm/6 dark:text-white">
+              <p className="mt-4 text-base/6 font-semibold tracking-[-0.32px] text-zinc-950 dark:text-white">
                 {point.title}
               </p>
-              <Text className="mt-1">{point.description}</Text>
+              <p className="mt-1 text-sm/5 text-zinc-600 dark:text-zinc-400">{point.description}</p>
             </motion.li>
           ))}
         </ul>

@@ -9,7 +9,6 @@ import {
   DescriptionList,
   DescriptionTerm,
 } from '@/component/ui/description-list'
-import { Heading, Subheading } from '@/component/ui/heading'
 import { StatusDot } from '@/component/ui/status-dot'
 import {
   Table,
@@ -137,7 +136,9 @@ export function AppPreview() {
               <div className="space-y-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <Heading level={1}>Home</Heading>
+                    <h1 className="text-2xl/8 font-semibold tracking-[-0.96px] text-zinc-950 sm:text-xl/8 sm:tracking-[-0.4px] dark:text-white">
+                      Home
+                    </h1>
                     <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                       Off-chain CKB payments on the Fiber network.
                     </Text>
@@ -175,7 +176,9 @@ export function AppPreview() {
                 <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
                   <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
                     <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-                      <Subheading level={3}>Channel liquidity</Subheading>
+                      <h3 className="text-base/7 font-semibold tracking-[-0.32px] text-zinc-950 sm:text-sm/6 sm:tracking-[-0.28px] dark:text-white">
+                        Channel liquidity
+                      </h3>
                       <Button plain className="text-xs">
                         View all
                       </Button>
@@ -215,7 +218,9 @@ export function AppPreview() {
                   </section>
 
                   <section className="min-w-0 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-                    <Subheading level={3}>Node status</Subheading>
+                    <h3 className="text-base/7 font-semibold tracking-[-0.32px] text-zinc-950 sm:text-sm/6 sm:tracking-[-0.28px] dark:text-white">
+                      Node status
+                    </h3>
                     <DescriptionList className="mt-4">
                       <DescriptionTerm>Status</DescriptionTerm>
                       <DescriptionDetails>
