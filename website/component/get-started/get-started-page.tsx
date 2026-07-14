@@ -120,8 +120,8 @@ export function GetStartedPage() {
           <li className="flex gap-3">
             <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" aria-hidden />
             <span>
-              Enough testnet CKB in that wallet to open a channel — at least{' '}
-              <Ui>1,000 CKB</Ui>, plus a little extra for fees.
+              Enough testnet CKB on-chain to open a channel. A <Ui>1,000 CKB</Ui> channel
+              needs about <Ui>1,109 CKB</Ui> available (capacity + reserve + fee buffer).
             </span>
           </li>
         </ul>
@@ -208,8 +208,8 @@ export function GetStartedPage() {
               <Ui>1,000</Ui>, then confirm <Ui>Open channel</Ui>.
             </li>
             <li>
-              Wait until the channel <Ui>State</Ui> shows <Ui>Active</Ui> (opening can take
-              a short while). Do not send payments until it is Active.
+              Wait until the channel <Ui>State</Ui> shows <Ui>Ready</Ui> (opening can take
+              a short while). Do not send payments until it is Ready.
             </li>
           </Actions>
           <Note>
@@ -221,7 +221,7 @@ export function GetStartedPage() {
 
         <GuideStep number="4" title="Send a payment" preview={<GuideSendPreview />}>
           <p className="text-base/7 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-            With an Active channel, you can move CKB over Fiber from <Ui>Wallet</Ui>.
+            With a <Ui>Ready</Ui> channel, you can move CKB over Fiber from <Ui>Wallet</Ui>.
           </p>
           <Actions>
             <li>
@@ -274,8 +274,8 @@ export function GetStartedPage() {
         </h2>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           Check that <Ui>fnn running</Ui> is showing, your peer is Connected, and your
-          channel is Active before sending. More answers are on the FAQ, or open an issue
-          on GitHub.
+          channel State is <Ui>Ready</Ui> before sending. More answers are on the FAQ, or
+          open an issue on GitHub.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button href="/faq">FAQ</Button>
