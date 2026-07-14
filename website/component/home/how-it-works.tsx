@@ -3,8 +3,8 @@
 import { motion } from 'motion/react'
 
 import {
+  ChannelsCrop,
   SetupReviewCrop,
-  SetupWelcomeCrop,
   WalletCrop,
 } from '@/component/home/preview-crops'
 import { Divider } from '@/component/ui/divider'
@@ -12,20 +12,23 @@ import { Divider } from '@/component/ui/divider'
 const STEPS = [
   {
     step: '01',
-    title: 'Install',
-    description: 'Download Fiber Studio and open it on your computer.',
-    Preview: SetupWelcomeCrop,
+    title: 'Set up your node',
+    description:
+      'Install Fiber Studio, save a peer, add your CKB key, and start the official Fiber node.',
+    Preview: SetupReviewCrop,
   },
   {
     step: '02',
-    title: 'Set up',
-    description: 'Follow the guided setup to run the official Fiber node.',
-    Preview: SetupReviewCrop,
+    title: 'Open a channel',
+    description:
+      'Connect to that peer and open a channel with CKB. Fiber payments need channel capacity first.',
+    Preview: ChannelsCrop,
   },
   {
     step: '03',
     title: 'Send and receive',
-    description: 'Move payments from the app — no command line required.',
+    description:
+      'Pay invoices or create invoices from Wallet once your channel is active.',
     Preview: WalletCrop,
   },
 ] as const
@@ -39,7 +42,8 @@ export function HowItWorks() {
           How it works
         </h2>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Three steps from download to your first payment on Fiber Network.
+          Fiber Studio walks you through the real Fiber path: run a node, open a channel,
+          then send and receive payments.
         </p>
 
         <ol className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">

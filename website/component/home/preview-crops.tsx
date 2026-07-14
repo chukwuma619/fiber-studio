@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { Badge } from '@/component/ui/badge'
 import { Button } from '@/component/ui/button'
+import { CapacityBar } from '@/component/ui/capacity-bar'
 import { StatusDot } from '@/component/ui/status-dot'
 import {
   DescriptionDetails,
@@ -144,37 +145,6 @@ export function NetworkCrop() {
   )
 }
 
-/** Setup welcome — first open after install. */
-export function SetupWelcomeCrop() {
-  return (
-    <PreviewCrop>
-      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-        <p className="text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
-          Step 1 of 6 — Welcome
-        </p>
-        <h3 className="mt-2 text-base font-semibold tracking-[-0.32px] text-zinc-950 dark:text-white">
-          Welcome to Fiber Studio
-        </h3>
-        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-          A desktop app for running the official Fiber Network Node on your computer.
-        </p>
-        <ul className="mt-3 grid min-h-0 flex-1 gap-2 overflow-hidden">
-          {['Run fnn locally', 'Keys stay on device', 'Connect to the public network'].map(
-            (title) => (
-              <li
-                key={title}
-                className="rounded-lg bg-zinc-50 px-3 py-2 ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10"
-              >
-                <p className="text-xs font-semibold text-zinc-950 dark:text-white">{title}</p>
-              </li>
-            )
-          )}
-        </ul>
-      </div>
-    </PreviewCrop>
-  )
-}
-
 /** Setup review — guided setup complete. */
 export function SetupReviewCrop() {
   return (
@@ -189,7 +159,7 @@ export function SetupReviewCrop() {
         <dl className="mt-3 min-h-0 flex-1 divide-y divide-zinc-200 overflow-hidden rounded-lg ring-1 ring-zinc-950/10 dark:divide-zinc-800 dark:ring-white/10">
           {[
             { label: 'Network', value: 'Testnet' },
-            { label: 'Peer', value: '03f1a8…c42d' },
+            { label: 'Saved peer', value: '03f1a8…c42d' },
             { label: 'Wallet key', value: '…/ckb/key' },
             { label: 'Password', value: 'OS keychain' },
           ].map((row) => (
@@ -201,6 +171,45 @@ export function SetupReviewCrop() {
         </dl>
         <div className="mt-3 flex justify-end">
           <Button className="text-xs">Start node</Button>
+        </div>
+      </div>
+    </PreviewCrop>
+  )
+}
+
+/** Channels — open a channel with a connected peer. */
+export function ChannelsCrop() {
+  return (
+    <PreviewCrop>
+      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
+        <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <div>
+            <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
+              Channels
+            </h3>
+            <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+              1 active · peer connected
+            </p>
+          </div>
+          <Button className="text-xs">Open channel</Button>
+        </div>
+        <div className="min-h-0 flex-1 space-y-3 overflow-hidden p-4">
+          <div className="flex flex-wrap gap-1.5">
+            <Badge color="green">Connected</Badge>
+            <Badge color="blue">Public</Badge>
+            <Badge color="green">Active</Badge>
+          </div>
+          <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400">03f1a8…c42d</p>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
+              <span>Capacity</span>
+              <span className="tabular-nums text-zinc-950 dark:text-white">2,000 CKB</span>
+            </div>
+            <CapacityBar percent={62} showLabel={false} />
+            <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+              62% local / 38% remote
+            </p>
+          </div>
         </div>
       </div>
     </PreviewCrop>
