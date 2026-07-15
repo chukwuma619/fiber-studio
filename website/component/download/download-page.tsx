@@ -140,9 +140,7 @@ function AfterInstallNotes({ platform }: { platform: DetectedPlatform }) {
 }
 
 export function DownloadPage({ release }: { release: LatestRelease | null }) {
-  const [detected, setDetected] = useState<DetectedPlatform>(() =>
-    typeof window === 'undefined' ? 'unknown' : detectPlatformSync(),
-  )
+  const [detected, setDetected] = useState<DetectedPlatform>('unknown')
 
   useEffect(() => {
     let cancelled = false

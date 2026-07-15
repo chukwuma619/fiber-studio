@@ -19,6 +19,7 @@ import {
   SidebarLabel,
   SidebarSection,
 } from '@/component/ui/sidebar'
+import { ThemeSwitcher } from '@/component/theme-switcher'
 import { StackedLayout } from '@/component/ui/stacked-layout'
 import { Text, TextLink } from '@/component/ui/text'
 
@@ -106,17 +107,28 @@ function SiteSidebar() {
 
 function SiteFooter() {
   return (
-    <footer className="mt-16 flex flex-col gap-4 border-t border-zinc-950/10 pt-8 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
-      <BrandMark />
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
-        <TextLink href="/download">Download</TextLink>
-        <TextLink href="/get-started">Get started</TextLink>
-        <TextLink href="/faq">FAQ</TextLink>
-        <TextLink href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
-          GitHub
-        </TextLink>
+    <footer className="mt-16 flex flex-col gap-6 border-t border-zinc-950/10 pt-8 dark:border-white/10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <BrandMark />
+        <div className="flex flex-wrap gap-x-4 gap-y-2">
+          <TextLink href="/download">Download</TextLink>
+          <TextLink href="/get-started">Get started</TextLink>
+          <TextLink href="/faq">FAQ</TextLink>
+          <TextLink href={GITHUB_URL} target="_blank" rel="noopener noreferrer">
+            GitHub
+          </TextLink>
+        </div>
       </div>
-      <Text>Made with ❤️ by <TextLink href="https://ebube.dev" target="_blank" rel="noopener noreferrer">Ebube</TextLink>.</Text>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <ThemeSwitcher />
+        <Text>
+          Made with ❤️ by{' '}
+          <TextLink href="https://ebube.dev" target="_blank" rel="noopener noreferrer">
+            Ebube
+          </TextLink>
+          .
+        </Text>
+      </div>
     </footer>
   )
 }

@@ -49,17 +49,10 @@
   --ds-focus-ring:
     0 0 0 2px var(--color-background),
     0 0 0 4px var(--color-focus);
+  color-scheme: light;
 }
 
-body {
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  color: var(--color-foreground);
-  background-color: var(--color-background-secondary);
-}
-
-.dark body {
-  color: var(--color-zinc-50);
-  background-color: var(--color-zinc-950);
+.dark {
   --color-background: var(--color-zinc-900);
   --color-background-secondary: var(--color-zinc-950);
   --color-foreground: var(--color-zinc-50);
@@ -72,25 +65,13 @@ body {
   --ds-focus-ring:
     0 0 0 2px var(--color-background),
     0 0 0 4px var(--color-focus);
+  color-scheme: dark;
 }
 
-@media (prefers-color-scheme: dark) {
-  body {
-    color: var(--color-zinc-50);
-    background-color: var(--color-zinc-950);
-    --color-background: var(--color-zinc-900);
-    --color-background-secondary: var(--color-zinc-950);
-    --color-foreground: var(--color-zinc-50);
-    --color-foreground-secondary: var(--color-zinc-400);
-    --color-foreground-tertiary: var(--color-zinc-500);
-    --color-border: color-mix(in oklab, white 10%, transparent);
-    --color-accent: var(--color-sky-400);
-    --color-accent-soft: color-mix(in oklab, var(--color-sky-500) 15%, transparent);
-    --color-focus: var(--color-sky-400);
-    --ds-focus-ring:
-      0 0 0 2px var(--color-background),
-      0 0 0 4px var(--color-focus);
-  }
+body {
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-foreground);
+  background-color: var(--color-background-secondary);
 }
 
 @media (prefers-reduced-motion: reduce) {

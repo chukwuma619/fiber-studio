@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { SiteShell } from '@/component/site-shell'
+import { ThemeProvider } from '@/component/theme-provider'
 import './globals.css'
 
 const geistSans = Geist({
@@ -27,10 +28,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col font-sans">
-        <SiteShell>{children}</SiteShell>
+        <ThemeProvider>
+          <SiteShell>{children}</SiteShell>
+        </ThemeProvider>
       </body>
     </html>
   )
