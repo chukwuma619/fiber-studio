@@ -116,7 +116,7 @@ function SiteFooter() {
           GitHub
         </TextLink>
       </div>
-      <Text>Early development</Text>
+      <Text>Made with ❤️ by <TextLink href="https://ebube.dev" target="_blank" rel="noopener noreferrer">Ebube</TextLink>.</Text>
     </footer>
   )
 }
