@@ -1,7 +1,7 @@
 'use client'
 
 import { motion } from 'motion/react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 
 import { Button } from '@/component/ui/button'
 import { Divider } from '@/component/ui/divider'
@@ -16,6 +16,14 @@ import {
   type PlatformDownload,
   type PlatformId,
 } from '@/lib/releases'
+
+function subscribeNoop() {
+  return () => {}
+}
+
+function getServerPlatform(): DetectedPlatform {
+  return 'unknown'
+}
 
 function Note({ children }: { children: ReactNode }) {
   return (
@@ -140,19 +148,24 @@ function AfterInstallNotes({ platform }: { platform: DetectedPlatform }) {
 }
 
 export function DownloadPage({ release }: { release: LatestRelease | null }) {
-  const [detected, setDetected] = useState<DetectedPlatform>('unknown')
+  const syncDetected = useSyncExternalStore(
+    subscribeNoop,
+    detectPlatformSync,
+    getServerPlatform,
+  )
+  const [refined, setRefined] = useState<DetectedPlatform | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    setDetected(detectPlatformSync())
     void detectPlatform().then((platform) => {
-      if (!cancelled) setDetected(platform)
+      if (!cancelled) setRefined(platform)
     })
     return () => {
       cancelled = true
     }
   }, [])
 
+  const detected = refined ?? syncDetected
   const platforms = release ? buildPlatformDownloads(release.assets) : []
   const recommended =
     detected === 'unknown'
