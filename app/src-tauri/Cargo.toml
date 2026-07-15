@@ -29,7 +29,6 @@ keyring = { version = "3", features = ["apple-native", "windows-native", "linux-
 tokio = { version = "1", features = ["macros", "time", "sync"] }
 thiserror = "1"
 chrono = { version = "0.4", features = ["serde"] }
-blake2 = "0.10"
 bech32 = "0.11"
 strip-ansi-escapes = "0.2"
 shared_child = "1.1"
