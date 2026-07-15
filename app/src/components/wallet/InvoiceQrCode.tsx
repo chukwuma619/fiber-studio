@@ -13,7 +13,7 @@ export function InvoiceQrCode({
 }: InvoiceQrCodeProps) {
   return (
     <div
-      className="inline-flex rounded-lg bg-white p-3 shadow-sm ring-1 ring-zinc-950/10 dark:ring-zinc-700"
+      className="inline-flex rounded-lg bg-white p-3 shadow-xs ring-1 ring-zinc-950/10 dark:ring-white/10"
       role="img"
       aria-label={title}
     >

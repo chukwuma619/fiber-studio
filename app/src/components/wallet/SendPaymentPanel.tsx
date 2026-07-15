@@ -300,7 +300,7 @@ export function SendPaymentPanel({
     <>
       <div
         id="send-payment-panel"
-        className="rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10"
+        className="min-w-0 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10"
       >
         <Subheading level={3}>Send payment</Subheading>
         <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
@@ -318,7 +318,7 @@ export function SendPaymentPanel({
             type="button"
             className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
               sendMode === "invoice"
-                ? "bg-white text-zinc-950 shadow-sm dark:bg-zinc-900 dark:text-white"
+                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
                 : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
             }`}
             onClick={() => setSendMode("invoice")}
@@ -329,7 +329,7 @@ export function SendPaymentPanel({
             type="button"
             className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
               sendMode === "keysend"
-                ? "bg-white text-zinc-950 shadow-sm dark:bg-zinc-900 dark:text-white"
+                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
                 : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
             }`}
             onClick={() => setSendMode("keysend")}

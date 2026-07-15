@@ -58,7 +58,7 @@ export function SentPaymentsSection({
 
   return (
     <>
-      <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+      <section className="overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
         <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
           <Subheading level={3}>Sent payments</Subheading>
           <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">

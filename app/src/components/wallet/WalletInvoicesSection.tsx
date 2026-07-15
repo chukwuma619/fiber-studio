@@ -61,7 +61,7 @@ export function WalletInvoicesSection({
     : null
 
   return (
-    <section className="rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+    <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
       <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <div>
           <Subheading level={3}>Receive & invoices</Subheading>
@@ -73,7 +73,7 @@ export function WalletInvoicesSection({
           <Button outline className="text-xs" onClick={onImport} disabled={!running}>
             Import
           </Button>
-          <Button outline className="text-xs" onClick={onCreate} disabled={!running}>
+          <Button className="text-xs" onClick={onCreate} disabled={!running}>
             Create invoice
           </Button>
         </div>

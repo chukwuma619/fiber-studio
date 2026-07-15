@@ -206,7 +206,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
   }, [refresh])
 
   return (
-    <div className="mx-auto max-w-6xl space-y-8 px-4 py-6 sm:px-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Heading level={1}>Wallet</Heading>
@@ -215,18 +215,35 @@ export function WalletPage({ initialAction }: WalletPageProps) {
             {invoiceCurrency} invoices on the Fiber network.
           </Text>
         </div>
-        <Button
-          outline
-          onClick={handleRefresh}
-          disabled={!running || isRefreshing}
-          aria-label="Refresh wallet"
-        >
-          <RefreshCw
-            className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
-            data-slot="icon"
-          />
-          Refresh
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={() => setCreateDialogOpen(true)} disabled={!running}>
+            Create invoice
+          </Button>
+          <Button
+            outline
+            onClick={() => {
+              document.getElementById("send-payment-panel")?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              })
+            }}
+            disabled={!running}
+          >
+            Send payment
+          </Button>
+          <Button
+            outline
+            onClick={handleRefresh}
+            disabled={!running || isRefreshing}
+            aria-label="Refresh wallet"
+          >
+            <RefreshCw
+              className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
+              data-slot="icon"
+            />
+            Refresh
+          </Button>
+        </div>
       </div>
 
       {error ? (
