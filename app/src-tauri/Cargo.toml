@@ -10,7 +10,7 @@ edition = "2021"
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
+# This seems to be only an issue on Windows, see https://github.com/rust-lang.org/cargo/issues/8519
 name = "fiber_studio_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
@@ -24,16 +24,15 @@ tauri-plugin-os = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"
-reqwest = { version = "0.12", features = ["json"] }
-keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"] }
+reqwest = { version = "0.13", features = ["json"] }
+keyring = "4"
 tokio = { version = "1", features = ["macros", "time", "sync"] }
-thiserror = "1"
+thiserror = "2"
 chrono = { version = "0.4", features = ["serde"] }
-bech32 = "0.11"
+bech32 = "0.12"
 strip-ansi-escapes = "0.2"
 shared_child = "1.1"
 tauri-plugin-process = "2"
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 tauri-plugin-updater = "2"
-
