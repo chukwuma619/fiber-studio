@@ -4,6 +4,7 @@ import * as Headless from '@headlessui/react'
 import clsx from 'clsx'
 import { LayoutGroup, motion } from 'motion/react'
 import React, { forwardRef, useId } from 'react'
+import { indicatorTransition } from '../../lib/motion'
 import { TouchTarget } from './button'
 import { Link } from './link'
 
@@ -110,6 +111,7 @@ export const SidebarItem = forwardRef(function SidebarItem(
       {current && (
         <motion.span
           layoutId="current-indicator"
+          transition={indicatorTransition}
           className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-sky-500 dark:bg-sky-400"
         />
       )}

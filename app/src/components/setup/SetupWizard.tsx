@@ -1,15 +1,17 @@
 import { useNavigate } from "@tanstack/react-router"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 import { lazy, Suspense, useEffect, useRef, useState } from "react"
 import { normalizeCkbPrivateKey } from "../../lib/ckb-key"
 import {
   getDataDirectoryDisplayForNetwork,
   resolveDataDirectoryForNetwork,
 } from "../../lib/data-directory"
+import { getErrorMessage } from "../../lib/fnn/errors"
 import { completeSetupAndStart } from "../../lib/fnn/invoke"
 import { FNN_VERSION } from "../../lib/fnn/types"
+import { stepEnter } from "../../lib/motion"
 import { getRelay } from "../../lib/public-relays"
 import { completeSetup } from "../../lib/setup/storage"
-import { validateSetupStep } from "../../lib/setup/validation"
 import {
   createDefaultSetupConfig,
   SETUP_STEPS,
@@ -17,9 +19,9 @@ import {
   type SetupConfig,
   type SetupStep,
 } from "../../lib/setup/types"
+import { validateSetupStep } from "../../lib/setup/validation"
 import { Skeleton } from "../ui/skeleton"
 import { SetupLayout } from "./SetupLayout"
-import { getErrorMessage } from "../../lib/fnn/errors"
 
 const WelcomeStep = lazy(() =>
   import("./steps/WelcomeStep").then((module) => ({ default: module.WelcomeStep })),
@@ -128,6 +130,7 @@ function renderStepContent(
 export function SetupWizard() {
   const navigate = useNavigate()
   const stepContentRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
   const [currentStep, setCurrentStep] = useState<SetupStep>("welcome")
   const [config, setConfig] = useState<SetupConfig>(createDefaultSetupConfig)
   const [isStarting, setIsStarting] = useState(false)
@@ -237,15 +240,25 @@ export function SetupWizard() {
       onComplete={handleComplete}
     >
       <div ref={stepContentRef}>
-        <Suspense fallback={<StepSkeleton />}>
-          {renderStepContent(
-            currentStep,
-            config,
-            updateConfig,
-            startError,
-            displayedStepError,
-          )}
-        </Suspense>
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={currentStep}
+            initial={reduceMotion ? false : stepEnter.initial}
+            animate={stepEnter.animate}
+            exit={reduceMotion ? undefined : stepEnter.exit}
+            transition={stepEnter.transition}
+          >
+            <Suspense fallback={<StepSkeleton />}>
+              {renderStepContent(
+                currentStep,
+                config,
+                updateConfig,
+                startError,
+                displayedStepError,
+              )}
+            </Suspense>
+          </motion.div>
+        </AnimatePresence>
       </div>
     </SetupLayout>
   )
