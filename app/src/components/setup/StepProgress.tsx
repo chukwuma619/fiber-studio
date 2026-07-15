@@ -26,7 +26,7 @@ export function StepProgress({ currentStep }: { currentStep: SetupStep }) {
             key={step}
             className={`h-1 flex-1 rounded-full transition-colors ${
               stepIndex <= index
-                ? "bg-zinc-900 dark:bg-white"
+                ? "bg-sky-500 dark:bg-sky-400"
                 : "bg-zinc-200 dark:bg-zinc-800"
             }`}
             aria-hidden

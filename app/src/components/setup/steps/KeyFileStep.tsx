@@ -45,7 +45,7 @@ export function KeyFileStep({
         {error ? <ErrorMessage>{error}</ErrorMessage> : null}
       </Field>
 
-      <div className="rounded-lg bg-zinc-950/2.5 px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10">
+      <div className="rounded-lg bg-zinc-50 px-4 py-3 ring-1 ring-zinc-950/10 dark:bg-white/5 dark:ring-white/10">
         <p className="text-xs font-medium text-zinc-950 dark:text-white">
           Don&apos;t have a key yet?
         </p>

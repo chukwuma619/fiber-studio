@@ -29,7 +29,7 @@ export function SetupLayout({
 }: SetupLayoutProps) {
   return (
     <div className="flex h-dvh flex-col bg-zinc-100 dark:bg-zinc-950">
-      <header className="border-b border-zinc-950/5 bg-white px-6 py-5 dark:border-white/10 dark:bg-zinc-900">
+      <header className="border-b border-zinc-950/5 bg-white px-6 py-5 dark:border-white/5 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-6">
           <FiberStudioLogo subtitle="Setup wizard" />
           <div className="hidden w-48 sm:block">
@@ -41,13 +41,13 @@ export function SetupLayout({
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-6 py-8">
+      <main className="flex-1 overflow-y-auto p-4 lg:p-6">
         <div className="mx-auto max-w-2xl">
-          <p className="mb-4 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+          <p className="mb-4 text-xs font-medium tracking-wide text-zinc-500 uppercase dark:text-zinc-400">
             {STEP_TITLES[currentStep]}
           </p>
           <div
-            className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10"
+            className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 sm:p-8 dark:bg-zinc-900 dark:ring-white/10"
             aria-live="polite"
           >
             {children}
@@ -55,7 +55,7 @@ export function SetupLayout({
         </div>
       </main>
 
-      <footer className="border-t border-zinc-950/5 bg-white px-6 py-4 dark:border-white/10 dark:bg-zinc-900">
+      <footer className="border-t border-zinc-950/5 bg-white px-6 py-4 dark:border-white/5 dark:bg-zinc-900">
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-4">
           <Button
             outline

@@ -16,7 +16,7 @@ export function SettingsSection({
   actions,
 }: SettingsSectionProps) {
   return (
-    <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+    <section className="overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
       <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <div>
           <Subheading level={2}>{title}</Subheading>

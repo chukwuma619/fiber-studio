@@ -49,7 +49,7 @@ export function SettingsPage() {
     status?.state === "stopped" || status?.state === "error" || !status
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6">
+    <div className="mx-auto max-w-3xl space-y-8">
       <div>
         <Heading level={1}>Settings</Heading>
         <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">

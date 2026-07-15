@@ -36,7 +36,7 @@ export function AppUpdatesSection() {
 
   if (!isTauri()) {
     return (
-      <section className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+      <section className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
         <Subheading level={2}>Updates</Subheading>
         <Text className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
           In-app updates are available in the desktop build only.
@@ -52,7 +52,7 @@ export function AppUpdatesSection() {
       : "Not checked yet"
 
   return (
-    <section className="rounded-lg bg-white p-6 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+    <section className="rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
       <Subheading level={2}>Updates</Subheading>
       <Text className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
         Fiber Studio checks for updates after launch. You can also check manually here.

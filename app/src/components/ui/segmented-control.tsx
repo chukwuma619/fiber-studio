@@ -21,7 +21,7 @@ export function SegmentedControl<T extends string>({
           className={clsx(
             "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
             option.value === value
-              ? "bg-white text-zinc-950 shadow-sm dark:bg-zinc-700 dark:text-white"
+              ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-700 dark:text-white"
               : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200",
           )}
         >

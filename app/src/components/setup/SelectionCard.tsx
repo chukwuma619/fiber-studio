@@ -32,12 +32,12 @@ export function SelectionCard({
         disabled
           ? "cursor-not-allowed border-zinc-950/5 bg-zinc-50 opacity-60 dark:border-white/5 dark:bg-zinc-950"
           : selected
-            ? "border-zinc-900 bg-zinc-950/2.5 ring-1 ring-zinc-900 dark:border-white dark:bg-white/5 dark:ring-white"
+            ? "border-sky-500 bg-sky-50 ring-1 ring-sky-500 dark:border-sky-400 dark:bg-sky-500/10 dark:ring-sky-400"
             : "border-zinc-950/10 bg-white hover:border-zinc-950/20 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20",
       )}
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-semibold text-zinc-950 dark:text-white">
+        <span className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
           {title}
         </span>
         {badge}

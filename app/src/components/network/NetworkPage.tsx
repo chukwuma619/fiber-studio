@@ -99,7 +99,7 @@ export function NetworkPage() {
   const graphLabel = graphStatusLabel(graphReady, relayStatus)
 
   return (
-    <div className="mx-auto max-w-6xl space-y-6 px-4 py-6 sm:px-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Heading level={1}>Network</Heading>
@@ -108,6 +108,9 @@ export function NetworkPage() {
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button onClick={openConnectDialog} disabled={!running}>
+            Add saved peer
+          </Button>
           <Button
             outline
             onClick={() => void refresh()}
@@ -118,9 +121,6 @@ export function NetworkPage() {
               data-slot="icon"
             />
             Refresh
-          </Button>
-          <Button onClick={openConnectDialog} disabled={!running}>
-            Add saved peer
           </Button>
         </div>
       </div>
@@ -140,7 +140,7 @@ export function NetworkPage() {
       ) : null}
 
       {available ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-4 py-3 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-white px-4 py-3 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
           <Badge color={relayBadgeColor}>
             <StatusDot tone={relayDotTone} />
             {savedPeersStatusLabel(savedPeerConnectedCount, savedPeerTotal)}
@@ -162,7 +162,7 @@ export function NetworkPage() {
       ) : null}
 
       {unavailableState ? (
-        <section className="overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+        <section className="overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
           <HomeEmptyState
             title={unavailableState.title}
             description={unavailableState.description}

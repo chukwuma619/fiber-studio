@@ -30,10 +30,10 @@ export function WelcomeStep() {
         {FEATURES.map((item) => (
           <li
             key={item.title}
-            className="flex gap-3 rounded-lg bg-zinc-950/2.5 px-4 py-3 ring-1 ring-zinc-950/5 dark:bg-white/5 dark:ring-white/10"
+            className="flex gap-3 rounded-lg bg-zinc-50 px-4 py-3 ring-1 ring-zinc-950/10 dark:bg-white/5 dark:ring-white/10"
           >
             <span
-              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-xs font-bold text-white dark:bg-white dark:text-zinc-900"
+              className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-sky-500 text-xs font-bold text-white dark:bg-sky-400 dark:text-zinc-950"
               aria-hidden
             >
               ✓

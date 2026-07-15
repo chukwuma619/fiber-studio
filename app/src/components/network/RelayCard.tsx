@@ -32,7 +32,7 @@ export function RelayCard({
   const connected = relay.connected
 
   return (
-    <div className="flex h-full flex-col rounded-lg bg-zinc-50 p-4 ring-1 ring-zinc-950/5 dark:bg-zinc-950/40 dark:ring-white/10">
+    <div className="flex h-full flex-col rounded-lg bg-zinc-50 p-4 ring-1 ring-zinc-950/10 dark:bg-zinc-950/40 dark:ring-white/10">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-1">
