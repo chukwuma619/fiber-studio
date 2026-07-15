@@ -111,27 +111,25 @@ export function HomePage() {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
         <ChannelLiquiditySection
           channels={dashboard?.channels ?? []}
           available={available}
           status={status}
           isLoading={isDashboardInitialLoad}
         />
-        <div className="min-w-0">
-          <NodeStatusPanel
-            dashboard={dashboard}
-            status={status}
-            isLoading={isNodeLoading || isDashboardInitialLoad}
-            dataDirectory={
-              nodeStatus?.dataDirectory ??
-              (config?.network
-                ? getDataDirectoryDisplayForNetwork(config.network)
-                : null)
-            }
-            config={config}
-          />
-        </div>
+        <NodeStatusPanel
+          dashboard={dashboard}
+          status={status}
+          isLoading={isNodeLoading || isDashboardInitialLoad}
+          dataDirectory={
+            nodeStatus?.dataDirectory ??
+            (config?.network
+              ? getDataDirectoryDisplayForNetwork(config.network)
+              : null)
+          }
+          config={config}
+        />
       </div>
 
       <RecentActivitySection

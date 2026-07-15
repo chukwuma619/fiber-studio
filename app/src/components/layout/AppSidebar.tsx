@@ -19,7 +19,7 @@ export function AppSidebar() {
 
   return (
     <Sidebar>
-      <SidebarHeader className="border-r">
+      <SidebarHeader>
         <SidebarItem href="/" className="[&>a]:gap-0">
           <FiberMarkIcon data-slot="avatar" />
           <SidebarLabel>

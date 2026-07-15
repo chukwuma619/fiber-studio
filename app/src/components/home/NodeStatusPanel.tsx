@@ -60,7 +60,7 @@ export function NodeStatusPanel({
 
   return (
     <>
-      <section className="min-w-0 rounded-lg bg-white p-5 shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+      <section className="min-w-0 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
         <Subheading level={3}>Node status</Subheading>
 
         <DescriptionList className="mt-4">

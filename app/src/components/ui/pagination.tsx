@@ -73,7 +73,7 @@ export function PaginationPage({
       className={clsx(
         className,
         'min-w-9 before:absolute before:-inset-px before:rounded-lg',
-        current && 'before:bg-zinc-950/5 dark:before:bg-white/10'
+        current && 'before:bg-sky-500/10 dark:before:bg-sky-400/15'
       )}
     >
       <span className="-mx-0.5">{children}</span>

@@ -5,9 +5,7 @@ type CapacityBarProps = {
 
 export function CapacityBar({ percent, showLabel = true }: CapacityBarProps) {
   const tone =
-    percent < 15
-      ? "bg-amber-500 dark:bg-amber-400"
-      : "bg-teal-500 dark:bg-teal-400"
+    percent < 15 ? 'bg-amber-500 dark:bg-amber-400' : 'bg-sky-500 dark:bg-sky-400'
 
   return (
     <div className="flex items-center gap-2">
@@ -23,9 +21,7 @@ export function CapacityBar({ percent, showLabel = true }: CapacityBarProps) {
         />
       </div>
       {showLabel ? (
-        <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-          {percent}%
-        </span>
+        <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">{percent}%</span>
       ) : null}
     </div>
   )

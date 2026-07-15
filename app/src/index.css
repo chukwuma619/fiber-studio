@@ -1,12 +1,103 @@
-@import "@fontsource-variable/inter";
+@import "@fontsource/geist-sans";
 @import "tailwindcss";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
-@theme {
-  --font-sans: "Inter Variable", Inter, sans-serif;
-  --font-sans--font-feature-settings: 'cv11';
+@theme inline {
+  --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+
+  /* Geist radii: sm controls, md menus, lg fullscreen */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 6px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+  --radius-4xl: 16px;
+
+  /* Geist elevation (light) */
+  --shadow-xs: 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-sm: 0 2px 2px rgb(0 0 0 / 0.04);
+  --shadow-md:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 4px 8px -4px rgb(0 0 0 / 0.04),
+    0 16px 24px -8px rgb(0 0 0 / 0.06);
+  --shadow-lg:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 8px 16px -4px rgb(0 0 0 / 0.04),
+    0 24px 32px -8px rgb(0 0 0 / 0.06);
+  --shadow-xl:
+    0 1px 1px rgb(0 0 0 / 0.02),
+    0 8px 16px -4px rgb(0 0 0 / 0.04),
+    0 24px 32px -8px rgb(0 0 0 / 0.06);
+
+  --color-background: #ffffff;
+  --color-background-secondary: var(--color-zinc-50);
+  --color-foreground: var(--color-zinc-950);
+  --color-foreground-secondary: var(--color-zinc-600);
+  --color-foreground-tertiary: var(--color-zinc-500);
+  --color-border: color-mix(in oklab, var(--color-zinc-950) 10%, transparent);
+  --color-accent: var(--color-sky-600);
+  --color-accent-soft: var(--color-sky-100);
+  --color-focus: var(--color-sky-600);
+
+  --ease-geist: cubic-bezier(0.175, 0.885, 0.32, 1.1);
 }
-html, body {
+
+:root {
+  --ds-focus-ring:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-focus);
+  color-scheme: light;
+}
+
+.dark {
+  --color-background: var(--color-zinc-900);
+  --color-background-secondary: var(--color-zinc-950);
+  --color-foreground: var(--color-zinc-50);
+  --color-foreground-secondary: var(--color-zinc-400);
+  --color-foreground-tertiary: var(--color-zinc-500);
+  --color-border: color-mix(in oklab, white 10%, transparent);
+  --color-accent: var(--color-sky-400);
+  --color-accent-soft: color-mix(in oklab, var(--color-sky-500) 15%, transparent);
+  --color-focus: var(--color-sky-400);
+  --ds-focus-ring:
+    0 0 0 2px var(--color-background),
+    0 0 0 4px var(--color-focus);
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+html,
+body {
   overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  color: var(--color-foreground);
+  background-color: var(--color-background-secondary);
+}
+
+#root {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }

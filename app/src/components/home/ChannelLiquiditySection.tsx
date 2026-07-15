@@ -46,7 +46,7 @@ export function ChannelLiquiditySection({
     "Start your node to see channel liquidity.",
   )
   return (
-    <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+    <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
       <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
         <Subheading level={3}>Channel liquidity</Subheading>
         <Button href="/channels" plain className="text-xs">

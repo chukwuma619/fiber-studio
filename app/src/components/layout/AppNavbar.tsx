@@ -24,7 +24,7 @@ export function AppNavbar() {
       </NavbarSection>
       <NavbarSpacer />
       <NavbarSection>
-        <Badge color="zinc">{formatNetworkLabel(config?.network)}</Badge>
+        <Badge color="sky">{formatNetworkLabel(config?.network)}</Badge>
         <span className="hidden text-sm/5 text-zinc-500 sm:inline dark:text-zinc-400">
           {nodeHeaderLabel(status, isLoading)}
         </span>
