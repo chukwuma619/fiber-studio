@@ -333,7 +333,7 @@ bun run fetch-fnn    # download bundled fnn sidecar for your platform (required 
 bun run tauri dev
 ```
 
-Fiber Studio bundles the official [fnn](https://github.com/nervosnetwork/fiber) binary (currently **v0.8.1**) as a Tauri sidecar. The `fetch-fnn` script downloads it from GitHub Releases into `app/src-tauri/binaries/` (gitignored). Run it before `tauri dev` or `tauri build`.
+Fiber Studio bundles the official [fnn](https://github.com/nervosnetwork/fiber) binary (currently **v0.9.0-rc7**) as a Tauri sidecar. The `fetch-fnn` script downloads it from GitHub Releases into `app/src-tauri/binaries/` (gitignored). Run it before `tauri dev` or `tauri build`.
 
 Supported sidecar targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
 

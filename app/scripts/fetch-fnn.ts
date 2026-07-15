@@ -14,7 +14,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pipeline } from "node:stream/promises"
 
-const FNN_VERSION = "0.8.1"
+const FNN_VERSION = "0.9.0-rc7"
 const RELEASE_BASE = `https://github.com/nervosnetwork/fiber/releases/download/v${FNN_VERSION}`
 const BINARIES_DIR = join(import.meta.dirname, "..", "src-tauri", "binaries")
 

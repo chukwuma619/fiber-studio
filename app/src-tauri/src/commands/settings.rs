@@ -157,12 +157,7 @@ async fn build_node_settings(
     let (connection_mode, public_relay_label, _public_relay_pubkey) =
         connection_mode_labels(network.as_deref(), primary_peer);
 
-    let fnn_version = live_version.unwrap_or_else(|| {
-        studio_metadata
-            .as_ref()
-            .map(|metadata| metadata.fnn_version.clone())
-            .unwrap_or_else(|| FNN_VERSION.to_string())
-    });
+    let fnn_version = live_version.unwrap_or_else(|| FNN_VERSION.to_string());
 
     let data_provisioned = data_dir
         .as_ref()
