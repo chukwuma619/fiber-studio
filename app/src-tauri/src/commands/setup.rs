@@ -5,6 +5,7 @@ use tauri::State;
 
 use crate::fnn::keychain;
 use crate::fnn::manager::ManagerError;
+use crate::fnn::migration;
 use crate::fnn::provision::{self, ProvisionRequest};
 use crate::fnn::rpc::NodeInfo;
 use crate::state::AppState;
@@ -61,6 +62,7 @@ pub async fn complete_setup(
         &state,
         PathBuf::from(payload.data_directory),
         &payload.password,
+        false,
     )
     .await?;
 
@@ -76,11 +78,28 @@ pub async fn start_fnn(
     state: &State<'_, AppState>,
     data_directory: PathBuf,
     password: &str,
+    allow_migration: bool,
 ) -> Result<NodeInfo, String> {
     let mut manager = state.fnn.lock().await;
 
-    match manager.start(app, data_directory, password).await {
+    match manager
+        .start(app, data_directory, password, allow_migration)
+        .await
+    {
         Ok(info) => Ok(info),
+        Err(ManagerError::MigrationRequired {
+            message,
+            has_breaking_change,
+        }) => {
+            manager.stop().await.ok();
+            Err(migration::format_migration_required_error(
+                &migration::MigrationDetails {
+                    message,
+                    has_breaking_change,
+                    cancelled: true,
+                },
+            ))
+        }
         Err(ManagerError::Rpc(error)) => {
             let logs = manager.recent_logs(20).join("\n");
             manager.set_error(error.to_string());

@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useState } from "react"
 import { resolveConfiguredDataDirectory } from "../data-directory"
 import { loadSetupConfig } from "../setup/storage"
-import { getErrorMessage } from "./errors"
+import { getErrorMessage, parseMigrationRequiredError } from "./errors"
 import { getNodeStatus, migrateLegacyDataDirectory, startNode, stopNode } from "./invoke"
 import { isNodeRunning } from "./status"
 import type { NodeStatusResponse, NodeStatusState } from "./types"
+
+type MigrationDialogState = {
+  message: string
+  hasBreakingChange: boolean
+  dataDirectory: string
+}
 
 export function useNodeControl(pollIntervalMs = 5000) {
   const config = loadSetupConfig()
@@ -12,6 +18,9 @@ export function useNodeControl(pollIntervalMs = 5000) {
   const [isLoading, setIsLoading] = useState(true)
   const [actionError, setActionError] = useState<string | null>(null)
   const [isActing, setIsActing] = useState(false)
+  const [migrationDialog, setMigrationDialog] = useState<MigrationDialogState | null>(
+    null,
+  )
 
   useEffect(() => {
     if (!config?.network) return
@@ -60,12 +69,59 @@ export function useNodeControl(pollIntervalMs = 5000) {
     try {
       const status = await startNode({ dataDirectory })
       setNodeStatus(status)
+      setMigrationDialog(null)
     } catch (error) {
-      setActionError(getErrorMessage(error))
+      const migration = parseMigrationRequiredError(error)
+      if (migration) {
+        setMigrationDialog({
+          message: migration.message,
+          hasBreakingChange: migration.hasBreakingChange,
+          dataDirectory,
+        })
+        setActionError(null)
+      } else {
+        setActionError(getErrorMessage(error))
+      }
     } finally {
       setIsActing(false)
     }
   }, [config?.network])
+
+  const closeMigrationDialog = useCallback(() => {
+    setMigrationDialog(null)
+  }, [])
+
+  const handleConfirmMigration = useCallback(async () => {
+    if (!migrationDialog) {
+      return
+    }
+
+    setIsActing(true)
+    setActionError(null)
+    try {
+      const status = await startNode({
+        dataDirectory: migrationDialog.dataDirectory,
+        allowMigration: true,
+      })
+      setNodeStatus(status)
+      setMigrationDialog(null)
+    } catch (error) {
+      const migration = parseMigrationRequiredError(error)
+      if (migration) {
+        setMigrationDialog({
+          message: migration.message,
+          hasBreakingChange: migration.hasBreakingChange,
+          dataDirectory: migrationDialog.dataDirectory,
+        })
+        setActionError(null)
+      } else {
+        setActionError(getErrorMessage(error))
+        setMigrationDialog(null)
+      }
+    } finally {
+      setIsActing(false)
+    }
+  }, [migrationDialog])
 
   const handleStopNode = useCallback(async () => {
     setIsActing(true)
@@ -100,6 +156,9 @@ export function useNodeControl(pollIntervalMs = 5000) {
     refreshStatus,
     handleStartNode,
     handleStopNode,
+    migrationDialog,
+    closeMigrationDialog,
+    handleConfirmMigration,
   }
 }
 

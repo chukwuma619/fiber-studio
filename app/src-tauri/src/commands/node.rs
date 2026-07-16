@@ -11,6 +11,8 @@ use crate::state::AppState;
 #[serde(rename_all = "camelCase")]
 pub struct StartNodePayload {
     pub data_directory: String,
+    #[serde(default)]
+    pub allow_migration: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -60,6 +62,7 @@ pub async fn start_node(
         &state,
         PathBuf::from(&payload.data_directory),
         &password,
+        payload.allow_migration,
     )
     .await?;
 

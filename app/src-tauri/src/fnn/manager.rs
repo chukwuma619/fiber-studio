@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use shared_child::SharedChild;
@@ -11,9 +11,11 @@ use thiserror::Error;
 
 use crate::state::AppState;
 
+use super::backup;
 use super::log_store;
 use super::logs::normalize_log_line;
-use super::rpc::{self, NodeInfo};
+use super::migration::{self, MigrationDetails};
+use super::rpc::{self, NodeInfo, RpcError};
 use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
@@ -50,6 +52,13 @@ pub enum ManagerError {
     Rpc(#[from] rpc::RpcError),
     #[error("failed to stop fnn: {0}")]
     Stop(String),
+    #[error("database migration required")]
+    MigrationRequired {
+        message: String,
+        has_breaking_change: bool,
+    },
+    #[error("failed to back up data directory: {0}")]
+    Backup(String),
 }
 
 pub struct FnnManager {
@@ -194,6 +203,7 @@ impl FnnManager {
         app: &AppHandle,
         data_directory: PathBuf,
         password: &str,
+        allow_migration: bool,
     ) -> Result<NodeInfo, ManagerError> {
         self.sync_health(Some(data_directory.clone())).await;
 
@@ -213,14 +223,29 @@ impl FnnManager {
         self.status = NodeRuntimeStatus::Starting;
         self.data_directory = Some(data_directory.clone());
 
+        if allow_migration {
+            let backup_path = backup::backup_data_directory(&data_directory)
+                .map_err(ManagerError::Backup)?;
+            self.append_log(&format!(
+                "Backed up data directory to {}",
+                backup_path.display()
+            ));
+        }
+
         let config_path = data_directory.join("config.yml");
         let log_path = log_store::log_file_path(&data_directory);
 
         self.clear_session_logs();
         self.append_log("Spawning fnn sidecar…");
 
-        let child = spawn::spawn_with_log_file(&config_path, &data_directory, &log_path, password)
-            .map_err(ManagerError::Spawn)?;
+        let child = spawn::spawn_with_log_file(
+            &config_path,
+            &data_directory,
+            &log_path,
+            password,
+            allow_migration,
+        )
+        .map_err(ManagerError::Spawn)?;
 
         let child = Arc::new(child);
         self.child = Some(Arc::clone(&child));
@@ -241,13 +266,72 @@ impl FnnManager {
             }
         });
 
-        let node_info = rpc::wait_for_node_info().await?;
+        let node_info = self.wait_for_ready().await?;
         self.status = NodeRuntimeStatus::Running {
             version: node_info.version.clone(),
             pubkey: node_info.pubkey.clone(),
         };
 
         Ok(node_info)
+    }
+
+    async fn wait_for_ready(&mut self) -> Result<NodeInfo, ManagerError> {
+        let started = Instant::now();
+        let timeout = Duration::from_secs(120);
+        let poll = Duration::from_millis(500);
+
+        loop {
+            if let Some(details) = self.migration_details_from_logs() {
+                if details.cancelled || self.child.is_none() {
+                    self.stop_managed().ok();
+                    self.status = NodeRuntimeStatus::Stopped;
+                    return Err(ManagerError::MigrationRequired {
+                        message: details.message,
+                        has_breaking_change: details.has_breaking_change,
+                    });
+                }
+            }
+
+            match rpc::fetch_node_info().await {
+                Ok(info) => return Ok(info),
+                Err(RpcError::Timeout(_)) if started.elapsed() >= timeout => {
+                    if let Some(details) = self.migration_details_from_logs() {
+                        self.stop_managed().ok();
+                        self.status = NodeRuntimeStatus::Stopped;
+                        return Err(ManagerError::MigrationRequired {
+                            message: details.message,
+                            has_breaking_change: details.has_breaking_change,
+                        });
+                    }
+                    return Err(ManagerError::Rpc(RpcError::Timeout(timeout.as_secs())));
+                }
+                Err(_) if started.elapsed() >= timeout => {
+                    if let Some(details) = self.migration_details_from_logs() {
+                        self.stop_managed().ok();
+                        self.status = NodeRuntimeStatus::Stopped;
+                        return Err(ManagerError::MigrationRequired {
+                            message: details.message,
+                            has_breaking_change: details.has_breaking_change,
+                        });
+                    }
+                    return Err(ManagerError::Rpc(RpcError::Timeout(timeout.as_secs())));
+                }
+                Err(_) => {
+                    tokio::time::sleep(poll).await;
+                }
+            }
+        }
+    }
+
+    fn migration_details_from_logs(&self) -> Option<MigrationDetails> {
+        let mut logs = self.recent_logs(MAX_LOG_LINES);
+        if let Some(data_directory) = &self.data_directory {
+            let path = log_store::log_file_path(data_directory);
+            if let Ok(file_lines) = log_store::read_tail_lines(&path, MAX_LOG_LINES) {
+                logs.extend(file_lines);
+            }
+        }
+        migration::parse_migration_from_logs(&logs)
     }
 
     fn append_log(&self, line: &str) {

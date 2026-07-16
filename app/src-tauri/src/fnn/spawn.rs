@@ -1,5 +1,6 @@
 use std::env;
 use std::fs::OpenOptions;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 
@@ -52,6 +53,7 @@ pub fn spawn_with_log_file(
     data_directory: &Path,
     log_path: &Path,
     password: &str,
+    allow_migration: bool,
 ) -> Result<SharedChild, String> {
     let sidecar = sidecar_path()?;
     let log_file = OpenOptions::new()
@@ -76,6 +78,11 @@ pub fn spawn_with_log_file(
         .env("RUST_LOG", "info")
         .env("NO_COLOR", "1")
         .env("CLICOLOR", "0")
+        .stdin(if allow_migration {
+            Stdio::piped()
+        } else {
+            Stdio::null()
+        })
         .stdout(Stdio::from(log_file))
         .stderr(Stdio::from(stderr_file));
 
@@ -86,5 +93,20 @@ pub fn spawn_with_log_file(
         command.creation_flags(CREATE_NO_WINDOW);
     }
 
-    SharedChild::spawn(&mut command).map_err(|error| format!("failed to spawn fnn: {error}"))
+    let mut child = command
+        .spawn()
+        .map_err(|error| format!("failed to spawn fnn: {error}"))?;
+
+    if allow_migration {
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin
+                .write_all(b"y\n")
+                .map_err(|error| format!("failed to confirm fnn migration: {error}"))?;
+            stdin
+                .flush()
+                .map_err(|error| format!("failed to flush fnn migration confirmation: {error}"))?;
+        }
+    }
+
+    Ok(SharedChild::new(child).map_err(|error| format!("failed to wrap fnn process: {error}"))?)
 }

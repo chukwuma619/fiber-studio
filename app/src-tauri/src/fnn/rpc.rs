@@ -1,5 +1,4 @@
 use std::fmt;
-use std::time::{Duration, Instant};
 
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
@@ -7,8 +6,6 @@ use thiserror::Error;
 
 pub const FNN_RPC_PORT: u16 = 8227;
 const FNN_RPC_URL: &str = "http://127.0.0.1:8227";
-const HEALTH_POLL_INTERVAL: Duration = Duration::from_millis(500);
-const HEALTH_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// JSON-RPC 2.0 error object returned by fnn.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -777,28 +774,6 @@ pub fn is_channel_pending(state: &serde_json::Value) -> bool {
 /// Abandoned or otherwise closed failed opens remain in fnn's pending query but are not live channels.
 pub fn is_listable_channel(state: &serde_json::Value) -> bool {
     channel_state_label(state) != "Closed"
-}
-
-pub async fn wait_for_node_info() -> Result<NodeInfo, RpcError> {
-    let started = Instant::now();
-
-    loop {
-        match fetch_node_info().await {
-            Ok(info) => return Ok(info),
-            Err(_) if started.elapsed() < HEALTH_TIMEOUT => {
-                tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
-            }
-            Err(RpcError::Timeout(_)) => {
-                return Err(RpcError::Timeout(HEALTH_TIMEOUT.as_secs()));
-            }
-            Err(_) if started.elapsed() >= HEALTH_TIMEOUT => {
-                return Err(RpcError::Timeout(HEALTH_TIMEOUT.as_secs()));
-            }
-            Err(_) => {
-                tokio::time::sleep(HEALTH_POLL_INTERVAL).await;
-            }
-        }
-    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,5 @@
 pub mod amounts;
+pub mod backup;
 pub mod bootnodes;
 pub mod channel;
 pub mod ckb_address;
@@ -12,6 +13,7 @@ pub mod keychain;
 pub mod log_store;
 pub mod logs;
 pub mod manager;
+pub mod migration;
 pub mod payment_display;
 pub mod peer_connect;
 pub mod process;

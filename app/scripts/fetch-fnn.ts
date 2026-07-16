@@ -8,8 +8,15 @@
  */
 
 import { execSync } from "node:child_process"
-import { createWriteStream, existsSync, mkdirSync, rmSync } from "node:fs"
-import { chmodSync } from "node:fs"
+import {
+  chmodSync,
+  copyFileSync,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  renameSync,
+  rmSync,
+} from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pipeline } from "node:stream/promises"
@@ -93,7 +100,6 @@ async function fetchPlatform(platform: PlatformTarget): Promise<void> {
   }
 
   mkdirSync(BINARIES_DIR, { recursive: true })
-  const { copyFileSync } = await import("node:fs")
   copyFileSync(extractedBinary, destPath)
 
   if (!platform.triple.includes("windows")) {
@@ -101,6 +107,30 @@ async function fetchPlatform(platform: PlatformTarget): Promise<void> {
   }
 
   console.log(`Wrote ${destPath}`)
+
+  // Keep an existing `tauri dev` sidecar in sync; Tauri may not recopy
+  // externalBin when cargo skips a rebuild.
+  if (platform.triple === hostTriple()) {
+    const debugDir = join(import.meta.dirname, "..", "src-tauri", "target", "debug")
+    const debugSidecar = join(debugDir, platform.binaryName)
+    if (existsSync(debugDir)) {
+      try {
+        const staging = `${debugSidecar}.new`
+        copyFileSync(destPath, staging)
+        if (!platform.triple.includes("windows")) {
+          chmodSync(staging, 0o755)
+        }
+        renameSync(staging, debugSidecar)
+        console.log(`Updated dev sidecar ${debugSidecar}`)
+      } catch (error) {
+        console.warn(
+          `Could not update ${debugSidecar} (stop the node / quit tauri dev, then re-run fetch-fnn):`,
+          error,
+        )
+      }
+    }
+  }
+
   rmSync(workDir, { recursive: true, force: true })
 }
 
