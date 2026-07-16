@@ -14,10 +14,8 @@ import { useWalletActions } from "../../lib/fnn/useWalletActions"
 import { useWalletPage } from "../../lib/fnn/useWalletPage"
 import { loadMoreWalletPayments } from "../../lib/fnn/invoke"
 import type { WalletInvoiceItem, WalletPaymentItem } from "../../lib/fnn/types"
-import { truncatePubkey } from "../../lib/public-relays"
 import { StatCard } from "../home/StatCard"
 import { Button } from "../ui/button"
-import { CopyButton } from "../ui/copy-button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
@@ -329,15 +327,6 @@ export function WalletPage({ initialAction }: WalletPageProps) {
         isLoadingMore={isLoadingMorePayments}
         onLoadMore={() => void handleLoadMorePayments()}
       />
-
-      {available && data?.pubkey ? (
-        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-          Node pubkey{" "}
-          <code className="font-mono">{truncatePubkey(data.pubkey)}</code>
-          {" · "}
-          <CopyButton value={data.pubkey} label="Copy" />
-        </Text>
-      ) : null}
 
       <CreateInvoiceDialog
         open={createDialogOpen}

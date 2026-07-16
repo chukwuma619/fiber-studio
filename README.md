@@ -64,7 +64,7 @@ Your Fiber node listens on port **8228** on your machine (see `fiber.listening_a
 | **Different cities / countries** (home internet, no port forwarding) | **Multi-hop** via a shared **public hub** (Option B) | Indirect — you each channel with the same hub |
 | **Different locations, but one side has port forwarding** | Share **pubkey** + **public multiaddr** (public IP, port 8228 forwarded) | **Yes** — direct channel over the internet |
 
-The **Wallet** page shows your **node pubkey** (copy button at the bottom). It does **not** show a multiaddr. For LAN or port-forwarded setups, you must share the multiaddr separately (chat, email, etc.).
+The **Settings** page shows your **node pubkey** under **CKB wallet** (copy button next to it). It does **not** show a multiaddr. For LAN or port-forwarded setups, you must share the multiaddr separately (chat, email, etc.).
 
 **3. Two ways to pay**
 
@@ -92,7 +92,7 @@ For protocol details, see the [Fiber documentation](https://www.fiber.world/docs
    - Send testnet CKB to your **On-chain wallet** on **Channels**
    - Minimum **1,000 CKB** per channel open, plus reserve and on-chain fees
 4. **Share details** out of band before connecting to each other:
-   - **Pubkey** (always) — **Wallet** footer, 66-character hex (`02…` or `03…`)
+   - **Pubkey** (always) — **Settings → CKB wallet → Node pubkey**, 66-character hex (`02…` or `03…`)
    - **Multiaddr** (for direct connect) — see Option A; format `/ip4/HOST/tcp/8228/p2p/Qm…`
 
 ---
@@ -117,7 +117,7 @@ Start Fiber Studio and ensure the node is up on both laptops.
 
 **2. Share pubkey + LAN address**
 
-- **Pubkey:** **Wallet** → copy **Node pubkey** at the bottom.
+- **Pubkey:** **Settings → CKB wallet** → copy **Node pubkey**.
 - **LAN multiaddr:** On the laptop that will be dialed first, find its local IP (e.g. macOS **System Settings → Network**, Windows `ipconfig`, Linux `ip addr`). Build:
 
   ```text

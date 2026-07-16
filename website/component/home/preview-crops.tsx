@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 
 import { Badge } from '@/component/ui/badge'
 import { Button } from '@/component/ui/button'
+import { Copy } from 'lucide-react'
 import { CapacityBar } from '@/component/ui/capacity-bar'
 import { StatusDot } from '@/component/ui/status-dot'
 import {
@@ -62,6 +63,9 @@ export function HomeCrop() {
 
 /** Settings — CKB wallet keys on device. */
 export function SettingsCrop() {
+  const demoNodePubkey =
+    '02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71'
+
   return (
     <PreviewCrop>
       <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
@@ -78,13 +82,23 @@ export function SettingsCrop() {
             { label: 'Key file', value: 'ckb/key', mono: true },
             { label: 'Key password', value: 'Stored in OS keychain' },
             { label: 'On-chain address', value: 'ckt1qz…9f2a', mono: true },
+            {
+              label: 'Node pubkey',
+              value: (
+                <span className="inline-flex items-center justify-end gap-2">
+                  <span className="break-all">{demoNodePubkey}</span>
+                  <Copy className="size-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                </span>
+              ),
+              mono: true,
+            },
           ].map((row) => (
             <div key={row.label} className="grid gap-0.5 px-4 py-2.5">
               <dt className="text-xs text-zinc-500 dark:text-zinc-400">{row.label}</dt>
               <dd
                 className={
                   row.mono
-                    ? 'truncate font-mono text-sm text-zinc-950 dark:text-white'
+                    ? 'font-mono text-sm text-zinc-950 dark:text-white'
                     : 'truncate text-sm text-zinc-950 dark:text-white'
                 }
               >

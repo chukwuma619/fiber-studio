@@ -3,8 +3,8 @@ import type {
   NodeSettingsResponse,
   UpdateWalletPasswordPayload,
 } from "../../lib/fnn/types"
-import { truncatePubkey } from "../../lib/public-relays"
 import { Button } from "../ui/button"
+import { CopyButton } from "../ui/copy-button"
 import { ChangePasswordDialog } from "./ChangePasswordDialog"
 import { SettingsRow, SettingsRows, SettingsSection } from "./SettingsSection"
 
@@ -50,14 +50,34 @@ export function WalletSettingsSection({
           />
           <SettingsRow
             label="On-chain address"
-            value={settings.ckbWalletAddress ?? "Start node to load"}
             mono
+            value={
+              settings.ckbWalletAddress ? (
+                <span className="inline-flex items-center justify-end gap-2">
+                  <span>{settings.ckbWalletAddress}</span>
+                  <CopyButton
+                    value={settings.ckbWalletAddress}
+                    label="Copy on-chain address"
+                  />
+                </span>
+              ) : (
+                "Start node to load"
+              )
+            }
           />
           {settings.nodePubKey ? (
             <SettingsRow
               label="Node pubkey"
-              value={truncatePubkey(settings.nodePubKey)}
               mono
+              value={
+                <span className="inline-flex items-center justify-end gap-2">
+                  <span>{settings.nodePubKey}</span>
+                  <CopyButton
+                    value={settings.nodePubKey}
+                    label="Copy node pubkey"
+                  />
+                </span>
+              }
             />
           ) : null}
         </SettingsRows>
