@@ -142,21 +142,11 @@ export function AppPreview() {
                 <DescriptionDetails className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
                   02a7c3…e91b
                 </DescriptionDetails>
-                <DescriptionTerm>Saved peers</DescriptionTerm>
-                <DescriptionDetails>Saved peers connected (outbound)</DescriptionDetails>
                 <DescriptionTerm>RPC</DescriptionTerm>
                 <DescriptionDetails className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
                   127.0.0.1:8227
                 </DescriptionDetails>
               </DescriptionList>
-              <div className="mt-5 flex gap-2">
-                <Button outline className="flex-1 text-xs">
-                  Node settings
-                </Button>
-                <Button plain className="flex-1 text-xs">
-                  View logs
-                </Button>
-              </div>
             </section>
           </div>
         </div>

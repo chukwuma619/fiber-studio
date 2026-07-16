@@ -1,4 +1,3 @@
-import { getDataDirectoryDisplayForNetwork } from "../../lib/data-directory"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { formatCkb } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
@@ -20,8 +19,6 @@ function peerConnectionsSubtext(count: number): string {
 
 export function HomePage() {
   const {
-    config,
-    nodeStatus,
     status,
     isLoading: isNodeLoading,
     running,
@@ -122,13 +119,6 @@ export function HomePage() {
           dashboard={dashboard}
           status={status}
           isLoading={isNodeLoading || isDashboardInitialLoad}
-          dataDirectory={
-            nodeStatus?.dataDirectory ??
-            (config?.network
-              ? getDataDirectoryDisplayForNetwork(config.network)
-              : null)
-          }
-          config={config}
         />
       </div>
 
