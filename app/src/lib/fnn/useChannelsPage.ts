@@ -18,6 +18,7 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   pendingChannelCount: 0,
   totalCapacity: "0",
   totalLocalBalance: "0",
+  totalRemoteBalance: "0",
   onChainWalletCkb: null,
   onChainWalletError: null,
   network: null,

@@ -39,7 +39,7 @@ export function HomePage() {
   const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
   const peersCountValue = nodeInfo?.peersCount ?? 0
 
-  const localBalance = available
+  const canSpend = available
     ? formatCkb(BigInt(dashboard?.totalLocalBalance ?? "0"))
     : "—"
   const activeChannels = available ? String(activeChannelCount) : "—"
@@ -82,8 +82,8 @@ export function HomePage() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Local balance"
-          value={isLoading && running ? "…" : localBalance}
+          label="Can spend"
+          value={isLoading && running ? "…" : canSpend}
           unit={available ? "CKB" : undefined}
           subtext={available ? "Across active channels" : "Start node to view balance"}
         />

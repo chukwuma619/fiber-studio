@@ -268,7 +268,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
           unit={available ? "CKB" : undefined}
           subtext={
             available
-              ? "Local balance across open channels"
+              ? "Can spend across open channels"
               : "Start node to view balance"
           }
         />

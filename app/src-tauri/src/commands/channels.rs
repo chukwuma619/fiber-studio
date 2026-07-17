@@ -3,7 +3,8 @@ use tauri::State;
 
 use crate::fnn::channel::{
     self, count_active_channels, count_pending_channels, has_active_or_pending_channel_to_peer,
-    map_channels, min_funding_ckb_for_open, sum_local_balances, sum_total_capacity, HomeChannel,
+    map_channels, min_funding_ckb_for_open, sum_local_balances, sum_remote_balances,
+    sum_total_capacity, HomeChannel,
 };
 use crate::fnn::ckb_indexer;
 use crate::fnn::manager::NodeRuntimeStatus;
@@ -31,6 +32,7 @@ pub struct ChannelsPageResponse {
     pub pending_channel_count: u32,
     pub total_capacity: String,
     pub total_local_balance: String,
+    pub total_remote_balance: String,
     pub on_chain_wallet_ckb: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_chain_wallet_error: Option<String>,
@@ -124,6 +126,7 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         pending_channel_count: 0,
         total_capacity: "0".to_string(),
         total_local_balance: "0".to_string(),
+        total_remote_balance: "0".to_string(),
         on_chain_wallet_ckb: None,
         on_chain_wallet_error: None,
         network: None,
@@ -202,6 +205,7 @@ pub async fn get_channels_page(
     let pending_channel_count = count_pending_channels(&channels);
     let total_capacity = sum_total_capacity(&channels);
     let total_local_balance = sum_local_balances(&channels);
+    let total_remote_balance = sum_remote_balances(&channels);
     let min_funding_ckb =
         min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
 
@@ -237,6 +241,7 @@ pub async fn get_channels_page(
         pending_channel_count,
         total_capacity: total_capacity.to_string(),
         total_local_balance: total_local_balance.to_string(),
+        total_remote_balance: total_remote_balance.to_string(),
         on_chain_wallet_ckb,
         on_chain_wallet_error,
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),

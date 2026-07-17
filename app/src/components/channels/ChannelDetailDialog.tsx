@@ -29,6 +29,7 @@ import {
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog"
+import { HelpTooltip } from "../ui/help-tooltip"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
@@ -95,7 +96,6 @@ export function ChannelDetailDialog({
   const capacity = formatCkb(
     parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance),
   )
-  const remotePercent = Math.max(0, 100 - channel.localPercent)
   const stateLabel = channelStateDisplayLabel(channel.state)
   const badgeColor = channelStateBadgeColor(
     channel.state,
@@ -146,21 +146,6 @@ export function ChannelDetailDialog({
     }
   })()
 
-  const dialogDescription = (() => {
-    switch (step) {
-      case "detail":
-        return `Channel with ${truncatePubkey(channel.pubkey)}.`
-      case "confirm-close":
-        return "Cooperative close returns funds to your on-chain CKB wallet."
-      case "confirm-abandon":
-        return "Cancel this opening attempt and remove the channel from your node."
-      default: {
-        const unreachable: never = step
-        return unreachable
-      }
-    }
-  })()
-
   return (
     <Dialog
       open={open}
@@ -168,7 +153,6 @@ export function ChannelDetailDialog({
       size="lg"
     >
       <DialogTitle>{dialogTitle}</DialogTitle>
-      <DialogDescription>{dialogDescription}</DialogDescription>
 
       <DialogBody>
         {step === "detail" ? (
@@ -222,36 +206,28 @@ export function ChannelDetailDialog({
 
               {isReady ? (
                 <>
-                  <DescriptionTerm>Local balance</DescriptionTerm>
+                  <DescriptionTerm>
+                    <span className="inline-flex items-center gap-1">
+                      Can spend
+                      <HelpTooltip content="How much you can send through this channel (your local balance)." />
+                    </span>
+                  </DescriptionTerm>
                   <DescriptionDetails className="tabular-nums">
                     {localBalance} CKB
                   </DescriptionDetails>
 
-                  <DescriptionTerm>Remote balance</DescriptionTerm>
+                  <DescriptionTerm>
+                    <span className="inline-flex items-center gap-1">
+                      Can receive
+                      <HelpTooltip content="How much you can receive through this channel (the remote balance)." />
+                    </span>
+                  </DescriptionTerm>
                   <DescriptionDetails className="tabular-nums">
                     {remoteBalance} CKB
                   </DescriptionDetails>
                 </>
               ) : null}
             </DescriptionList>
-
-            <div className="border-t border-zinc-950/5 pt-4 dark:border-white/5">
-              <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                Liquidity
-              </p>
-              {isReady ? (
-                <div className="mt-3 space-y-2">
-                  <CapacityBar percent={channel.localPercent} showLabel={false} />
-                  <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-                    {channel.localPercent}% local / {remotePercent}% remote
-                  </p>
-                </div>
-              ) : (
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                  Not available until ready.
-                </p>
-              )}
-            </div>
 
             {closeReason && !showAbandon ? (
               <Text className="text-xs text-zinc-500 dark:text-zinc-400">

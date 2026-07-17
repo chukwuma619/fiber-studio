@@ -83,6 +83,14 @@ pub fn sum_local_balances(channels: &[Channel]) -> u128 {
         .sum()
 }
 
+pub fn sum_remote_balances(channels: &[Channel]) -> u128 {
+    channels
+        .iter()
+        .filter(|channel| rpc::is_channel_ready(&channel.state))
+        .filter_map(|channel| parse_hex_u128(&channel.remote_balance))
+        .sum()
+}
+
 pub fn sum_total_capacity(channels: &[Channel]) -> u128 {
     channels
         .iter()

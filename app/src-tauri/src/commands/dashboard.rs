@@ -27,6 +27,7 @@ pub struct HomeDashboardResponse {
     pub active_channel_count: u32,
     pub pending_channel_count: u32,
     pub total_local_balance: String,
+    pub total_remote_balance: String,
     pub saved_peer_pubkeys: Vec<String>,
     pub network: Option<String>,
     pub relay_status: String,
@@ -107,6 +108,7 @@ pub async fn get_home_dashboard(
             active_channel_count: 0,
             pending_channel_count: 0,
             total_local_balance: "0".to_string(),
+            total_remote_balance: "0".to_string(),
             saved_peer_pubkeys: Vec::new(),
             network: None,
             relay_status: "not_configured".to_string(),
@@ -158,6 +160,7 @@ pub async fn get_home_dashboard(
     let active_channel_count = channel::count_active_channels(&channels);
     let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
+    let total_remote_balance = channel::sum_remote_balances(&channels);
     let home_channels = select_home_channels(channels);
 
     let saved_peers = studio_metadata
@@ -199,6 +202,7 @@ pub async fn get_home_dashboard(
         active_channel_count,
         pending_channel_count,
         total_local_balance: total_local_balance.to_string(),
+        total_remote_balance: total_remote_balance.to_string(),
         saved_peer_pubkeys,
         network: studio_metadata
             .as_ref()

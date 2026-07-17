@@ -80,6 +80,7 @@ export type ChannelsPageResponse = {
   pendingChannelCount: number
   totalCapacity: string
   totalLocalBalance: string
+  totalRemoteBalance: string
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
   network: string | null
@@ -140,6 +141,7 @@ export type HomeDashboardResponse = {
   activeChannelCount: number
   pendingChannelCount: number
   totalLocalBalance: string
+  totalRemoteBalance: string
   savedPeerPubkeys: string[]
   network: string | null
   relayStatus: RelayConnectionStatus

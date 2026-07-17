@@ -15,7 +15,7 @@ export function CapacityBar({ percent, showLabel = true }: CapacityBarProps) {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={percent}
-          aria-label="Local liquidity share"
+          aria-label="Spendable liquidity share"
           className={`h-full rounded-full ${tone}`}
           style={{ width: `${percent}%` }}
         />

@@ -19,6 +19,7 @@ const EMPTY_RESPONSE: HomeDashboardResponse = {
   activeChannelCount: 0,
   pendingChannelCount: 0,
   totalLocalBalance: "0",
+  totalRemoteBalance: "0",
   savedPeerPubkeys: [],
   network: null,
   relayStatus: "not_configured",

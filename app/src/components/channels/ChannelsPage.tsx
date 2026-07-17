@@ -21,8 +21,8 @@ import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatCard } from "../home/StatCard"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { CapacityBar } from "../ui/capacity-bar"
 import { Heading } from "../ui/heading"
+import { HelpTooltip } from "../ui/help-tooltip"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 import {
@@ -46,28 +46,16 @@ function channelCapacityCkb(channel: HomeChannel): string {
   return formatCkb(total)
 }
 
-function remotePercent(channel: HomeChannel): number {
-  return Math.max(0, 100 - channel.localPercent)
+function channelPendingValue() {
+  return <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
 }
 
-function channelLiquidityCell(channel: HomeChannel) {
+function channelBalanceCell(amountCkb: string, channel: HomeChannel) {
   if (channel.state !== "ChannelReady") {
-    return (
-      <span className="text-xs text-zinc-500 dark:text-zinc-400">
-        Not available until ready
-      </span>
-    )
+    return channelPendingValue()
   }
 
-  const remote = remotePercent(channel)
-  return (
-    <div className="flex items-center gap-3">
-      <CapacityBar percent={channel.localPercent} showLabel={false} />
-      <span className="shrink-0 text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-        {channel.localPercent}% local / {remote}% remote
-      </span>
-    </div>
-  )
+  return <span className="tabular-nums">{amountCkb} CKB</span>
 }
 
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
@@ -134,8 +122,11 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const totalCapacity = available
     ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
     : "—"
-  const localBalance = available
+  const canSpendTotal = available
     ? formatCkb(BigInt(data?.totalLocalBalance ?? "0"))
+    : "—"
+  const canReceiveTotal = available
+    ? formatCkb(BigInt(data?.totalRemoteBalance ?? "0"))
     : "—"
   const onChainWallet = !available
     ? "—"
@@ -162,7 +153,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         <div>
           <Heading level={1}>Channels</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Open channels for routing on the Fiber network.
+            See how much each channel can send or receive on the Fiber network.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -193,7 +184,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <StatCard
           label="On-chain wallet"
           value={isLoading && running ? "…" : onChainWallet}
@@ -212,12 +203,22 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
           subtext={channelSummarySubtext}
         />
         <StatCard
-          label="Local balance"
-          value={isLoading && running ? "…" : localBalance}
+          label="Can spend"
+          value={isLoading && running ? "…" : canSpendTotal}
           unit={available ? "CKB" : undefined}
           subtext={
             available
-              ? "Spendable in active channels"
+              ? "Across active channels"
+              : "Start node to view balance"
+          }
+        />
+        <StatCard
+          label="Can receive"
+          value={isLoading && running ? "…" : canReceiveTotal}
+          unit={available ? "CKB" : undefined}
+          subtext={
+            available
+              ? "Across active channels"
               : "Start node to view balance"
           }
         />
@@ -253,7 +254,18 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                 <TableHeader>Visibility</TableHeader>
                 <TableHeader>State</TableHeader>
                 <TableHeader className="text-right">Capacity</TableHeader>
-                <TableHeader>Liquidity</TableHeader>
+                <TableHeader className="text-right">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    Can spend
+                    <HelpTooltip content="How much you can send through this channel (your local balance)." />
+                  </span>
+                </TableHeader>
+                <TableHeader className="text-right">
+                  <span className="inline-flex items-center justify-end gap-1">
+                    Can receive
+                    <HelpTooltip content="How much you can receive through this channel (the remote balance)." />
+                  </span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -263,6 +275,8 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                   channel.localPercent,
                 )
                 const stateLabel = channelStateDisplayLabel(channel.state)
+                const canSpend = formatCkb(parseHexU128(channel.localBalance))
+                const canReceive = formatCkb(parseHexU128(channel.remoteBalance))
 
                 return (
                   <TableRow
@@ -302,8 +316,11 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                     <TableCell className="text-right tabular-nums">
                       {channelCapacityCkb(channel)} CKB
                     </TableCell>
-                    <TableCell>
-                      {channelLiquidityCell(channel)}
+                    <TableCell className="text-right">
+                      {channelBalanceCell(canSpend, channel)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {channelBalanceCell(canReceive, channel)}
                     </TableCell>
                   </TableRow>
                 )
