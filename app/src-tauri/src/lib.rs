@@ -6,16 +6,37 @@ use tauri::Manager;
 
 use crate::state::AppState;
 
+#[cfg(desktop)]
+fn autostart_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
+    #[cfg(target_os = "macos")]
+    {
+        use tauri_plugin_autostart::MacosLauncher;
+        tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None)
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        tauri_plugin_autostart::init(tauri_plugin_autostart::Launcher::default(), None)
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_os::init())
-        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_opener::init());
+
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(autostart_plugin());
+    }
+
+    builder
         .setup(|app| {
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;
+
             app.manage(AppState::default());
             Ok(())
         })

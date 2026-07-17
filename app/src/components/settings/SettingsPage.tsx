@@ -6,6 +6,7 @@ import { Heading } from "../ui/heading"
 import { Text } from "../ui/text"
 import { AppUpdatesSection } from "./AppUpdatesSection"
 import { AppearanceSection } from "./AppearanceSection"
+import { BackgroundSection } from "./BackgroundSection"
 import { BackupPathsSection } from "./BackupPathsSection"
 import { NodeLifecycleSection } from "./NodeLifecycleSection"
 import { NodeSettingsSection } from "./NodeSettingsSection"
@@ -95,6 +96,7 @@ export function SettingsPage() {
           />
           <BackupPathsSection paths={settings.backupPaths} />
           <AppearanceSection />
+          <BackgroundSection />
           <NodeLifecycleSection
             settings={settings}
             onOpenConfig={handleOpenConfig}

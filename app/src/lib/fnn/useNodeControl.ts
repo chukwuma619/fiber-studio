@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { resolveConfiguredDataDirectory } from "../data-directory"
-import { loadSetupConfig } from "../setup/storage"
+import { readStartNodeOnLaunchPreference } from "../autostart"
+import { loadSetupConfig, getSetupComplete } from "../setup/storage"
 import { getErrorMessage, parseMigrationRequiredError } from "./errors"
 import { getNodeStatus, migrateLegacyDataDirectory, startNode, stopNode } from "./invoke"
 import { isNodeRunning } from "./status"
@@ -21,6 +22,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
   const [migrationDialog, setMigrationDialog] = useState<MigrationDialogState | null>(
     null,
   )
+  const autoStartAttempted = useRef(false)
 
   useEffect(() => {
     if (!config?.network) return
@@ -137,6 +139,24 @@ export function useNodeControl(pollIntervalMs = 5000) {
   }, [])
 
   const status = nodeStatus?.status ?? null
+
+  useEffect(() => {
+    if (autoStartAttempted.current) {
+      return
+    }
+
+    if (!getSetupComplete() || !readStartNodeOnLaunchPreference()) {
+      return
+    }
+
+    if (isLoading || isActing || !status || status.state !== "stopped") {
+      return
+    }
+
+    autoStartAttempted.current = true
+    void handleStartNode()
+  }, [handleStartNode, isActing, isLoading, status])
+
   const running = status ? isNodeRunning(status) : false
   const stopped = status?.state === "stopped"
   const starting = status?.state === "starting"
