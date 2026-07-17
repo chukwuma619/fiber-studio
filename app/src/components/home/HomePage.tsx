@@ -66,8 +66,8 @@ export function HomePage() {
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button href="/wallet?action=send">Send payment</Button>
-          <Button href="/wallet?action=create-invoice" outline>
+          <Button href="/payments?action=send">Send payment</Button>
+          <Button href="/payments?action=create-invoice" outline>
             Create invoice
           </Button>
         </div>

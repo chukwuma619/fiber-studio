@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AppWalletRouteImport } from './routes/_app/wallet'
 import { Route as AppSettingsRouteImport } from './routes/_app/settings'
+import { Route as AppPaymentsRouteImport } from './routes/_app/payments'
 import { Route as AppNetworkRouteImport } from './routes/_app/network'
 import { Route as AppChannelsRouteImport } from './routes/_app/channels'
 
@@ -41,6 +42,11 @@ const AppSettingsRoute = AppSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppRoute,
 } as any)
+const AppPaymentsRoute = AppPaymentsRouteImport.update({
+  id: '/payments',
+  path: '/payments',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppNetworkRoute = AppNetworkRouteImport.update({
   id: '/network',
   path: '/network',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/channels': typeof AppChannelsRoute
   '/network': typeof AppNetworkRoute
+  '/payments': typeof AppPaymentsRoute
   '/settings': typeof AppSettingsRoute
   '/wallet': typeof AppWalletRoute
 }
@@ -64,6 +71,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/channels': typeof AppChannelsRoute
   '/network': typeof AppNetworkRoute
+  '/payments': typeof AppPaymentsRoute
   '/settings': typeof AppSettingsRoute
   '/wallet': typeof AppWalletRoute
   '/': typeof AppIndexRoute
@@ -74,21 +82,37 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_app/channels': typeof AppChannelsRoute
   '/_app/network': typeof AppNetworkRoute
+  '/_app/payments': typeof AppPaymentsRoute
   '/_app/settings': typeof AppSettingsRoute
   '/_app/wallet': typeof AppWalletRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/setup' | '/channels' | '/network' | '/settings' | '/wallet'
+  fullPaths:
+    | '/'
+    | '/setup'
+    | '/channels'
+    | '/network'
+    | '/payments'
+    | '/settings'
+    | '/wallet'
   fileRoutesByTo: FileRoutesByTo
-  to: '/setup' | '/channels' | '/network' | '/settings' | '/wallet' | '/'
+  to:
+    | '/setup'
+    | '/channels'
+    | '/network'
+    | '/payments'
+    | '/settings'
+    | '/wallet'
+    | '/'
   id:
     | '__root__'
     | '/_app'
     | '/setup'
     | '/_app/channels'
     | '/_app/network'
+    | '/_app/payments'
     | '/_app/settings'
     | '/_app/wallet'
     | '/_app/'
@@ -136,6 +160,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/payments': {
+      id: '/_app/payments'
+      path: '/payments'
+      fullPath: '/payments'
+      preLoaderRoute: typeof AppPaymentsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/network': {
       id: '/_app/network'
       path: '/network'
@@ -156,6 +187,7 @@ declare module '@tanstack/react-router' {
 interface AppRouteChildren {
   AppChannelsRoute: typeof AppChannelsRoute
   AppNetworkRoute: typeof AppNetworkRoute
+  AppPaymentsRoute: typeof AppPaymentsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppWalletRoute: typeof AppWalletRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -164,6 +196,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppChannelsRoute: AppChannelsRoute,
   AppNetworkRoute: AppNetworkRoute,
+  AppPaymentsRoute: AppPaymentsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppWalletRoute: AppWalletRoute,
   AppIndexRoute: AppIndexRoute,

@@ -28,7 +28,7 @@ const STEPS = [
     step: '03',
     title: 'Send and receive',
     description:
-      'Pay invoices or create invoices from Wallet once your channel is active.',
+      'Pay invoices or create invoices from Payments once your channel is active.',
     Preview: WalletCrop,
   },
 ] as const

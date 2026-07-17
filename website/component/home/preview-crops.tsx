@@ -230,7 +230,7 @@ export function ChannelsCrop() {
   )
 }
 
-/** Wallet — send payment panel. */
+/** Payments — send payment panel. */
 export function WalletCrop() {
   return (
     <PreviewCrop>

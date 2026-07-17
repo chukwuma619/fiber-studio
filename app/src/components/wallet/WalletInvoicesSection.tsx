@@ -131,7 +131,7 @@ export function WalletInvoicesSection({
         />
       ) : !available ? (
         <HomeEmptyState
-          title="Wallet unavailable"
+          title="Payments unavailable"
           description="Your node is running but wallet data could not be loaded."
         />
       ) : filteredInvoices.length === 0 ? (

@@ -1,8 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
-import {
-  WalletPage,
-  type WalletInitialAction,
-} from "../../components/wallet/WalletPage"
+import { createFileRoute, redirect } from "@tanstack/react-router"
+import type { WalletInitialAction } from "../../components/wallet/WalletPage"
 
 type WalletSearch = {
   action?: WalletInitialAction
@@ -16,11 +13,10 @@ export const Route = createFileRoute("/_app/wallet")({
     }
     return {}
   },
-  component: WalletRoute,
+  beforeLoad: ({ search }) => {
+    throw redirect({
+      to: "/payments",
+      search,
+    })
+  },
 })
-
-function WalletRoute() {
-  const { action } = Route.useSearch()
-
-  return <WalletPage initialAction={action} />
-}

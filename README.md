@@ -27,7 +27,7 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **Guided setup wizard** — choose testnet (mainnet is shown but not available yet), connect via official relays or enter a custom peer pubkey/multiaddr, pick a data directory, import a CKB key file, and set a wallet password
 - **Node lifecycle** — start and stop `fnn`, view recent logs, and stop the node when the app exits
 - **Home dashboard** — local balance, channel and peer counts, saved peer connectivity, channel liquidity, and recent activity
-- **Wallet** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
+- **Payments** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
 - **Channels** — open, list, monitor, and close channels; on-chain wallet balance
 - **Network** — connect to public relays and custom peers, view relay and graph status
 - **Settings** — node and wallet configuration, theme, network switch, password updates, open config/data directory, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
@@ -143,8 +143,8 @@ Start Fiber Studio and ensure the node is up on both laptops.
 
 **5. Pay**
 
-- **Invoice (recommended):** They create an invoice on **Wallet → Create invoice** and send you the string (or QR). You pay on **Wallet → Send payment** (Invoice tab). Route preview should show **one hop** (direct).
-- **Keysend:** **Wallet → Send payment** (Keysend tab) with their pubkey.
+- **Invoice (recommended):** They create an invoice on **Payments → Create invoice** and send you the string (or QR). You pay on **Payments → Send payment** (Invoice tab). Route preview should show **one hop** (direct).
+- **Keysend:** **Payments → Send payment** (Keysend tab) with their pubkey.
 
 The invoice **payee pubkey** must match the node you opened the channel with. If they send an invoice from a different wallet/node, payment will not route correctly.
 
@@ -230,8 +230,8 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 
 **4. Pay**
 
-1. **Receiver** — **Wallet → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
-2. **Sender** — **Wallet → Send payment** (Invoice tab) — route preview should show a path **via the hub** (multi-hop).
+1. **Receiver** — **Payments → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
+2. **Sender** — **Payments → Send payment** (Invoice tab) — route preview should show a path **via the hub** (multi-hop).
 3. Confirm and send.
 
 ### Multi-hop checklist
@@ -262,15 +262,15 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 
 ### Invoice (recommended)
 
-**Receiver:** **Wallet → Create invoice** → share Bech32m string or QR.
+**Receiver:** **Payments → Create invoice** → share Bech32m string or QR.
 
-**Sender:** **Wallet → Send payment** (Invoice tab) → paste invoice → confirm amount and **route preview** → **Review payment** → send.
+**Sender:** **Payments → Send payment** (Invoice tab) → paste invoice → confirm amount and **route preview** → **Review payment** → send.
 
 **Receiver:** invoice status updates to **Received** when settled.
 
 ### Keysend
 
-**Sender:** **Wallet → Send payment** (Keysend tab) → recipient pubkey → amount → route preview → send.
+**Sender:** **Payments → Send payment** (Keysend tab) → recipient pubkey → amount → route preview → send.
 
 **Receiver:** payment appears in history when settled.
 

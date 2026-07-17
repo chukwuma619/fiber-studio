@@ -221,11 +221,11 @@ export function GetStartedPage() {
 
         <GuideStep number="4" title="Send a payment" preview={<GuideSendPreview />}>
           <p className="text-base/7 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-            With a <Ui>Ready</Ui> channel, you can move CKB over Fiber from <Ui>Wallet</Ui>.
+            With a <Ui>Ready</Ui> channel, you can move CKB over Fiber from <Ui>Payments</Ui>.
           </p>
           <Actions>
             <li>
-              In the sidebar, open <Ui>Wallet</Ui>.
+              In the sidebar, open <Ui>Payments</Ui>.
             </li>
             <li>
               In <Ui>Send payment</Ui>, leave the mode on <Ui>Invoice</Ui> (or switch to{' '}
@@ -246,7 +246,7 @@ export function GetStartedPage() {
         <GuideStep number="5" title="Receive a payment" preview={<GuideReceivePreview />}>
           <Actions>
             <li>
-              Stay on <Ui>Wallet</Ui>.
+              Stay on <Ui>Payments</Ui>.
             </li>
             <li>
               Under <Ui>Receive & invoices</Ui>, click <Ui>Create invoice</Ui>.

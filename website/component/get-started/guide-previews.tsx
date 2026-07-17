@@ -251,7 +251,7 @@ export function GuideOpenChannelPreview() {
   )
 }
 
-/** Wallet — SendPaymentPanel */
+/** Payments — SendPaymentPanel */
 export function GuideSendPreview() {
   return (
     <PreviewCrop>
@@ -295,7 +295,7 @@ export function GuideSendPreview() {
   )
 }
 
-/** Wallet — CreateInvoiceDialog (form before create) */
+/** Payments — CreateInvoiceDialog (form before create) */
 export function GuideReceivePreview() {
   return (
     <DialogShell

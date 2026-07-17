@@ -1,4 +1,4 @@
-import { ArrowLeftRight, Globe, Home, Settings, Wallet } from 'lucide-react'
+import { ArrowLeftRight, Banknote, Globe, Home, Settings } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { FiberMark } from '@/component/brand/FiberMark'
@@ -7,11 +7,11 @@ import { Badge } from '@/component/ui/badge'
 import { Button } from '@/component/ui/button'
 import { StatusDot } from '@/component/ui/status-dot'
 
-export type PreviewNavId = 'Home' | 'Wallet' | 'Channels' | 'Network' | 'Settings'
+export type PreviewNavId = 'Home' | 'Payments' | 'Channels' | 'Network' | 'Settings'
 
 const NAV = [
   { label: 'Home' as const, icon: Home },
-  { label: 'Wallet' as const, icon: Wallet },
+  { label: 'Payments' as const, icon: Banknote },
   { label: 'Channels' as const, icon: ArrowLeftRight },
   { label: 'Network' as const, icon: Globe },
   { label: 'Settings' as const, icon: Settings },

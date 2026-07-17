@@ -207,7 +207,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     <div className="space-y-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <Heading level={1}>Wallet</Heading>
+          <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             Send CKB off-chain via invoice or keysend, and receive via{" "}
             {invoiceCurrency} invoices on the Fiber network.
@@ -233,7 +233,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
             outline
             onClick={handleRefresh}
             disabled={!running || isRefreshing}
-            aria-label="Refresh wallet"
+            aria-label="Refresh payments"
           >
             <RefreshCw
               className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}

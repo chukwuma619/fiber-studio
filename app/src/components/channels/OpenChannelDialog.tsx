@@ -281,7 +281,7 @@ export function OpenChannelDialog({
         {insufficientWalletBalance && requiredWalletCkb !== null ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
             On-chain wallet has {availableWalletCkb} CKB but this open needs at
-            least {requiredWalletCkb} CKB. Check the balance card above.
+            least {requiredWalletCkb} CKB. Check your on-chain wallet balance.
           </Text>
         ) : null}
         {belowMinimum ? (

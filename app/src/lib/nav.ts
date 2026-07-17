@@ -2,13 +2,13 @@ import {
   ArrowLeftRight,
   Home,
   Settings,
-  Wallet,
+  Banknote,
   Globe,
   type LucideIcon,
 } from "lucide-react"
 export type NavItemId =
   | "home"
-  | "wallet"
+  | "payments"
   | "channels"
   | "network"
   | "settings"
@@ -30,11 +30,11 @@ export const NAV_ITEMS: NavItem[] = [
     description: "Overview of your node, balances, and recent activity.",
   },
   {
-    id: "wallet",
-    label: "Wallet",
-    href: "/wallet",
-    icon: Wallet,
-    description: "Send payments, create invoices, and view channel balances.",
+    id: "payments",
+    label: "Payments",
+    href: "/payments",
+    icon: Banknote,
+    description: "Send payments, create invoices, and view payment history.",
   },
   {
     id: "channels",
