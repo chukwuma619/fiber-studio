@@ -4,4 +4,4 @@ pub mod network;
 pub mod node;
 pub mod settings;
 pub mod setup;
-pub mod wallet;
+pub mod payments;

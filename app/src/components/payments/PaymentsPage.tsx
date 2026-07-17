@@ -10,10 +10,10 @@ import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
 } from "../../lib/fnn/pageCache"
-import { useWalletActions } from "../../lib/fnn/useWalletActions"
-import { useWalletPage } from "../../lib/fnn/useWalletPage"
-import { loadMoreWalletPayments } from "../../lib/fnn/invoke"
-import type { WalletInvoiceItem, WalletPaymentItem } from "../../lib/fnn/types"
+import { usePaymentsActions } from "../../lib/fnn/usePaymentsActions"
+import { usePaymentsPage } from "../../lib/fnn/usePaymentsPage"
+import { loadMorePayments } from "../../lib/fnn/invoke"
+import type { PaymentsInvoiceItem, PaymentsPaymentItem } from "../../lib/fnn/types"
 import { StatCard } from "../home/StatCard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
@@ -24,20 +24,20 @@ import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
-import { WalletInvoicesSection } from "./WalletInvoicesSection"
+import { PaymentsInvoicesSection } from "./PaymentsInvoicesSection"
 
-export type WalletInitialAction = "create-invoice" | "send"
+export type PaymentsInitialAction = "create-invoice" | "send"
 
-type WalletPageProps = {
-  initialAction?: WalletInitialAction
+type PaymentsPageProps = {
+  initialAction?: PaymentsInitialAction
 }
 
-export function WalletPage({ initialAction }: WalletPageProps) {
+export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const { running, status } = useNodeControlContext()
-  const { data, isLoading, isRefreshing, error, refresh } = useWalletPage(running)
+  const { data, isLoading, isRefreshing, error, refresh } = usePaymentsPage(running)
 
   const handleMutationSuccess = useCallback(() => {
-    invalidatePageCaches(PAGE_CACHE_KEYS.wallet, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
     void refresh()
   }, [refresh])
 
@@ -54,21 +54,21 @@ export function WalletPage({ initialAction }: WalletPageProps) {
     cancelInvoice,
     importInvoice,
     clearActionError,
-  } = useWalletActions(handleMutationSuccess)
+  } = usePaymentsActions(handleMutationSuccess)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
-  const [selectedInvoice, setSelectedInvoice] = useState<WalletInvoiceItem | null>(
+  const [selectedInvoice, setSelectedInvoice] = useState<PaymentsInvoiceItem | null>(
     null,
   )
-  const [payments, setPayments] = useState<WalletPaymentItem[]>([])
+  const [payments, setPayments] = useState<PaymentsPaymentItem[]>([])
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null)
   const [paymentsHasMore, setPaymentsHasMore] = useState(false)
   const [isLoadingMorePayments, setIsLoadingMorePayments] = useState(false)
   const [hasLoadedMorePayments, setHasLoadedMorePayments] = useState(false)
 
-  const isWalletLoading = running && isLoading && data === null
+  const isPaymentsLoading = running && isLoading && data === null
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const sendTargets = data?.sendTargets ?? []
@@ -181,7 +181,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
 
     setIsLoadingMorePayments(true)
     try {
-      const result = await loadMoreWalletPayments({ after: paymentsCursor })
+      const result = await loadMorePayments({ after: paymentsCursor })
       setPayments((current) => {
         const existing = new Set(current.map((payment) => payment.paymentHash))
         const next = result.payments.filter(
@@ -199,7 +199,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
 
   const handleRefresh = useCallback(() => {
     setHasLoadedMorePayments(false)
-    invalidatePageCaches(PAGE_CACHE_KEYS.wallet, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
     void refresh()
   }, [refresh])
 
@@ -246,7 +246,7 @@ export function WalletPage({ initialAction }: WalletPageProps) {
 
       {error ? (
         <PageErrorBanner
-          message={`Failed to load wallet: ${error}`}
+          message={`Failed to load payments: ${error}`}
           onRetry={handleRefresh}
         />
       ) : null}
@@ -287,11 +287,11 @@ export function WalletPage({ initialAction }: WalletPageProps) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <WalletInvoicesSection
+        <PaymentsInvoicesSection
           status={status}
           running={running}
           available={available}
-          isWalletLoading={isWalletLoading}
+          isPaymentsLoading={isPaymentsLoading}
           network={data?.network ?? null}
           invoices={invoices}
           invoiceFilter={invoiceFilter}

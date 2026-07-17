@@ -1,11 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router"
 import {
-  WalletPage,
-  type WalletInitialAction,
-} from "../../components/wallet/WalletPage"
+  PaymentsPage,
+  type PaymentsInitialAction,
+} from "../../components/payments/PaymentsPage"
 
 type PaymentsSearch = {
-  action?: WalletInitialAction
+  action?: PaymentsInitialAction
 }
 
 export const Route = createFileRoute("/_app/payments")({
@@ -22,5 +22,5 @@ export const Route = createFileRoute("/_app/payments")({
 function PaymentsRoute() {
   const { action } = Route.useSearch()
 
-  return <WalletPage initialAction={action} />
+  return <PaymentsPage initialAction={action} />
 }

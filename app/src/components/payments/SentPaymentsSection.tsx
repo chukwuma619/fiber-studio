@@ -9,7 +9,7 @@ import {
   paymentStatusBadgeColor,
   paymentStatusTone,
 } from "../../lib/fnn/format"
-import type { WalletPaymentItem } from "../../lib/fnn/types"
+import type { PaymentsPaymentItem } from "../../lib/fnn/types"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -18,14 +18,14 @@ import { Text } from "../ui/text"
 import { PaymentDetailDialog } from "./PaymentDetailDialog"
 
 type SentPaymentsSectionProps = {
-  payments: WalletPaymentItem[]
+  payments: PaymentsPaymentItem[]
   available: boolean
   hasMore: boolean
   isLoadingMore: boolean
   onLoadMore: () => void
 }
 
-function paymentSummaryLine(payment: WalletPaymentItem): string {
+function paymentSummaryLine(payment: PaymentsPaymentItem): string {
   const fee = formatCkb(parseHexU128(payment.fee))
   const route =
     payment.routeHops.length > 0
@@ -52,7 +52,7 @@ export function SentPaymentsSection({
   isLoadingMore,
   onLoadMore,
 }: SentPaymentsSectionProps) {
-  const [selectedPayment, setSelectedPayment] = useState<WalletPaymentItem | null>(
+  const [selectedPayment, setSelectedPayment] = useState<PaymentsPaymentItem | null>(
     null,
   )
 

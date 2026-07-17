@@ -14,7 +14,7 @@ import type {
   SendPaymentMode,
   SendPaymentPayload,
   SendPaymentResult,
-  WalletSendTarget,
+  PaymentsSendTarget,
 } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Button } from "../ui/button"
@@ -41,7 +41,7 @@ type SendPaymentPanelProps = {
   available: boolean
   network: string | null
   relayStatus: RelayConnectionStatus
-  sendTargets: WalletSendTarget[]
+  sendTargets: PaymentsSendTarget[]
   isActing: boolean
   actionError: string | null
   onParseInvoicePreview: (invoice: string) => Promise<ParseInvoicePreview>

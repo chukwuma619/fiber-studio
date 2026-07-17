@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import type { WalletInitialAction } from "../../components/wallet/WalletPage"
+import type { PaymentsInitialAction } from "../../components/payments/PaymentsPage"
 
 type WalletSearch = {
-  action?: WalletInitialAction
+  action?: PaymentsInitialAction
 }
 
 export const Route = createFileRoute("/_app/wallet")({

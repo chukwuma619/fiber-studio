@@ -5,7 +5,7 @@ import {
   invoiceStatusDescription,
   invoiceStatusDotTone,
 } from "../../lib/fnn/format"
-import type { WalletInvoiceItem } from "../../lib/fnn/types"
+import type { PaymentsInvoiceItem } from "../../lib/fnn/types"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
 import { CopyButton } from "../ui/copy-button"
@@ -28,7 +28,7 @@ import { InvoiceQrCodeLazy } from "./InvoiceQrCodeLazy"
 
 type InvoiceDetailDialogProps = {
   open: boolean
-  invoice: WalletInvoiceItem | null
+  invoice: PaymentsInvoiceItem | null
   onClose: () => void
   isActing: boolean
   actionError: string | null

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react"
 import { getErrorMessage } from "./errors"
-import { getWalletPage } from "./invoke"
+import { getPaymentsPage } from "./invoke"
 import {
   getPageCache,
   invalidatePageCaches,
@@ -8,9 +8,9 @@ import {
   setPageCache,
 } from "./pageCache"
 import { usePollInFlight } from "./usePollInFlight"
-import type { WalletPageResponse } from "./types"
+import type { PaymentsPageResponse } from "./types"
 
-const EMPTY_RESPONSE: WalletPageResponse = {
+const EMPTY_RESPONSE: PaymentsPageResponse = {
   available: false,
   network: null,
   pubkey: null,
@@ -29,22 +29,22 @@ const EMPTY_RESPONSE: WalletPageResponse = {
 const DEFAULT_POLL_INTERVAL_MS = 10_000
 const PENDING_PAYMENT_POLL_INTERVAL_MS = 3_000
 
-function hasPendingPayments(payments: WalletPageResponse["payments"]): boolean {
+function hasPendingPayments(payments: PaymentsPageResponse["payments"]): boolean {
   return payments.some(
     (payment) => payment.status === "Created" || payment.status === "Inflight",
   )
 }
 
-function hasIncomingInvoices(invoices: WalletPageResponse["invoices"]): boolean {
+function hasIncomingInvoices(invoices: PaymentsPageResponse["invoices"]): boolean {
   return invoices.some((invoice) => invoice.status === "Received")
 }
 
-export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
-  const [data, setData] = useState<WalletPageResponse | null>(() =>
-    getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet),
+export function usePaymentsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_INTERVAL_MS) {
+  const [data, setData] = useState<PaymentsPageResponse | null>(() =>
+    getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments),
   )
   const [isLoading, setIsLoading] = useState(
-    () => getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet) === null,
+    () => getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments) === null,
   )
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -66,17 +66,17 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
     }
 
     if (manual) {
-      invalidatePageCaches(PAGE_CACHE_KEYS.wallet, PAGE_CACHE_KEYS.home)
+      invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
       setIsRefreshing(true)
-    } else if (getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet)) {
+    } else if (getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments)) {
       setIsRefreshing(true)
     }
 
     const executed = await runIfIdle(
       async () => {
         try {
-          const response = await getWalletPage()
-          setPageCache(PAGE_CACHE_KEYS.wallet, response)
+          const response = await getPaymentsPage()
+          setPageCache(PAGE_CACHE_KEYS.payments, response)
           setData(response)
           setError(null)
         } catch (err) {
@@ -98,7 +98,7 @@ export function useWalletPage(running: boolean, pollIntervalMs = DEFAULT_POLL_IN
   }, [runIfIdle, running])
 
   useEffect(() => {
-    const cached = getPageCache<WalletPageResponse>(PAGE_CACHE_KEYS.wallet)
+    const cached = getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments)
     if (cached) {
       setData(cached)
       setIsLoading(false)

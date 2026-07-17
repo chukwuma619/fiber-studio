@@ -20,7 +20,7 @@ use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
 
-const WALLET_PAYMENT_PAGE_SIZE: u32 = 25;
+const PAYMENTS_PAGE_SIZE: u32 = 25;
 const INVOICE_PARSE_CACHE_TTL: Duration = Duration::from_secs(60);
 
 struct CachedInvoiceParse {
@@ -70,7 +70,7 @@ async fn parse_invoice_cached(invoice: &str) -> Result<rpc::ParseInvoiceResult, 
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WalletPageResponse {
+pub struct PaymentsPageResponse {
     pub available: bool,
     pub network: Option<String>,
     pub pubkey: Option<String>,
@@ -79,17 +79,17 @@ pub struct WalletPageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_chain_wallet_error: Option<String>,
     pub lock_script: Option<CkbScript>,
-    pub invoices: Vec<WalletInvoiceItem>,
-    pub payments: Vec<WalletPaymentItem>,
+    pub invoices: Vec<PaymentsInvoiceItem>,
+    pub payments: Vec<PaymentsPaymentItem>,
     pub payments_last_cursor: Option<String>,
     pub payments_has_more: bool,
-    pub send_targets: Vec<WalletSendTarget>,
+    pub send_targets: Vec<PaymentsSendTarget>,
     pub relay_status: String,
 }
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WalletSendTarget {
+pub struct PaymentsSendTarget {
     pub pubkey: String,
     pub label: String,
     pub kind: String,
@@ -97,7 +97,7 @@ pub struct WalletSendTarget {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WalletInvoiceItem {
+pub struct PaymentsInvoiceItem {
     pub payment_hash: String,
     pub invoice_address: String,
     pub amount_ckb: String,
@@ -108,7 +108,7 @@ pub struct WalletInvoiceItem {
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct WalletPaymentItem {
+pub struct PaymentsPaymentItem {
     pub payment_hash: String,
     pub status: String,
     pub created_at: u64,
@@ -194,7 +194,7 @@ pub struct LoadMorePaymentsPayload {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LoadMorePaymentsResult {
-    pub payments: Vec<WalletPaymentItem>,
+    pub payments: Vec<PaymentsPaymentItem>,
     pub last_cursor: Option<String>,
     pub has_more: bool,
 }
@@ -219,8 +219,8 @@ pub struct SendPaymentCommandResult {
     pub route_hops: Vec<String>,
 }
 
-fn wallet_page_unavailable() -> WalletPageResponse {
-    WalletPageResponse {
+fn payments_page_unavailable() -> PaymentsPageResponse {
+    PaymentsPageResponse {
         available: false,
         network: None,
         pubkey: None,
@@ -249,8 +249,8 @@ fn resolve_send_limits(
     Ok((max_fee_amount, timeout_seconds))
 }
 
-fn to_wallet_invoice(item: InvoiceListItem) -> WalletInvoiceItem {
-    WalletInvoiceItem {
+fn to_payments_invoice(item: InvoiceListItem) -> PaymentsInvoiceItem {
+    PaymentsInvoiceItem {
         payment_hash: item.payment_hash,
         invoice_address: item.invoice_address,
         amount_ckb: item.amount_ckb,
@@ -260,8 +260,8 @@ fn to_wallet_invoice(item: InvoiceListItem) -> WalletInvoiceItem {
     }
 }
 
-fn to_wallet_payment(item: PaymentListItem) -> WalletPaymentItem {
-    WalletPaymentItem {
+fn to_payments_payment(item: PaymentListItem) -> PaymentsPaymentItem {
+    PaymentsPaymentItem {
         payment_hash: item.payment_hash,
         status: item.status,
         created_at: item.created_at,
@@ -371,7 +371,7 @@ fn keysend_payment_request<'a>(
 fn build_send_targets(
     channels: &[rpc::Channel],
     own_pubkey: &str,
-) -> Vec<WalletSendTarget> {
+) -> Vec<PaymentsSendTarget> {
     let mut targets = Vec::new();
 
     for channel in channels {
@@ -387,13 +387,13 @@ fn build_send_targets(
         }
         if targets
             .iter()
-            .any(|target: &WalletSendTarget| {
+            .any(|target: &PaymentsSendTarget| {
                 peer_connect::pubkeys_equal(&target.pubkey, &channel.pubkey)
             })
         {
             continue;
         }
-        targets.push(WalletSendTarget {
+        targets.push(PaymentsSendTarget {
             pubkey: channel.pubkey.clone(),
             label: "Channel peer".to_string(),
             kind: "channel".to_string(),
@@ -418,14 +418,14 @@ fn normalize_payment_hash(payment_hash: &str) -> String {
 fn map_wallet_payments(
     payments: Vec<rpc::PaymentSummary>,
     stored_sent_payments: &[sent_payments::StoredSentPayment],
-) -> Vec<WalletPaymentItem> {
+) -> Vec<PaymentsPaymentItem> {
     payments
         .into_iter()
         .map(|payment| {
             let stored = stored_sent_payments
                 .iter()
                 .find(|entry| entry.payment_hash == payment.payment_hash);
-            to_wallet_payment(payment_display::map_payment_list_item(payment, stored))
+            to_payments_payment(payment_display::map_payment_list_item(payment, stored))
         })
         .collect()
 }
@@ -524,11 +524,11 @@ async fn require_running_data_dir(state: &State<'_, AppState>) -> Result<PathBuf
 }
 
 #[tauri::command]
-pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageResponse, String> {
+pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPageResponse, String> {
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Ok(wallet_page_unavailable());
+        return Ok(payments_page_unavailable());
     }
 
     let data_directory = manager.data_directory().cloned();
@@ -543,7 +543,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         rpc::fetch_node_info(),
         rpc::fetch_list_channels(),
         rpc::fetch_list_peers(),
-        rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, None),
+        rpc::fetch_list_payments_page(PAYMENTS_PAGE_SIZE, None),
     );
 
     let node_info = node_info.map_err(|error| error.to_string())?;
@@ -577,7 +577,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
     let invoice_items = invoice_display::build_invoice_list_items(stored_invoices)
         .await
         .into_iter()
-        .map(to_wallet_invoice)
+        .map(to_payments_invoice)
         .collect();
 
     let stored_sent_payments = data_directory
@@ -587,14 +587,14 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
 
     let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
     let (payments_last_cursor, payments_has_more) = payments_page_meta(
-        WALLET_PAYMENT_PAGE_SIZE,
+        PAYMENTS_PAGE_SIZE,
         payments_page.last_cursor,
         payment_items.len(),
     );
 
     let send_targets = build_send_targets(&channels, &node_info.pubkey);
 
-    Ok(WalletPageResponse {
+    Ok(PaymentsPageResponse {
         available: true,
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
         pubkey: Some(node_info.pubkey),
@@ -864,7 +864,7 @@ pub async fn get_payment(
 pub async fn cancel_invoice(
     state: State<'_, AppState>,
     payload: PaymentHashPayload,
-) -> Result<WalletInvoiceItem, String> {
+) -> Result<PaymentsInvoiceItem, String> {
     let payment_hash = payload.payment_hash.trim();
     if payment_hash.is_empty() {
         return Err("Payment hash is required.".to_string());
@@ -882,7 +882,7 @@ pub async fn cancel_invoice(
         .as_deref()
         .unwrap_or("0x0");
 
-    Ok(WalletInvoiceItem {
+    Ok(PaymentsInvoiceItem {
         payment_hash: payment_hash.to_string(),
         invoice_address: result.invoice_address,
         amount_ckb: format!("{} CKB", ckb_from_shannons_hex(amount_hex)),
@@ -900,7 +900,7 @@ pub async fn cancel_invoice(
 }
 
 #[tauri::command]
-pub async fn load_more_wallet_payments(
+pub async fn load_more_payments(
     state: State<'_, AppState>,
     payload: LoadMorePaymentsPayload,
 ) -> Result<LoadMorePaymentsResult, String> {
@@ -911,14 +911,14 @@ pub async fn load_more_wallet_payments(
 
     let data_directory = require_running_data_dir(&state).await?;
 
-    let payments_page = rpc::fetch_list_payments_page(WALLET_PAYMENT_PAGE_SIZE, Some(after))
+    let payments_page = rpc::fetch_list_payments_page(PAYMENTS_PAGE_SIZE, Some(after))
         .await
         .map_err(|error| error.to_string())?;
 
     let stored_sent_payments = sent_payments::read_sent_payments(&data_directory).unwrap_or_default();
     let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
     let (last_cursor, has_more) = payments_page_meta(
-        WALLET_PAYMENT_PAGE_SIZE,
+        PAYMENTS_PAGE_SIZE,
         payments_page.last_cursor,
         payment_items.len(),
     );
@@ -934,7 +934,7 @@ pub async fn load_more_wallet_payments(
 pub async fn import_invoice(
     state: State<'_, AppState>,
     payload: PaymentHashPayload,
-) -> Result<WalletInvoiceItem, String> {
+) -> Result<PaymentsInvoiceItem, String> {
     let payment_hash = normalize_payment_hash(&payload.payment_hash);
     if payment_hash.is_empty() {
         return Err("Payment hash is required.".to_string());
@@ -952,7 +952,7 @@ pub async fn import_invoice(
 
     let imported = invoice_display::build_invoice_list_item(stored).await;
 
-    Ok(to_wallet_invoice(imported))
+    Ok(to_payments_invoice(imported))
 }
 
 #[cfg(test)]

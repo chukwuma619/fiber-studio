@@ -148,7 +148,7 @@ export type HomeDashboardResponse = {
   relayStatus: RelayConnectionStatus
 }
 
-export type WalletInvoiceItem = {
+export type PaymentsInvoiceItem = {
   paymentHash: string
   invoiceAddress: string
   amountCkb: string
@@ -157,7 +157,7 @@ export type WalletInvoiceItem = {
   expiresIn: string | null
 }
 
-export type WalletPaymentItem = {
+export type PaymentsPaymentItem = {
   paymentHash: string
   status: string
   createdAt: number
@@ -170,13 +170,13 @@ export type WalletPaymentItem = {
   routeHops: string[]
 }
 
-export type WalletSendTarget = {
+export type PaymentsSendTarget = {
   pubkey: string
   label: string
   kind: "relay" | "channel" | "peer" | string
 }
 
-export type WalletPageResponse = {
+export type PaymentsPageResponse = {
   available: boolean
   network: string | null
   pubkey: string | null
@@ -184,11 +184,11 @@ export type WalletPageResponse = {
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
   lockScript: CkbScript | null
-  invoices: WalletInvoiceItem[]
-  payments: WalletPaymentItem[]
+  invoices: PaymentsInvoiceItem[]
+  payments: PaymentsPaymentItem[]
   paymentsLastCursor: string | null
   paymentsHasMore: boolean
-  sendTargets: WalletSendTarget[]
+  sendTargets: PaymentsSendTarget[]
   relayStatus: RelayConnectionStatus
 }
 
@@ -255,7 +255,7 @@ export type LoadMorePaymentsPayload = {
 }
 
 export type LoadMorePaymentsResult = {
-  payments: WalletPaymentItem[]
+  payments: PaymentsPaymentItem[]
   lastCursor: string | null
   hasMore: boolean
 }

@@ -80,7 +80,7 @@ export function useSettingsPage(config: SetupConfig | null) {
         }
         invalidatePageCaches(
           PAGE_CACHE_KEYS.home,
-          PAGE_CACHE_KEYS.wallet,
+          PAGE_CACHE_KEYS.payments,
           PAGE_CACHE_KEYS.channels,
           PAGE_CACHE_KEYS.network,
           PAGE_CACHE_KEYS.settings,

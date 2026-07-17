@@ -6,7 +6,7 @@ import {
   invoiceStatusTone,
   type InvoiceListFilter,
 } from "../../lib/fnn/format"
-import type { NodeStatusState, WalletInvoiceItem } from "../../lib/fnn/types"
+import type { NodeStatusState, PaymentsInvoiceItem } from "../../lib/fnn/types"
 import { nodeUnavailableEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { StatusDot } from "../layout/StatusDot"
@@ -24,25 +24,25 @@ import {
   TableRow,
 } from "../ui/table"
 
-type WalletInvoicesSectionProps = {
+type PaymentsInvoicesSectionProps = {
   status: NodeStatusState | null
   running: boolean
   available: boolean
-  isWalletLoading: boolean
+  isPaymentsLoading: boolean
   network: string | null
-  invoices: WalletInvoiceItem[]
+  invoices: PaymentsInvoiceItem[]
   invoiceFilter: InvoiceListFilter
   onInvoiceFilterChange: (filter: InvoiceListFilter) => void
-  onSelectInvoice: (invoice: WalletInvoiceItem) => void
+  onSelectInvoice: (invoice: PaymentsInvoiceItem) => void
   onImport: () => void
   onCreate: () => void
 }
 
-export function WalletInvoicesSection({
+export function PaymentsInvoicesSection({
   status,
   running,
   available,
-  isWalletLoading,
+  isPaymentsLoading,
   network,
   invoices,
   invoiceFilter,
@@ -50,7 +50,7 @@ export function WalletInvoicesSection({
   onSelectInvoice,
   onImport,
   onCreate,
-}: WalletInvoicesSectionProps) {
+}: PaymentsInvoicesSectionProps) {
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const filteredInvoices = filterInvoices(invoices, invoiceFilter)
   const nodeUnavailable = !running
@@ -110,7 +110,7 @@ export function WalletInvoicesSection({
         </div>
       ) : null}
 
-      {isWalletLoading ? (
+      {isPaymentsLoading ? (
         <Table dense>
           <TableHead>
             <TableRow>
@@ -132,7 +132,7 @@ export function WalletInvoicesSection({
       ) : !available ? (
         <HomeEmptyState
           title="Payments unavailable"
-          description="Your node is running but wallet data could not be loaded."
+          description="Your node is running but payments data could not be loaded."
         />
       ) : filteredInvoices.length === 0 ? (
         <HomeEmptyState

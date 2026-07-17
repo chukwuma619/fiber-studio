@@ -33,8 +33,8 @@ import type {
   ShutdownChannelPayload,
   StartNodePayload,
   WalletBalanceResponse,
-  WalletInvoiceItem,
-  WalletPageResponse,
+  PaymentsInvoiceItem,
+  PaymentsPageResponse,
   NodeSettingsResponse,
   UpdateWalletPasswordPayload,
   SwitchNetworkPayload,
@@ -115,8 +115,8 @@ export async function abandonChannel(
   return invoke<void>("abandon_channel", { payload })
 }
 
-export async function getWalletPage(): Promise<WalletPageResponse> {
-  return invoke<WalletPageResponse>("get_wallet_page")
+export async function getPaymentsPage(): Promise<PaymentsPageResponse> {
+  return invoke<PaymentsPageResponse>("get_payments_page")
 }
 
 export async function createInvoice(
@@ -163,20 +163,20 @@ export async function getPayment(
 
 export async function cancelInvoice(
   payload: PaymentHashPayload,
-): Promise<WalletInvoiceItem> {
-  return invoke<WalletInvoiceItem>("cancel_invoice", { payload })
+): Promise<PaymentsInvoiceItem> {
+  return invoke<PaymentsInvoiceItem>("cancel_invoice", { payload })
 }
 
-export async function loadMoreWalletPayments(
+export async function loadMorePayments(
   payload: LoadMorePaymentsPayload,
 ): Promise<LoadMorePaymentsResult> {
-  return invoke<LoadMorePaymentsResult>("load_more_wallet_payments", { payload })
+  return invoke<LoadMorePaymentsResult>("load_more_payments", { payload })
 }
 
 export async function importInvoice(
   payload: PaymentHashPayload,
-): Promise<WalletInvoiceItem> {
-  return invoke<WalletInvoiceItem>("import_invoice", { payload })
+): Promise<PaymentsInvoiceItem> {
+  return invoke<PaymentsInvoiceItem>("import_invoice", { payload })
 }
 
 export async function getNetworkPage(): Promise<NetworkPageResponse> {

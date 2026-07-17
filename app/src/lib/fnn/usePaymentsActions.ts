@@ -22,7 +22,7 @@ import type {
   SendPaymentResult,
 } from "./types"
 
-export function useWalletActions(onSuccess?: () => void) {
+export function usePaymentsActions(onSuccess?: () => void) {
   const [isActing, setIsActing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 

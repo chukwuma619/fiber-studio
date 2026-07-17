@@ -231,7 +231,7 @@ export function ChannelsCrop() {
 }
 
 /** Payments — send payment panel. */
-export function WalletCrop() {
+export function PaymentsCrop() {
   return (
     <PreviewCrop>
       <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">

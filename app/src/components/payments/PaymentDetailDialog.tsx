@@ -9,7 +9,7 @@ import {
   paymentStatusTone,
   sanitizePaymentError,
 } from "../../lib/fnn/format"
-import type { WalletPaymentItem } from "../../lib/fnn/types"
+import type { PaymentsPaymentItem } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
@@ -31,7 +31,7 @@ import { Text } from "../ui/text"
 
 type PaymentDetailDialogProps = {
   open: boolean
-  payment: WalletPaymentItem | null
+  payment: PaymentsPaymentItem | null
   onClose: () => void
 }
 
