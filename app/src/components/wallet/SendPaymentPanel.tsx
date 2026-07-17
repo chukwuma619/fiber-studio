@@ -21,6 +21,7 @@ import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Subheading } from "../ui/heading"
 import { Input } from "../ui/input"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Select } from "../ui/select"
 import { Text } from "../ui/text"
 import { InvoiceParsePreview } from "./InvoiceParsePreview"
@@ -103,9 +104,20 @@ export function SendPaymentPanel({
   const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
 
   useEffect(() => {
-    if (sendTargets.length > 0 && !targetPubkey) {
-      setTargetPubkey(sendTargets[0]?.pubkey ?? "")
+    if (sendTargets.length === 0) {
+      return
     }
+
+    const selectionStillValid = sendTargets.some(
+      (target) => target.pubkey === targetPubkey,
+    )
+    if (targetPubkey && selectionStillValid) {
+      return
+    }
+
+    const preferred =
+      sendTargets.find((target) => target.kind === "channel") ?? sendTargets[0]
+    setTargetPubkey(preferred?.pubkey ?? "")
   }, [sendTargets, targetPubkey])
 
   useEffect(() => {
@@ -228,6 +240,7 @@ export function SendPaymentPanel({
       return
     }
 
+    let cancelled = false
     setPreviewLoading(true)
     setPreviewError(null)
 
@@ -237,19 +250,23 @@ export function SendPaymentPanel({
         amount: parsedAmount,
       })
         .then((preview) => {
+          if (cancelled) return
           setRoutePreview(preview)
           setPreviewError(null)
         })
         .catch((err) => {
+          if (cancelled) return
           setRoutePreview(null)
           setPreviewError(paymentErrorSummary(getErrorMessage(err)))
         })
         .finally(() => {
+          if (cancelled) return
           setPreviewLoading(false)
         })
     }, PREVIEW_DEBOUNCE_MS)
 
     return () => {
+      cancelled = true
       window.clearTimeout(timeout)
     }
   }, [
@@ -372,7 +389,9 @@ export function SendPaymentPanel({
                     </option>
                   ))}
                 </Select>
-                <Description>Relay, channel, and connected peers</Description>
+                <Description>
+                  Peers with a ready channel you can spend from
+                </Description>
               </Field>
             ) : (
               <Field>
@@ -431,7 +450,7 @@ export function SendPaymentPanel({
                 : existingPayment.paymentHash}
             </p>
           </div>
-        ) : (
+        ) : sendMode === "invoice" ? (
           <div className="mt-4">
             <PaymentRoutePreview
               preview={routePreview}
@@ -439,14 +458,18 @@ export function SendPaymentPanel({
               error={previewError}
               compact
               onDismissError={() => setPreviewError(null)}
-              emptyHint={
-                sendMode === "invoice"
-                  ? "Paste an invoice to preview the route"
-                  : "Enter recipient and amount to preview the route"
-              }
+              emptyHint="Paste an invoice to preview the route"
             />
           </div>
-        )}
+        ) : previewError ? (
+          <div className="mt-4">
+            <PageErrorBanner
+              message={previewError}
+              onDismiss={() => setPreviewError(null)}
+              className="px-3 py-2.5 text-xs"
+            />
+          </div>
+        ) : null}
 
         {sendMode === "invoice" &&
         parsedInvoice &&
@@ -458,8 +481,9 @@ export function SendPaymentPanel({
 
         {sendMode === "keysend" && sendTargets.length === 0 ? (
           <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-            No known peers yet — paste a recipient pubkey. Opening a channel
-            improves delivery reliability.
+            No payable channel peers yet. Open a channel and wait until it is
+            ready with spendable (local) balance, or paste a recipient pubkey
+            if you already have a routable path.
           </Text>
         ) : null}
 
@@ -468,7 +492,9 @@ export function SendPaymentPanel({
           onClick={handleReviewPayment}
           disabled={!running || !canReviewPayment}
         >
-          Review payment
+          {sendMode === "keysend" && previewLoading
+            ? "Finding route…"
+            : "Review payment"}
         </Button>
       </div>
 

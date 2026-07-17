@@ -369,50 +369,35 @@ fn keysend_payment_request<'a>(
 }
 
 fn build_send_targets(
-    peers: &[rpc::PeerInfo],
     channels: &[rpc::Channel],
-    saved_peer_pubkeys: &[String],
     own_pubkey: &str,
 ) -> Vec<WalletSendTarget> {
     let mut targets = Vec::new();
 
-    let mut push_target = |pubkey: &str, label: String, kind: &str| {
-        if pubkey.trim().is_empty() || peer_connect::pubkeys_equal(pubkey, own_pubkey) {
-            return;
+    for channel in channels {
+        if !rpc::is_channel_ready(&channel.state) {
+            continue;
+        }
+        if peer_connect::pubkeys_equal(&channel.pubkey, own_pubkey) {
+            continue;
+        }
+        let local_balance = rpc::parse_hex_u128(&channel.local_balance).unwrap_or(0);
+        if local_balance == 0 {
+            continue;
         }
         if targets
             .iter()
             .any(|target: &WalletSendTarget| {
-                peer_connect::pubkeys_equal(&target.pubkey, pubkey)
+                peer_connect::pubkeys_equal(&target.pubkey, &channel.pubkey)
             })
         {
-            return;
-        }
-        targets.push(WalletSendTarget {
-            pubkey: pubkey.to_string(),
-            label,
-            kind: kind.to_string(),
-        });
-    };
-
-    for pubkey in saved_peer_pubkeys {
-        let trimmed = pubkey.trim();
-        if trimmed.is_empty() {
             continue;
         }
-        push_target(trimmed, "Saved peer".to_string(), "relay");
-    }
-
-    for channel in channels {
-        push_target(
-            &channel.pubkey,
-            "Channel peer".to_string(),
-            "channel",
-        );
-    }
-
-    for peer in peers {
-        push_target(&peer.pubkey, "Connected peer".to_string(), "peer");
+        targets.push(WalletSendTarget {
+            pubkey: channel.pubkey.clone(),
+            label: "Channel peer".to_string(),
+            kind: "channel".to_string(),
+        });
     }
 
     targets
@@ -569,17 +554,6 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
     let total_local = sum_local_balances(&channels);
     let in_channel_balance_ckb = (total_local / SHANNONS_PER_CKB) as u64;
 
-    let saved_peer_pubkeys = studio_metadata
-        .as_ref()
-        .map(|metadata| {
-            metadata
-                .saved_peers
-                .iter()
-                .map(|peer| peer.pubkey.clone())
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
-
     let saved_peers = studio_metadata
         .as_ref()
         .map(|metadata| metadata.saved_peers.as_slice())
@@ -618,12 +592,7 @@ pub async fn get_wallet_page(state: State<'_, AppState>) -> Result<WalletPageRes
         payment_items.len(),
     );
 
-    let send_targets = build_send_targets(
-        &peers,
-        &channels,
-        &saved_peer_pubkeys,
-        &node_info.pubkey,
-    );
+    let send_targets = build_send_targets(&channels, &node_info.pubkey);
 
     Ok(WalletPageResponse {
         available: true,
