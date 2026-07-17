@@ -296,12 +296,9 @@ export function ChannelDetailDialog({
       <DialogActions>
         {step === "detail" ? (
           <>
-            <Button plain onClick={handleDismiss} disabled={isActing}>
-              Done
-            </Button>
             {showAbandon ? (
               <Button
-                outline
+                plain
                 className="text-amber-800 dark:text-amber-300"
                 onClick={() => {
                   onClearError()
@@ -313,7 +310,7 @@ export function ChannelDetailDialog({
               </Button>
             ) : (
               <Button
-                outline
+                plain
                 className="text-red-700 dark:text-red-400"
                 onClick={() => {
                   onClearError()
@@ -324,6 +321,9 @@ export function ChannelDetailDialog({
                 Close channel
               </Button>
             )}
+            <Button onClick={handleDismiss} disabled={isActing}>
+              Done
+            </Button>
           </>
         ) : step === "confirm-close" ? (
           <>
