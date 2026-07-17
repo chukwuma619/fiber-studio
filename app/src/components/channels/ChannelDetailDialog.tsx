@@ -310,8 +310,8 @@ export function ChannelDetailDialog({
               </Button>
             ) : (
               <Button
-                plain
-                className="text-red-700 dark:text-red-400"
+outline
+              className="text-red-700 dark:text-red-400"
                 onClick={() => {
                   onClearError()
                   setStep("confirm-close")
