@@ -8,15 +8,10 @@ use crate::state::AppState;
 
 #[cfg(desktop)]
 fn autostart_plugin<R: tauri::Runtime>() -> tauri::plugin::TauriPlugin<R> {
-    #[cfg(target_os = "macos")]
-    {
-        use tauri_plugin_autostart::MacosLauncher;
-        tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None)
-    }
-    #[cfg(not(target_os = "macos"))]
-    {
-        tauri_plugin_autostart::init(tauri_plugin_autostart::Launcher::default(), None)
-    }
+    use tauri_plugin_autostart::MacosLauncher;
+
+    // MacosLauncher is required by the API on all platforms; it is only used on macOS.
+    tauri_plugin_autostart::init(MacosLauncher::LaunchAgent, None)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
