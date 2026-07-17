@@ -16,6 +16,8 @@ pub struct HomeChannel {
     pub remote_balance: String,
     pub local_percent: u8,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_outpoint: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
 }
 
@@ -71,6 +73,7 @@ pub fn to_home_channel(channel: Channel) -> HomeChannel {
         local_balance: channel.local_balance,
         remote_balance: channel.remote_balance,
         local_percent,
+        channel_outpoint: channel.channel_outpoint,
         failure_detail: channel.failure_detail,
     }
 }
@@ -176,6 +179,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: true,
+                channel_outpoint: None,
                 failure_detail: None,
             },
             Channel {
@@ -188,6 +192,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                channel_outpoint: None,
                 failure_detail: None,
             },
         ];
@@ -209,6 +214,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: true,
+                channel_outpoint: None,
                 failure_detail: None,
             },
             Channel {
@@ -221,6 +227,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                channel_outpoint: None,
                 failure_detail: None,
             },
         ];

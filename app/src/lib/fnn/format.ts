@@ -223,6 +223,19 @@ export function truncateLockScriptArgs(args: string): string {
   return `0x${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`
 }
 
+export function fundingTxHashFromOutpoint(
+  outpoint: string | null | undefined,
+): string | null {
+  if (!outpoint) return null
+  const hex = outpoint.startsWith("0x") || outpoint.startsWith("0X")
+    ? outpoint.slice(2)
+    : outpoint
+  if (hex.length < 64 || !/^[0-9a-fA-F]+$/.test(hex)) {
+    return null
+  }
+  return `0x${hex.slice(0, 64).toLowerCase()}`
+}
+
 export function invoiceCurrencyLabel(
   network: string | null | undefined,
 ): string {

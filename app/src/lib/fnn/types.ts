@@ -51,6 +51,7 @@ export type HomeChannel = {
   localBalance: string
   remoteBalance: string
   localPercent: number
+  channelOutpoint?: string | null
   failureDetail?: string | null
 }
 

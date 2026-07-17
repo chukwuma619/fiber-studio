@@ -134,6 +134,8 @@ pub struct Channel {
     #[serde(default)]
     pub enabled: bool,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub channel_outpoint: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
 }
 
@@ -1057,6 +1059,7 @@ mod tests {
             offered_tlc_balance: String::new(),
             received_tlc_balance: String::new(),
             enabled: true,
+            channel_outpoint: None,
             failure_detail: None,
         }];
         let pending = vec![
@@ -1070,6 +1073,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                channel_outpoint: None,
                 failure_detail: None,
             },
             Channel {
@@ -1085,6 +1089,7 @@ mod tests {
                 offered_tlc_balance: String::new(),
                 received_tlc_balance: String::new(),
                 enabled: false,
+                channel_outpoint: None,
                 failure_detail: Some("Peer did not respond".into()),
             },
         ];

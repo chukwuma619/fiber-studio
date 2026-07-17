@@ -5,6 +5,7 @@ import {
   channelStateBadgeColor,
   channelStateDisplayLabel,
   formatCkb,
+  fundingTxHashFromOutpoint,
   parseHexU128,
 } from "../../lib/fnn/format"
 import type {
@@ -15,7 +16,6 @@ import type {
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
-import { CapacityBar } from "../ui/capacity-bar"
 import { CopyButton } from "../ui/copy-button"
 import {
   DescriptionDetails,
@@ -26,7 +26,6 @@ import {
   Dialog,
   DialogActions,
   DialogBody,
-  DialogDescription,
   DialogTitle,
 } from "../ui/dialog"
 import { HelpTooltip } from "../ui/help-tooltip"
@@ -96,6 +95,7 @@ export function ChannelDetailDialog({
   const capacity = formatCkb(
     parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance),
   )
+  const fundingTxHash = fundingTxHashFromOutpoint(channel.channelOutpoint)
   const stateLabel = channelStateDisplayLabel(channel.state)
   const badgeColor = channelStateBadgeColor(
     channel.state,
@@ -177,6 +177,23 @@ export function ChannelDetailDialog({
                   <CopyButton value={channel.channelId} label="Copy channel ID" />
                 </div>
               </DescriptionDetails>
+
+              {fundingTxHash ? (
+                <>
+                  <DescriptionTerm>Funding Tx</DescriptionTerm>
+                  <DescriptionDetails>
+                    <div className="flex flex-wrap items-start gap-2">
+                      <span className="min-w-0 flex-1 font-mono text-xs break-all text-zinc-600 dark:text-zinc-300">
+                        {fundingTxHash}
+                      </span>
+                      <CopyButton
+                        value={fundingTxHash}
+                        label="Copy funding transaction hash"
+                      />
+                    </div>
+                  </DescriptionDetails>
+                </>
+              ) : null}
 
               <DescriptionTerm>Visibility</DescriptionTerm>
               <DescriptionDetails>
