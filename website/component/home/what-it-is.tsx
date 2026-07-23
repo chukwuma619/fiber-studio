@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 
 import {
   HomeCrop,
@@ -8,6 +8,7 @@ import {
   SettingsCrop,
 } from '@/component/home/preview-crops'
 import { Divider } from '@/component/ui/divider'
+import { fadeUp, sectionCardDelay, sectionCardEnter } from '@/lib/motion'
 
 const POINTS = [
   {
@@ -28,6 +29,9 @@ const POINTS = [
 ] as const
 
 export function WhatItIs() {
+  const reduceMotion = useReducedMotion()
+  const card = fadeUp(16, reduceMotion)
+
   return (
     <section className="pt-16 sm:pt-20">
       <Divider soft />
@@ -51,10 +55,10 @@ export function WhatItIs() {
           {POINTS.map((point, index) => (
             <motion.li
               key={point.title}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={card.initial}
+              whileInView={card.animate}
               viewport={{ once: true, margin: '-40px' }}
-              transition={{ duration: 0.45, delay: index * 0.1, ease: 'easeOut' }}
+              transition={{ ...sectionCardEnter, delay: sectionCardDelay(index) }}
               className="min-w-0"
             >
               <point.Preview />

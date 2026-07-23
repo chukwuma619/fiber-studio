@@ -1,11 +1,12 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import { Button } from '@/component/ui/button'
 import { Divider } from '@/component/ui/divider'
 import { TextLink } from '@/component/ui/text'
+import { fadeUp, pageBodyEnter, pageHeaderEnter } from '@/lib/motion'
 
 const GITHUB_ISSUES = 'https://github.com/chukwuma619/fiber-studio/issues'
 const FIBER_DOCS = 'https://www.fiber.world/docs'
@@ -47,12 +48,16 @@ function FaqItem({
 }
 
 export function FaqPage() {
+  const reduceMotion = useReducedMotion()
+  const header = fadeUp(12, reduceMotion)
+  const body = fadeUp(16, reduceMotion)
+
   return (
     <div className="pb-4 sm:pt-12">
       <motion.header
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={header.initial}
+        animate={header.animate}
+        transition={pageHeaderEnter}
         className="max-w-2xl"
       >
         <h1 className="text-4xl font-semibold tracking-[-2.4px] text-zinc-950 sm:text-6xl sm:tracking-[-3.84px] dark:text-white">
@@ -71,9 +76,9 @@ export function FaqPage() {
       </motion.header>
 
       <motion.ul
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, delay: 0.05, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={body.initial}
+        animate={body.animate}
+        transition={pageBodyEnter}
         className="mt-10 list-none sm:mt-12"
       >
         <FaqItem question="What is Fiber Studio?">

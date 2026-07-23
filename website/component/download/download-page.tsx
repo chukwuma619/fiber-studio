@@ -1,11 +1,12 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import { useEffect, useState, useSyncExternalStore, type ReactNode } from 'react'
 
 import { Button } from '@/component/ui/button'
 import { Divider } from '@/component/ui/divider'
 import { TextLink } from '@/component/ui/text'
+import { fadeUp, pageBodyEnter, pageHeaderEnter, sectionCardEnter } from '@/lib/motion'
 import {
   buildPlatformDownloads,
   detectPlatform,
@@ -148,6 +149,9 @@ function AfterInstallNotes({ platform }: { platform: DetectedPlatform }) {
 }
 
 export function DownloadPage({ release }: { release: LatestRelease | null }) {
+  const reduceMotion = useReducedMotion()
+  const header = fadeUp(12, reduceMotion)
+  const body = fadeUp(16, reduceMotion)
   const syncDetected = useSyncExternalStore(
     subscribeNoop,
     detectPlatformSync,
@@ -199,9 +203,9 @@ export function DownloadPage({ release }: { release: LatestRelease | null }) {
   return (
     <div className="pb-4 sm:pt-12">
       <motion.header
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={header.initial}
+        animate={header.animate}
+        transition={pageHeaderEnter}
         className="max-w-2xl"
       >
         <h1 className="text-4xl font-semibold tracking-[-2.4px] text-zinc-950 sm:text-6xl sm:tracking-[-3.84px] dark:text-white">
@@ -247,9 +251,9 @@ export function DownloadPage({ release }: { release: LatestRelease | null }) {
 
       <motion.section
         id="installers"
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, delay: 0.05, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={body.initial}
+        animate={body.animate}
+        transition={pageBodyEnter}
         className="mt-14 scroll-mt-24 sm:mt-16"
       >
         <h2 className="text-2xl/8 font-semibold tracking-[-0.96px] text-zinc-950 sm:text-[32px]/[40px] sm:tracking-[-1.28px] dark:text-white">
@@ -281,10 +285,10 @@ export function DownloadPage({ release }: { release: LatestRelease | null }) {
       </motion.section>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={body.initial}
+        whileInView={body.animate}
         viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 0.25, ease: [0.175, 0.885, 0.32, 1.1] }}
+        transition={sectionCardEnter}
         className="mt-10 sm:mt-14"
       >
         <Divider soft />
@@ -292,10 +296,10 @@ export function DownloadPage({ release }: { release: LatestRelease | null }) {
       </motion.div>
 
       <motion.section
-        initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
+        initial={body.initial}
+        whileInView={body.animate}
         viewport={{ once: true, margin: '-40px' }}
-        transition={{ duration: 0.25, ease: [0.175, 0.885, 0.32, 1.1] }}
+        transition={sectionCardEnter}
         className="mt-14 max-w-2xl sm:mt-16"
       >
         <Divider soft />

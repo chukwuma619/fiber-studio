@@ -1,21 +1,24 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 
 import { Button } from '@/component/ui/button'
 import { AppPreview } from '@/component/home/app-preview'
+import { fadeUp, pageBodyEnter, pageHeaderEnter } from '@/lib/motion'
 
 export function Hero() {
+  const reduceMotion = useReducedMotion()
+  const copy = fadeUp(12, reduceMotion)
+  const preview = fadeUp(16, reduceMotion)
+
   return (
     <section className="pb-4 sm:pt-20">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={copy.initial}
+        animate={copy.animate}
+        transition={pageHeaderEnter}
         className="max-w-2xl"
       >
-
-
         <h1 className="text-4xl font-semibold tracking-[-2.4px] text-zinc-950 sm:text-6xl sm:tracking-[-3.84px] dark:text-white">
           A desktop app for Fiber Network payments.
         </h1>
@@ -33,9 +36,9 @@ export function Hero() {
       </motion.div>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={preview.initial}
+        animate={preview.animate}
+        transition={pageBodyEnter}
         className="mt-12 sm:mt-14"
       >
         <AppPreview />

@@ -1,6 +1,6 @@
 'use client'
 
-import { motion } from 'motion/react'
+import { motion, useReducedMotion } from 'motion/react'
 import type { ReactNode } from 'react'
 
 import {
@@ -13,6 +13,7 @@ import {
 import { Button } from '@/component/ui/button'
 import { Divider } from '@/component/ui/divider'
 import { TextLink } from '@/component/ui/text'
+import { fadeUp, pageHeaderEnter } from '@/lib/motion'
 
 function GuideStep({
   number,
@@ -75,12 +76,15 @@ function Code({ children }: { children: ReactNode }) {
 }
 
 export function GetStartedPage() {
+  const reduceMotion = useReducedMotion()
+  const header = fadeUp(12, reduceMotion)
+
   return (
     <div className="pb-4 sm:pt-12">
       <motion.header
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.2, ease: [0.175, 0.885, 0.32, 1.1] }}
+        initial={header.initial}
+        animate={header.animate}
+        transition={pageHeaderEnter}
         className="max-w-2xl"
       >
         <h1 className="text-4xl font-semibold tracking-[-2.4px] text-zinc-950 sm:text-6xl sm:tracking-[-3.84px] dark:text-white">

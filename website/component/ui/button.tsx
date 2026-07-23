@@ -9,10 +9,12 @@ const styles = {
     'relative isolate inline-flex items-baseline justify-center gap-x-2 rounded-lg border text-base/6 font-medium',
     // Sizing
     'px-[calc(--spacing(3.5)-1px)] py-[calc(--spacing(2.5)-1px)] sm:px-[calc(--spacing(3)-1px)] sm:py-[calc(--spacing(1.5)-1px)] sm:text-sm/6',
+    // Press feedback
+    'transition-transform duration-[160ms] ease-[var(--ease-geist)] active:scale-[0.97] data-active:scale-[0.97]',
     // Focus
     'focus:not-data-focus:outline-hidden data-focus:outline-hidden data-focus:shadow-(--ds-focus-ring)',
     // Disabled
-    'data-disabled:opacity-50 data-disabled:cursor-not-allowed',
+    'data-disabled:opacity-50 data-disabled:cursor-not-allowed data-disabled:active:scale-100 data-disabled:data-active:scale-100',
     // Icon
     '*:data-[slot=icon]:-mx-0.5 *:data-[slot=icon]:my-0.5 *:data-[slot=icon]:size-5 *:data-[slot=icon]:shrink-0 *:data-[slot=icon]:self-center *:data-[slot=icon]:text-(--btn-icon) sm:*:data-[slot=icon]:my-1 sm:*:data-[slot=icon]:size-4 forced-colors:[--btn-icon:ButtonText] forced-colors:data-hover:[--btn-icon:ButtonText]',
   ],
