@@ -280,7 +280,7 @@ For protocol details beyond the app UI, see the [Fiber documentation](https://ww
 
 ## Download
 
-Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS and Windows builds are not yet notarized or code-signed.
+Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS publish builds can be Developer ID–signed and notarized when Apple secrets are configured; Windows builds are not code-signed yet.
 
 | OS | Download this file | Install |
 |----|-------------------|---------|
@@ -294,12 +294,12 @@ Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.A
 
 ### macOS: “Apple could not verify…” on first launch
 
-Fiber Studio is not Apple-notarized yet. After you download from GitHub, macOS Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. The app is safe to run; macOS just does not recognize the developer yet.
+If a release was built **without** Apple notarization secrets, Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. Notarized releases should open normally after install.
 
 **Do not click Move to Bin.**
 
 1. Open the `.dmg` and drag **Fiber Studio** to **Applications** as usual.
-2. Try opening the app once (double-click). Gatekeeper will block it — that is expected.
+2. Try opening the app once (double-click). Gatekeeper will block it — that is expected for unsigned/unnotarized builds.
 3. Open **System Settings → Privacy & Security**.
 4. Scroll down. You should see a message about Fiber Studio being blocked, with **Open Anyway**.
 5. Click **Open Anyway**, then confirm **Open**.
@@ -389,9 +389,27 @@ bun run fetch-fnn
 bun run tauri build
 ```
 
-Releases are unsigned (no Apple/Windows code signing yet). macOS CI builds use [ad-hoc signing](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing) (`signingIdentity: "-"`) so downloaded `.app` bundles are not treated as damaged on Apple Silicon.
+macOS **publish** builds are signed with Developer ID and notarized when Apple secrets are set (see below). Windows code signing is not configured yet. macOS **smoke** builds on `main` stay [ad-hoc signed](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing).
 
 In-app updates use a separate Tauri updater key (`TAURI_SIGNING_PRIVATE_KEY`). The updater reads `latest.json` from GitHub Releases, so release tags must not be marked as GitHub prereleases — otherwise `releases/latest/download/latest.json` 404s and update checks fail.
+
+#### macOS Apple signing secrets (publish)
+
+Export your **Developer ID Application** certificate from Keychain Access (**My Certificates** → expand → right-click the private key → **Export…**) as a `.p12`, then:
+
+```bash
+openssl base64 -A -in /path/to/certificate.p12 -out certificate-base64.txt
+```
+
+Add these GitHub repository secrets:
+
+| Secret | Value |
+|--------|--------|
+| `APPLE_CERTIFICATE` | Contents of `certificate-base64.txt` |
+| `APPLE_CERTIFICATE_PASSWORD` | Password you set when exporting the `.p12` |
+| `APPLE_ID` | Your Apple ID email |
+| `APPLE_PASSWORD` | [App-specific password](https://appleid.apple.com) (not your Apple ID password) |
+| `APPLE_TEAM_ID` | 10-character Team ID from [Membership](https://developer.apple.com/account) |
 
 ## Project structure
 
@@ -426,7 +444,7 @@ fiber-studio/
 | **build** (`.github/workflows/build.yml`) | Push / PR to `main` | App frontend build, website build, cross-platform Tauri smoke test (no release) |
 | **publish** (`.github/workflows/publish.yml`) | Tag push `v*`, or manual **workflow_dispatch** | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release, signed updater artifacts, and `latest.json` |
 
-Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. GitHub Actions workflow permissions must allow **read and write** for releases.
+Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. macOS publish also needs the Apple secrets listed above. GitHub Actions workflow permissions must allow **read and write** for releases.
 
 ## Related projects
 

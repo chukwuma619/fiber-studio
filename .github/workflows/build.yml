@@ -124,6 +124,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Smoke builds stay ad-hoc; Apple Developer ID + notarization run only on publish.
+          APPLE_SIGNING_IDENTITY: "-"
         with:
           projectPath: app
           args: ${{ matrix.args }}

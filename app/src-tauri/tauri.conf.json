@@ -49,7 +49,7 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "signingIdentity": "-"
+      "signingIdentity": "Developer ID Application: Ebube Chukwuma (3M3UUY2B9J)"
     },
     "linux": {
       "deb": {
