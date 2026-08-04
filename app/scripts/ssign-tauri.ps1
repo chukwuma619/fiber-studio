@@ -91,17 +91,18 @@ if (-not (Test-Path -LiteralPath $certFile)) {
   exit 1
 }
 
-# Wait until the PE is writable (Defender often locks a just-patched exe briefly).
-function Wait-FileWritable {
-  param([string] $FilePath, [int] $TimeoutSec = 60)
+# Shared read is enough for osslsigncode -in. Exclusive locks fail under Defender
+# while it scans a just-patched PE (Tauri patches fiber-studio.exe right before sign).
+function Wait-FileReadable {
+  param([string] $FilePath, [int] $TimeoutSec = 120)
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
   while ([DateTime]::UtcNow -lt $deadline) {
     try {
       $fs = [System.IO.File]::Open(
         $FilePath,
         [System.IO.FileMode]::Open,
-        [System.IO.FileAccess]::ReadWrite,
-        [System.IO.FileShare]::None
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::ReadWrite
       )
       $fs.Dispose()
       return $true
@@ -112,9 +113,35 @@ function Wait-FileWritable {
   return $false
 }
 
-if (-not (Wait-FileWritable -FilePath $Path)) {
-  Write-Log "timed out waiting for writable file: $Path"
-  exit 1
+# Replace the target with the signed temp file. Defender often holds the PE briefly
+# after Tauri patches it; keep retrying longer than a typical AV scan.
+function Replace-FileWithRetry {
+  param(
+    [string] $SourcePath,
+    [string] $DestinationPath,
+    [int] $TimeoutSec = 300
+  )
+  $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
+  $attempt = 0
+  while ([DateTime]::UtcNow -lt $deadline) {
+    $attempt++
+    try {
+      # Copy over destination, then drop the temp — more reliable than Move when
+      # another process briefly holds DestinationPath.
+      [System.IO.File]::Copy($SourcePath, $DestinationPath, $true)
+      Remove-Item -LiteralPath $SourcePath -Force -ErrorAction Stop
+      if ($attempt -gt 1) {
+        Write-Log "replaced $DestinationPath after $attempt tries"
+      }
+      return $true
+    } catch {
+      if (($attempt % 10) -eq 0) {
+        Write-Log "waiting to replace $DestinationPath ($($_.Exception.Message))"
+      }
+      Start-Sleep -Milliseconds 1000
+    }
+  }
+  return $false
 }
 
 # URIs from ssign-pkcs11/tests/sign-all-formats.sh
@@ -124,6 +151,11 @@ $maxAttempts = 4
 
 function Invoke-OsslSign {
   param([string] $FilePath, [int] $Attempt)
+
+  if (-not (Wait-FileReadable -FilePath $FilePath -TimeoutSec 120)) {
+    Write-Log "timed out waiting for readable file: $FilePath"
+    return 1
+  }
 
   $outPath = "$FilePath.ssign-tmp"
   Remove-Item -LiteralPath $outPath -ErrorAction SilentlyContinue
@@ -169,13 +201,22 @@ function Invoke-OsslSign {
   $outFile = Join-Path $stateDir "ssign-tauri-attempt-$Attempt.txt"
   Set-Content -LiteralPath $outFile -Value ($combined -join "`n")
 
-  if ($proc.ExitCode -eq 0 -and (Test-Path -LiteralPath $outPath)) {
-    Move-Item -LiteralPath $outPath -Destination $FilePath -Force
-  } else {
+  if ($proc.ExitCode -ne 0) {
     Remove-Item -LiteralPath $outPath -ErrorAction SilentlyContinue
+    return $proc.ExitCode
   }
 
-  return $proc.ExitCode
+  if (-not (Test-Path -LiteralPath $outPath)) {
+    Write-Log "osslsigncode reported success but missing $outPath"
+    return 1
+  }
+
+  if (-not (Replace-FileWithRetry -SourcePath $outPath -DestinationPath $FilePath -TimeoutSec 300)) {
+    Write-Log "timed out replacing $FilePath with signed output (see $outPath)"
+    return 1
+  }
+
+  return 0
 }
 
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
@@ -189,14 +230,13 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
     exit 0
   }
 
-  Write-Log "osslsigncode exited with code $code"
+  Write-Log "sign attempt failed with code $code"
   if ($attempt -eq $maxAttempts) {
     Write-Log "giving up after $maxAttempts attempts (see $script:LogFile)"
     exit $code
   }
 
   Start-Sleep -Seconds 8
-  [void](Wait-FileWritable -FilePath $Path -TimeoutSec 30)
 }
 
 exit 1
