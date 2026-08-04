@@ -413,9 +413,9 @@ Add these GitHub repository secrets:
 
 #### Windows Certum signing secrets (publish)
 
-Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign`](https://github.com/Le-Syl21/ssign) on the Windows job and Tauri’s `signCommand` signs each PE (sidecar, app `.exe`, NSIS `-setup.exe`) over SimplySign HTTPS.
+Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign-pkcs11`](https://github.com/Le-Syl21/ssign) and [jsign](https://ebourg.github.io/jsign/) on the Windows job. Tauri’s `signCommand` (`app/scripts/ssign-tauri.ps1`) Authenticode-signs each PE (sidecar, app `.exe`, NSIS `-setup.exe`) through that PKCS#11 module over SimplySign HTTPS.
 
-Important constraint from ssign/Certum: **each `ssign` process logs in with a TOTP**, and Certum **rejects reusing the same 6-digit code** in that ~30s window. Tauri calls `signCommand` once per file, so publish uses `app/scripts/ssign-tauri.ps1` to wait for a fresh TOTP slot between files (and retry on failure). Prefer batching many files in one `ssign` invocation when signing outside Tauri. MSI is not produced on publish (ssign’s CLI PE path only).
+Why PKCS#11 (not the `ssign` CLI) in CI: Tauri calls `signCommand` once per file. The CLI logs into Certum on every process, and Certum rejects reused TOTPs / rapid re-logins. `ssign-pkcs11` **caches the OAuth session** so only the first file needs a fresh OTP — the same approach ssign documents for multi-file signing. MSI is not produced on publish.
 
 Add these GitHub repository secrets:
 
@@ -426,7 +426,7 @@ Add these GitHub repository secrets:
 
 If you only have the mobile app and no seed saved, re-issue the SimplySign QR from Certum and capture the secret (for example by scanning into a password manager that shows the `otpauth://` URI), then store that seed as `CERTUM_OTP`.
 
-Config used on publish: `app/src-tauri/tauri.windows-signing.conf.json`.
+Config used on publish: `app/src-tauri/tauri.windows-signing.conf.json`. For one-off local signing of several files, prefer a single `ssign a.exe b.exe` batch instead.
 
 ## Project structure
 

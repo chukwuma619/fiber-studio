@@ -200,40 +200,54 @@ jobs:
           CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
           CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
 
-      # Certum cloud keys are not exportable as .pfx. Publish uses ssign
-      # (https://github.com/Le-Syl21/ssign) to Authenticode-sign PE files via SimplySign HTTPS.
-      - name: Install ssign (Windows Certum signing)
+      # Certum cloud keys are not exportable as .pfx. Publish uses ssign-pkcs11
+      # (https://github.com/Le-Syl21/ssign) + jsign so the OAuth session is cached
+      # across Tauri's per-file signCommand invocations.
+      - name: Set up Java (Windows Certum signing via jsign)
+        if: matrix.platform == 'windows-latest'
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install ssign-pkcs11 + jsign (Windows Certum signing)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         working-directory: .
         run: |
           $ver = "v0.1.4"
-          $zip = Join-Path $env:RUNNER_TEMP "ssign.zip"
           $dest = Join-Path $env:RUNNER_TEMP "ssign"
-          $url = "https://github.com/Le-Syl21/ssign/releases/download/$ver/ssign-windows-x86_64.zip"
-          Invoke-WebRequest -Uri $url -OutFile $zip
-          Expand-Archive -Path $zip -DestinationPath $dest -Force
-          $exe = Get-ChildItem -Path $dest -Recurse -Filter ssign.exe | Select-Object -First 1
-          if (-not $exe) {
-            throw "ssign.exe not found after extracting $url"
-          }
-          $binDir = $exe.DirectoryName
-          # Also on PATH for local/manual use; Tauri signCommand uses ../scripts/*.ps1.
-          Copy-Item -Force "app/scripts/ssign-tauri.ps1" (Join-Path $binDir "ssign-tauri.ps1")
-          Copy-Item -Force "app/scripts/ssign-tauri.cmd" (Join-Path $binDir "ssign-tauri.cmd")
-          Add-Content -Path $env:GITHUB_PATH -Value $binDir
-          & $exe.FullName --version
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+
+          $pkcsZip = Join-Path $env:RUNNER_TEMP "ssign-pkcs11.zip"
+          $pkcsUrl = "https://github.com/Le-Syl21/ssign/releases/download/$ver/ssign-pkcs11-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $pkcsUrl -OutFile $pkcsZip
+          Expand-Archive -Path $pkcsZip -DestinationPath $dest -Force
+          $dll = Get-ChildItem -Path $dest -Recurse -Filter ssign_pkcs11.dll | Select-Object -First 1
+          if (-not $dll) { throw "ssign_pkcs11.dll not found after extracting $pkcsUrl" }
+
+          $jsignJar = Join-Path $dest "jsign.jar"
+          Invoke-WebRequest -Uri "https://github.com/ebourg/jsign/releases/download/7.5/jsign-7.5.jar" -OutFile $jsignJar
+
+          Copy-Item -Force "app/scripts/certum-code-signing-2021-ca.pem" (Join-Path $dest "certum-code-signing-2021-ca.pem")
+          Copy-Item -Force "app/scripts/ssign-tauri.ps1" (Join-Path $dest "ssign-tauri.ps1")
+          Copy-Item -Force "app/scripts/ssign-tauri.cmd" (Join-Path $dest "ssign-tauri.cmd")
+
+          Add-Content -Path $env:GITHUB_PATH -Value $dest
+          Add-Content -Path $env:GITHUB_ENV -Value "SSIGN_PKCS11_MODULE=$($dll.FullName)"
+          Add-Content -Path $env:GITHUB_ENV -Value "JSIGN_JAR=$jsignJar"
+          # ssign-pkcs11 session cache (CloudSession) under RUNNER_TEMP/ssign/
+          Add-Content -Path $env:GITHUB_ENV -Value "XDG_RUNTIME_DIR=$env:RUNNER_TEMP"
+
+          java -jar $jsignJar --version
           $wrapper = Join-Path (Get-Location) "app/scripts/ssign-tauri.ps1"
           if (-not (Test-Path -LiteralPath $wrapper)) {
             throw "missing $wrapper (needed by tauri.windows-signing.conf.json)"
           }
-          # Confirm relative path from src-tauri (Tauri's signing cwd) resolves.
           $fromTauri = Join-Path (Get-Location) "app/src-tauri/../scripts/ssign-tauri.ps1"
           if (-not (Test-Path -LiteralPath $fromTauri)) {
             throw "ssign-tauri.ps1 not reachable as ../scripts from app/src-tauri"
           }
-
-
 
       - uses: tauri-apps/tauri-action@v1
         env:
@@ -248,6 +262,9 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
           CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
+          SSIGN_PKCS11_MODULE: ${{ env.SSIGN_PKCS11_MODULE }}
+          JSIGN_JAR: ${{ env.JSIGN_JAR }}
+          XDG_RUNTIME_DIR: ${{ env.XDG_RUNTIME_DIR }}
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}
@@ -263,3 +280,21 @@ jobs:
             In-app updates are available via **Settings → Updates**.
           prerelease: false
           args: ${{ matrix.args }}
+
+      - name: Dump Certum signing log (Windows)
+        if: failure() && matrix.platform == 'windows-latest'
+        shell: pwsh
+        working-directory: .
+        run: |
+          $log = Join-Path $env:RUNNER_TEMP "ssign-tauri.log"
+          if (Test-Path -LiteralPath $log) {
+            Write-Host "---- $log ----"
+            Get-Content -LiteralPath $log
+          } else {
+            Write-Host "No ssign-tauri.log at $log"
+          }
+          Get-ChildItem -Path $env:RUNNER_TEMP -Filter "ssign-tauri-*.txt" -ErrorAction SilentlyContinue |
+            ForEach-Object {
+              Write-Host "---- $($_.FullName) ----"
+              Get-Content -LiteralPath $_.FullName
+            }
