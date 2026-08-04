@@ -117,17 +117,18 @@ export function FaqPage() {
           </p>
         </FaqItem>
 
-        <FaqItem question="macOS says it can’t verify Fiber Studio. Is that safe?">
+        <FaqItem question="Are the macOS and Windows downloads signed?">
           <p>
-            Yes for GitHub builds today. Releases are not Apple-notarized yet, so
-            Gatekeeper may show <Ui>“Fiber Studio” Not Opened</Ui>. Do not click{' '}
-            <Ui>Move to Bin</Ui>. Use <Ui>System Settings → Privacy & Security → Open
-            Anyway</Ui>, or right-click the app in Finder → <Ui>Open</Ui>. Full steps are
-            on <TextLink href="/download">Download</TextLink>.
+            Yes. Publish releases are Apple Developer ID–signed and notarized on macOS, and
+            Authenticode-signed on Windows. Notarized macOS builds should open normally after
+            install.
           </p>
           <p>
-            On Windows, SmartScreen can show a similar warning — choose{' '}
-            <Ui>More info → Run anyway</Ui>.
+            If Gatekeeper still blocks the app, do not click <Ui>Move to Bin</Ui> — use{' '}
+            <Ui>System Settings → Privacy & Security → Open Anyway</Ui>, or right-click in
+            Finder → <Ui>Open</Ui>. On Windows, SmartScreen may warn for a new publisher even
+            when signed — choose <Ui>More info → Run anyway</Ui> until reputation builds.
+            Details are on <TextLink href="/download">Download</TextLink>.
           </p>
         </FaqItem>
 

@@ -101,30 +101,24 @@ function AfterInstallNotes({ platform }: { platform: DetectedPlatform }) {
         After you install
       </h2>
       <p className="mt-4 text-base/7 text-zinc-600 dark:text-zinc-400">
-        Builds are not Apple-notarized or Windows-signed yet. Your OS may warn on first launch —
-        that is expected for GitHub downloads today.
+        Publish releases are Apple Developer ID–signed and notarized on macOS, and
+        Authenticode-signed on Windows. Most installs open normally after you download.
       </p>
 
       {showMac ? (
         <div className="mt-8">
           <h3 className="text-base/6 font-semibold tracking-[-0.32px] text-zinc-950 dark:text-white">
-            macOS Gatekeeper
+            macOS
           </h3>
           <p className="mt-3 text-base/7 text-zinc-600 dark:text-zinc-400">
-            Gatekeeper may show <Ui>“Fiber Studio” Not Opened</Ui> with only <Ui>Done</Ui> and{' '}
-            <Ui>Move to Bin</Ui>. Do not click Move to Bin.
+            Open the DMG, drag Fiber Studio to Applications, then launch it. Notarized
+            builds should open without Gatekeeper blocking.
           </p>
-          <ol className="mt-4 list-decimal space-y-2 pl-5 text-base/7 text-zinc-600 marker:font-medium marker:text-zinc-950 dark:text-zinc-400 dark:marker:text-white">
-            <li>Open the DMG and drag Fiber Studio to Applications.</li>
-            <li>Open the app once — Gatekeeper will block it.</li>
-            <li>
-              Open <Ui>System Settings → Privacy & Security</Ui>, find the Fiber Studio message, and
-              click <Ui>Open Anyway</Ui>.
-            </li>
-            <li>
-              Or in Finder: right-click Fiber Studio → <Ui>Open</Ui> → <Ui>Open</Ui>.
-            </li>
-          </ol>
+          <p className="mt-3 text-base/7 text-zinc-600 dark:text-zinc-400">
+            If you still see <Ui>“Fiber Studio” Not Opened</Ui>, do not click{' '}
+            <Ui>Move to Bin</Ui>. Open <Ui>System Settings → Privacy & Security</Ui> and
+            choose <Ui>Open Anyway</Ui>, or right-click the app in Finder → <Ui>Open</Ui>.
+          </p>
         </div>
       ) : null}
 
@@ -134,7 +128,8 @@ function AfterInstallNotes({ platform }: { platform: DetectedPlatform }) {
             Windows SmartScreen
           </h3>
           <p className="mt-3 text-base/7 text-zinc-600 dark:text-zinc-400">
-            If SmartScreen appears, choose <Ui>More info → Run anyway</Ui>.
+            Installers are Authenticode-signed. SmartScreen may still warn for a new
+            publisher until reputation builds — choose <Ui>More info → Run anyway</Ui>.
           </p>
         </div>
       ) : null}
@@ -212,8 +207,8 @@ export function DownloadPage({ release }: { release: LatestRelease | null }) {
           Download Fiber Studio
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Get the desktop app for macOS, Windows, or Linux. Installers ship with each GitHub
-          release. Testnet ready.
+          Get the desktop app for macOS, Windows, or Linux. macOS and Windows installers are
+          code-signed. Testnet ready.
         </p>
         {release ? (
           <p className="mt-4 text-sm/6 text-zinc-500 dark:text-zinc-400">
