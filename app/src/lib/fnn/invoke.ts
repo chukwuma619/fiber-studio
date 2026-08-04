@@ -75,6 +75,11 @@ export async function getNodeLogs(limit?: number): Promise<string[]> {
   return invoke<string[]>("get_node_logs", { limit })
 }
 
+/** Opens a save dialog and writes logs. Returns the path, or null if cancelled. */
+export async function exportNodeLogs(): Promise<string | null> {
+  return invoke<string | null>("export_node_logs")
+}
+
 export async function startNode(
   payload: StartNodePayload,
 ): Promise<NodeStatusResponse> {

@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 use tauri::State;
+use tauri_plugin_dialog::DialogExt;
 
 use crate::commands::setup::start_fnn;
 use crate::fnn::keychain;
@@ -89,6 +90,51 @@ pub async fn get_node_logs(
         .unwrap_or(crate::fnn::manager::MAX_LOG_LINES)
         .min(crate::fnn::manager::MAX_LOG_LINES);
     Ok(manager.recent_logs(limit))
+}
+
+/// Opens a save dialog and writes the current node log session to disk.
+/// Returns the saved path, or `None` if the user cancelled.
+#[tauri::command]
+pub async fn export_node_logs(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<Option<String>, String> {
+    let content = {
+        let manager = state.fnn.lock().await;
+        manager
+            .export_log_text()
+            .ok_or_else(|| "No logs available to export.".to_string())?
+    };
+
+    let default_name = format!(
+        "fiber-studio-fnn-{}.log",
+        chrono::Local::now().format("%Y%m%d-%H%M%S")
+    );
+
+    let dialog_app = app.clone();
+    let picked = tauri::async_runtime::spawn_blocking(move || {
+        dialog_app
+            .dialog()
+            .file()
+            .set_file_name(&default_name)
+            .add_filter("Log files", &["log", "txt"])
+            .blocking_save_file()
+    })
+    .await
+    .map_err(|error| format!("Failed to open save dialog: {error}"))?;
+
+    let Some(file_path) = picked else {
+        return Ok(None);
+    };
+
+    let path = file_path
+        .into_path()
+        .map_err(|error| format!("Invalid save path: {error}"))?;
+
+    std::fs::write(&path, format!("{content}\n"))
+        .map_err(|error| format!("Failed to write log file: {error}"))?;
+
+    Ok(Some(path.display().to_string()))
 }
 
 #[tauri::command]

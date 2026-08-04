@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react"
-import { getNodeLogs } from "../../lib/fnn/invoke"
+import { Check, Copy, Download } from "lucide-react"
+import { exportNodeLogs, getNodeLogs } from "../../lib/fnn/invoke"
 import { formatLogLines } from "../../lib/fnn/logFormat"
+import { getErrorMessage } from "../../lib/fnn/errors"
 import {
   Dialog,
+  DialogActions,
   DialogBody,
   DialogDescription,
   DialogTitle,
 } from "../ui/dialog"
+import { Button } from "../ui/button"
 import { Text } from "../ui/text"
-import { getErrorMessage } from "../../lib/fnn/errors"
 
 type NodeLogsDialogProps = {
   open: boolean
@@ -19,8 +22,14 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
   const [logsText, setLogsText] = useState("")
   const [isInitialLoading, setIsInitialLoading] = useState(false)
   const [loadError, setLoadError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
+  const [exportStatus, setExportStatus] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [copied, setCopied] = useState(false)
   const logPreRef = useRef<HTMLPreElement>(null)
   const requestIdRef = useRef(0)
+
+  const hasLogs = logsText.trim().length > 0
 
   const scrollToBottom = useCallback(() => {
     const element = logPreRef.current
@@ -63,6 +72,9 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
       return
     }
 
+    setExportError(null)
+    setExportStatus(null)
+    setCopied(false)
     void loadLogs(true)
 
     const interval = window.setInterval(() => {
@@ -85,6 +97,57 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
     })
   }, [logsText, open, scrollToBottom])
 
+  useEffect(() => {
+    if (!copied) {
+      return
+    }
+    const timeout = window.setTimeout(() => setCopied(false), 2000)
+    return () => window.clearTimeout(timeout)
+  }, [copied])
+
+  useEffect(() => {
+    if (!exportStatus) {
+      return
+    }
+    const timeout = window.setTimeout(() => setExportStatus(null), 4000)
+    return () => window.clearTimeout(timeout)
+  }, [exportStatus])
+
+  async function handleCopy() {
+    if (!hasLogs) {
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(logsText)
+      setCopied(true)
+      setExportError(null)
+    } catch {
+      setExportError("Failed to copy logs to the clipboard.")
+    }
+  }
+
+  async function handleExport() {
+    if (isExporting) {
+      return
+    }
+
+    setIsExporting(true)
+    setExportError(null)
+    setExportStatus(null)
+
+    try {
+      const path = await exportNodeLogs()
+      if (path == null) {
+        return
+      }
+      setExportStatus(`Saved to ${path}`)
+    } catch (error) {
+      setExportError(getErrorMessage(error))
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
   return (
     <Dialog open={open} onClose={onClose} size="3xl">
       <DialogTitle>Node logs</DialogTitle>
@@ -92,6 +155,14 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
       <DialogBody>
         {loadError ? (
           <Text className="mb-2 text-sm text-red-700 dark:text-red-300">{loadError}</Text>
+        ) : null}
+        {exportError ? (
+          <Text className="mb-2 text-sm text-red-700 dark:text-red-300">{exportError}</Text>
+        ) : null}
+        {exportStatus ? (
+          <Text className="mb-2 text-sm text-emerald-700 dark:text-emerald-300">
+            {exportStatus}
+          </Text>
         ) : null}
         {isInitialLoading && !logsText ? (
           <Text className="text-sm text-zinc-500 dark:text-zinc-400">Loading logs…</Text>
@@ -108,6 +179,32 @@ export function NodeLogsDialog({ open, onClose }: NodeLogsDialogProps) {
           </Text>
         ) : null}
       </DialogBody>
+      <DialogActions>
+        <Button outline onClick={onClose}>
+          Close
+        </Button>
+        <Button
+          outline
+          type="button"
+          disabled={!hasLogs}
+          onClick={() => void handleCopy()}
+        >
+          {copied ? (
+            <Check data-slot="icon" className="text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <Copy data-slot="icon" />
+          )}
+          {copied ? "Copied" : "Copy"}
+        </Button>
+        <Button
+          type="button"
+          disabled={!hasLogs || isExporting}
+          onClick={() => void handleExport()}
+        >
+          <Download data-slot="icon" />
+          {isExporting ? "Exporting…" : "Export"}
+        </Button>
+      </DialogActions>
     </Dialog>
   )
 }

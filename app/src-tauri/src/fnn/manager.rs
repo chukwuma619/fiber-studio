@@ -108,6 +108,31 @@ impl FnnManager {
             .collect()
     }
 
+    /// Full export text: prefers the on-disk session log, else in-memory buffer.
+    pub fn export_log_text(&self) -> Option<String> {
+        if let Some(data_directory) = &self.data_directory {
+            let path = log_store::log_file_path(data_directory);
+            if let Ok(content) = std::fs::read_to_string(&path) {
+                let normalized = content
+                    .lines()
+                    .map(normalize_log_line)
+                    .filter(|line| !line.is_empty())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if !normalized.is_empty() {
+                    return Some(normalized);
+                }
+            }
+        }
+
+        let logs = self.recent_logs(MAX_LOG_LINES);
+        if logs.is_empty() {
+            None
+        } else {
+            Some(logs.join("\n"))
+        }
+    }
+
     pub fn stop_managed(&mut self) -> Result<(), ManagerError> {
         self.stop_log_tail();
 

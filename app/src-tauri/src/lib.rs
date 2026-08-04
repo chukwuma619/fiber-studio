@@ -19,6 +19,7 @@ pub fn run() {
     let mut builder = tauri::Builder::default()
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_os::init())
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init());
 
     #[cfg(desktop)]
@@ -39,6 +40,7 @@ pub fn run() {
             commands::setup::complete_setup,
             commands::node::get_node_status,
             commands::node::get_node_logs,
+            commands::node::export_node_logs,
             commands::node::start_node,
             commands::node::stop_node,
             commands::dashboard::get_home_dashboard,
