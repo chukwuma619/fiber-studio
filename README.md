@@ -413,9 +413,9 @@ Add these GitHub repository secrets:
 
 #### Windows Certum signing secrets (publish)
 
-Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign-pkcs11`](https://github.com/Le-Syl21/ssign) and [jsign](https://ebourg.github.io/jsign/) on the Windows job. Tauri’s `signCommand` (`app/scripts/ssign-tauri.ps1`) Authenticode-signs each PE (sidecar, app `.exe`, NSIS `-setup.exe`) through that PKCS#11 module over SimplySign HTTPS.
+Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign-pkcs11`](https://github.com/Le-Syl21/ssign) and [osslsigncode](https://github.com/mtrojnar/osslsigncode) (via MSYS2 + libp11) on the Windows job. Tauri’s `signCommand` (`app/scripts/ssign-tauri.ps1`) Authenticode-signs each PE (sidecar, app `.exe`, NSIS `-setup.exe`) through that PKCS#11 module over SimplySign HTTPS.
 
-Why PKCS#11 (not the `ssign` CLI) in CI: Tauri calls `signCommand` once per file. The CLI logs into Certum on every process, and Certum rejects reused TOTPs / rapid re-logins. `ssign-pkcs11` **caches the OAuth session** so only the first file needs a fresh OTP — the same approach ssign documents for multi-file signing. MSI is not produced on publish.
+Why PKCS#11 (not the `ssign` CLI) in CI: Tauri calls `signCommand` once per file. The CLI logs into Certum on every process, and Certum rejects reused TOTPs / rapid re-logins. `ssign-pkcs11` **caches the OAuth session** so only the first file needs a fresh OTP — the same approach ssign documents for multi-file signing with osslsigncode. MSI is not produced on publish.
 
 Add these GitHub repository secrets:
 

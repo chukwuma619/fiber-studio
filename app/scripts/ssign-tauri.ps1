@@ -7,10 +7,11 @@
   Tauri invokes signCommand once per PE (sidecar, app exe, NSIS setup).
   The ssign CLI logs into Certum on every process, and Certum rejects rapid
   re-logins / reused TOTPs. ssign-pkcs11 persists the OAuth token so later
-  invocations reuse the session (same design as osslsigncode in ssign's docs).
+  invocations reuse the session.
 
-  This wrapper drives that module through jsign (Java Authenticode), which loads
-  PKCS#11 directly — no OpenSSL engine required on Windows runners.
+  This wrapper drives that module through osslsigncode (the client ssign
+  documents and tests). jsign is incompatible: SunPKCS11 sends ~108-byte
+  payloads that ssign-pkcs11 rejects ("expected a 32-byte SHA-256 digest").
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]
@@ -22,8 +23,6 @@ $ErrorActionPreference = 'Continue'
 function Write-Log {
   param([string] $Message)
   $line = "ssign-tauri: $Message"
-  # Console (not Write-Output): keeps function return values clean while still
-  # landing on the process stdout/stderr pipes Tauri captures.
   [Console]::Out.WriteLine($line)
   if ($script:LogFile) {
     Add-Content -LiteralPath $script:LogFile -Value $line
@@ -48,50 +47,48 @@ if (-not $env:CERTUM_EMAIL -or -not $env:CERTUM_OTP) {
   exit 1
 }
 
-$module = $env:SSIGN_PKCS11_MODULE
-if (-not $module) {
-  foreach ($cand in @(
-      (Join-Path $stateDir 'ssign\ssign_pkcs11.dll'),
-      (Join-Path $PSScriptRoot 'ssign_pkcs11.dll')
-    )) {
-    if (Test-Path -LiteralPath $cand) {
-      $module = $cand
-      break
+function Resolve-Tool {
+  param(
+    [string] $EnvName,
+    [string[]] $Candidates,
+    [string] $Label
+  )
+  $fromEnv = [Environment]::GetEnvironmentVariable($EnvName)
+  if ($fromEnv -and (Test-Path -LiteralPath $fromEnv)) {
+    return $fromEnv
+  }
+  foreach ($cand in $Candidates) {
+    if ($cand -and (Test-Path -LiteralPath $cand)) {
+      return $cand
     }
   }
-}
-if (-not $module -or -not (Test-Path -LiteralPath $module)) {
-  Write-Log "ssign_pkcs11.dll not found (set SSIGN_PKCS11_MODULE)"
+  Write-Log "$Label not found (set $EnvName)"
   exit 1
 }
 
-$jsignJar = $env:JSIGN_JAR
-if (-not $jsignJar) {
-  foreach ($cand in @(
-      (Join-Path $stateDir 'ssign\jsign.jar'),
-      (Join-Path $PSScriptRoot 'jsign.jar')
-    )) {
-    if (Test-Path -LiteralPath $cand) {
-      $jsignJar = $cand
-      break
-    }
-  }
-}
-if (-not $jsignJar -or -not (Test-Path -LiteralPath $jsignJar)) {
-  Write-Log "jsign.jar not found (set JSIGN_JAR)"
-  exit 1
-}
+$module = Resolve-Tool -EnvName 'SSIGN_PKCS11_MODULE' -Label 'ssign_pkcs11.dll' -Candidates @(
+  (Join-Path $stateDir 'ssign\ssign_pkcs11.dll'),
+  (Join-Path $PSScriptRoot 'ssign_pkcs11.dll')
+)
 
-$java = Get-Command java -ErrorAction SilentlyContinue
-if (-not $java) {
-  Write-Log "java not found on PATH (needed to run jsign)"
-  exit 1
-}
+$ossl = Resolve-Tool -EnvName 'OSSLSIGNCODE' -Label 'osslsigncode.exe' -Candidates @(
+  (Join-Path $stateDir 'ssign\osslsigncode.exe'),
+  'C:\msys64\mingw64\bin\osslsigncode.exe'
+)
+
+$provider = Resolve-Tool -EnvName 'OPENSSL_PKCS11_PROVIDER' -Label 'pkcs11prov.dll' -Candidates @(
+  (Join-Path $stateDir 'ssign\pkcs11prov.dll'),
+  'C:\msys64\mingw64\lib\ossl-modules\pkcs11prov.dll'
+)
 
 $certFile = Join-Path $PSScriptRoot 'certum-code-signing-2021-ca.pem'
 if (-not (Test-Path -LiteralPath $certFile)) {
   $alt = Join-Path (Split-Path $module -Parent) 'certum-code-signing-2021-ca.pem'
   if (Test-Path -LiteralPath $alt) { $certFile = $alt }
+}
+if (-not (Test-Path -LiteralPath $certFile)) {
+  Write-Log "Certum intermediate PEM not found next to script"
+  exit 1
 }
 
 # Wait until the PE is writable (Defender often locks a just-patched exe briefly).
@@ -120,47 +117,38 @@ if (-not (Wait-FileWritable -FilePath $Path)) {
   exit 1
 }
 
-$cfgPath = Join-Path $stateDir 'ssign-pkcs11.cfg'
-# SunPKCS11 config — forward slashes avoid escaping issues in the cfg file.
-$modulePosix = ($module -replace '\\', '/')
-@(
-  'name = ssign'
-  "library = $modulePosix"
-) | Set-Content -LiteralPath $cfgPath -Encoding ascii
-
-$alias = 'Certum SimplySign (ssign)'
+# URIs from ssign-pkcs11/tests/sign-all-formats.sh
+$certUri = 'pkcs11:object=Certum%20SimplySign%20%28ssign%29;type=cert'
+$keyUri = 'pkcs11:object=Certum%20SimplySign%20%28ssign%29;type=private'
 $maxAttempts = 4
 
-function Invoke-Jsign {
+function Invoke-OsslSign {
   param([string] $FilePath, [int] $Attempt)
 
+  $outPath = "$FilePath.ssign-tmp"
+  Remove-Item -LiteralPath $outPath -ErrorAction SilentlyContinue
+
   $psi = [System.Diagnostics.ProcessStartInfo]::new()
-  $psi.FileName = $java.Source
+  $psi.FileName = $ossl
   $psi.UseShellExecute = $false
   $psi.RedirectStandardOutput = $true
   $psi.RedirectStandardError = $true
   $psi.CreateNoWindow = $true
-  # ArgumentList avoids Start-Process quoting bugs with spaces / parentheses.
-  [void]$psi.ArgumentList.Add('-jar')
-  [void]$psi.ArgumentList.Add($jsignJar)
-  [void]$psi.ArgumentList.Add('--keystore')
-  [void]$psi.ArgumentList.Add($cfgPath)
-  [void]$psi.ArgumentList.Add('--storetype')
-  [void]$psi.ArgumentList.Add('PKCS11')
-  [void]$psi.ArgumentList.Add('--storepass')
-  [void]$psi.ArgumentList.Add('NONE')
-  [void]$psi.ArgumentList.Add('--alias')
-  [void]$psi.ArgumentList.Add($alias)
-  [void]$psi.ArgumentList.Add('--alg')
-  [void]$psi.ArgumentList.Add('SHA-256')
-  [void]$psi.ArgumentList.Add('--tsaurl')
-  [void]$psi.ArgumentList.Add('http://time.certum.pl')
-  if (Test-Path -LiteralPath $certFile) {
-    [void]$psi.ArgumentList.Add('--certfile')
-    [void]$psi.ArgumentList.Add($certFile)
+
+  foreach ($arg in @(
+      'sign',
+      '-provider', $provider,
+      '-pkcs11module', $module,
+      '-pkcs11cert', $certUri,
+      '-key', $keyUri,
+      '-ac', $certFile,
+      '-h', 'sha256',
+      '-t', 'http://time.certum.pl/',
+      '-in', $FilePath,
+      '-out', $outPath
+    )) {
+    [void]$psi.ArgumentList.Add($arg)
   }
-  [void]$psi.ArgumentList.Add('--replace')
-  [void]$psi.ArgumentList.Add($FilePath)
 
   $proc = [System.Diagnostics.Process]::new()
   $proc.StartInfo = $psi
@@ -181,13 +169,19 @@ function Invoke-Jsign {
   $outFile = Join-Path $stateDir "ssign-tauri-attempt-$Attempt.txt"
   Set-Content -LiteralPath $outFile -Value ($combined -join "`n")
 
+  if ($proc.ExitCode -eq 0 -and (Test-Path -LiteralPath $outPath)) {
+    Move-Item -LiteralPath $outPath -Destination $FilePath -Force
+  } else {
+    Remove-Item -LiteralPath $outPath -ErrorAction SilentlyContinue
+  }
+
   return $proc.ExitCode
 }
 
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-  Write-Log "signing $Path (attempt $attempt/$maxAttempts via jsign + ssign-pkcs11)"
+  Write-Log "signing $Path (attempt $attempt/$maxAttempts via osslsigncode + ssign-pkcs11)"
 
-  $code = Invoke-Jsign -FilePath $Path -Attempt $attempt
+  $code = Invoke-OsslSign -FilePath $Path -Attempt $attempt
   if ($null -eq $code) { $code = 1 }
 
   if ($code -eq 0) {
@@ -195,13 +189,12 @@ for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
     exit 0
   }
 
-  Write-Log "jsign exited with code $code"
+  Write-Log "osslsigncode exited with code $code"
   if ($attempt -eq $maxAttempts) {
     Write-Log "giving up after $maxAttempts attempts (see $script:LogFile)"
     exit $code
   }
 
-  # First login can race the TOTP window; later failures are often file locks.
   Start-Sleep -Seconds 8
   [void](Wait-FileWritable -FilePath $Path -TimeoutSec 30)
 }

@@ -201,16 +201,19 @@ jobs:
           CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
 
       # Certum cloud keys are not exportable as .pfx. Publish uses ssign-pkcs11
-      # (https://github.com/Le-Syl21/ssign) + jsign so the OAuth session is cached
-      # across Tauri's per-file signCommand invocations.
-      - name: Set up Java (Windows Certum signing via jsign)
+      # (https://github.com/Le-Syl21/ssign) + osslsigncode so the OAuth session is
+      # cached across Tauri's per-file signCommand invocations.
+      - name: Set up MSYS2 (osslsigncode + OpenSSL PKCS#11 provider)
         if: matrix.platform == 'windows-latest'
-        uses: actions/setup-java@v5
+        uses: msys2/setup-msys2@v2
+        id: msys2
         with:
-          distribution: temurin
-          java-version: "21"
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-osslsigncode mingw-w64-x86_64-libp11
+          path-type: minimal
 
-      - name: Install ssign-pkcs11 + jsign (Windows Certum signing)
+      - name: Install ssign-pkcs11 (Windows Certum signing)
         if: matrix.platform == 'windows-latest'
         shell: pwsh
         working-directory: .
@@ -226,20 +229,26 @@ jobs:
           $dll = Get-ChildItem -Path $dest -Recurse -Filter ssign_pkcs11.dll | Select-Object -First 1
           if (-not $dll) { throw "ssign_pkcs11.dll not found after extracting $pkcsUrl" }
 
-          $jsignJar = Join-Path $dest "jsign.jar"
-          Invoke-WebRequest -Uri "https://github.com/ebourg/jsign/releases/download/7.5/jsign-7.5.jar" -OutFile $jsignJar
+          $mingw = Join-Path "${{ steps.msys2.outputs.msys2-location }}" "mingw64"
+          $ossl = Join-Path $mingw "bin\osslsigncode.exe"
+          $provider = Join-Path $mingw "lib\ossl-modules\pkcs11prov.dll"
+          if (-not (Test-Path -LiteralPath $ossl)) { throw "missing $ossl" }
+          if (-not (Test-Path -LiteralPath $provider)) { throw "missing $provider" }
 
           Copy-Item -Force "app/scripts/certum-code-signing-2021-ca.pem" (Join-Path $dest "certum-code-signing-2021-ca.pem")
           Copy-Item -Force "app/scripts/ssign-tauri.ps1" (Join-Path $dest "ssign-tauri.ps1")
           Copy-Item -Force "app/scripts/ssign-tauri.cmd" (Join-Path $dest "ssign-tauri.cmd")
 
+          # mingw bin provides libcrypto/libssl for osslsigncode.exe
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $mingw "bin")
           Add-Content -Path $env:GITHUB_PATH -Value $dest
           Add-Content -Path $env:GITHUB_ENV -Value "SSIGN_PKCS11_MODULE=$($dll.FullName)"
-          Add-Content -Path $env:GITHUB_ENV -Value "JSIGN_JAR=$jsignJar"
+          Add-Content -Path $env:GITHUB_ENV -Value "OSSLSIGNCODE=$ossl"
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_PKCS11_PROVIDER=$provider"
           # ssign-pkcs11 session cache (CloudSession) under RUNNER_TEMP/ssign/
           Add-Content -Path $env:GITHUB_ENV -Value "XDG_RUNTIME_DIR=$env:RUNNER_TEMP"
 
-          java -jar $jsignJar --version
+          & $ossl -v
           $wrapper = Join-Path (Get-Location) "app/scripts/ssign-tauri.ps1"
           if (-not (Test-Path -LiteralPath $wrapper)) {
             throw "missing $wrapper (needed by tauri.windows-signing.conf.json)"
@@ -263,7 +272,8 @@ jobs:
           CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
           CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
           SSIGN_PKCS11_MODULE: ${{ env.SSIGN_PKCS11_MODULE }}
-          JSIGN_JAR: ${{ env.JSIGN_JAR }}
+          OSSLSIGNCODE: ${{ env.OSSLSIGNCODE }}
+          OPENSSL_PKCS11_PROVIDER: ${{ env.OPENSSL_PKCS11_PROVIDER }}
           XDG_RUNTIME_DIR: ${{ env.XDG_RUNTIME_DIR }}
         with:
           projectPath: app
