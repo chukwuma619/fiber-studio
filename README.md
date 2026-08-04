@@ -4,7 +4,7 @@ Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Ner
 
 Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/). The marketing site in [`website/`](./website) is [Next.js](https://nextjs.org/).
 
-> **Status:** Early development (v0.1.8). This repo is the ground-up v1 rebuild. The earlier prototype lives at [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop).
+> **Status:** v1.0.0. Ground-up rebuild of the earlier [fiber-desktop](https://github.com/chukwuma619/fiber-desktop) prototype. Website: [getfiberstudio.com](https://www.getfiberstudio.com/).
 
 ## Repository layout
 
@@ -25,13 +25,15 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 ### Implemented
 
 - **Guided setup wizard** — choose testnet (mainnet is shown but not available yet), connect via official relays or enter a custom peer pubkey/multiaddr, pick a data directory, import a CKB key file, and set a wallet password
-- **Node lifecycle** — start and stop `fnn`, view recent logs, and stop the node when the app exits
+- **Node lifecycle** — start and stop `fnn`, view recent logs, export or copy logs, and stop the node when the app exits
 - **Home dashboard** — local balance, channel and peer counts, saved peer connectivity, channel liquidity, and recent activity
-- **Payments** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend, payment history with route details
+- **Payments** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend with parse/preview, payment history with route details
 - **Channels** — open, list, monitor, and close channels; on-chain wallet balance
-- **Network** — connect to public relays and custom peers, view relay and graph status
-- **Settings** — node and wallet configuration, theme, network switch, password updates, open config/data directory, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
+- **Network** — connect to public relays and custom peers, view relay and graph status, lightweight gossip graph browser
+- **Settings** — node and wallet configuration, theme, network switch, password updates, open config/data directory, start-node-on-launch / open-at-login, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
+- **fnn upgrades** — in-app migration dialog with data backup and breaking-change guidance when the bundled node requires it
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
+- **Signed distribution** — Apple Developer ID + notarization (macOS), Authenticode (Windows), Linux `.AppImage` / `.deb` / `.rpm`
 - **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
 
 ## How two users can transact
