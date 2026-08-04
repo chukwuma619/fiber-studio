@@ -4,8 +4,16 @@
     "targets": ["nsis"],
     "windows": {
       "signCommand": {
-        "cmd": "cmd",
-        "args": ["/c", "ssign-tauri.cmd", "%1"]
+        "cmd": "pwsh",
+        "args": [
+          "-NoProfile",
+          "-NonInteractive",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "../scripts/ssign-tauri.ps1",
+          "%1"
+        ]
       }
     }
   }
