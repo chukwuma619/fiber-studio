@@ -4,14 +4,12 @@
   Tauri signCommand wrapper for Certum SimplySign.
 
 .DESCRIPTION
-  Tauri invokes signCommand once per PE (sidecar, app exe, NSIS setup).
+  Tauri invokes signCommand once per PE (sidecar, app exe, NSIS plugins, setup).
   The ssign CLI logs into Certum on every process, and Certum rejects rapid
   re-logins / reused TOTPs. ssign-pkcs11 persists the OAuth token so later
   invocations reuse the session.
 
-  This wrapper drives that module through osslsigncode (the client ssign
-  documents and tests). jsign is incompatible: SunPKCS11 sends ~108-byte
-  payloads that ssign-pkcs11 rejects ("expected a 32-byte SHA-256 digest").
+  Signs via osslsigncode + ssign_pkcs11.dll (jsign is incompatible with this module).
 #>
 param(
   [Parameter(Mandatory = $true, Position = 0)]
@@ -20,17 +18,12 @@ param(
 
 $ErrorActionPreference = 'Continue'
 
-function Write-Log {
+function Write-Err {
   param([string] $Message)
-  $line = "ssign-tauri: $Message"
-  [Console]::Out.WriteLine($line)
-  if ($script:LogFile) {
-    Add-Content -LiteralPath $script:LogFile -Value $line
-  }
+  [Console]::Error.WriteLine("ssign-tauri: $Message")
 }
 
 $stateDir = if ($env:RUNNER_TEMP) { $env:RUNNER_TEMP } elseif ($env:TEMP) { $env:TEMP } else { '.' }
-$script:LogFile = Join-Path $stateDir 'ssign-tauri.log'
 
 # Pin the PKCS#11 session cache to a job-local directory (ssign-core CloudSession).
 if (-not $env:XDG_RUNTIME_DIR) {
@@ -38,12 +31,12 @@ if (-not $env:XDG_RUNTIME_DIR) {
 }
 
 if (-not (Test-Path -LiteralPath $Path)) {
-  Write-Log "file not found: $Path"
+  Write-Err "file not found: $Path"
   exit 1
 }
 
 if (-not $env:CERTUM_EMAIL -or -not $env:CERTUM_OTP) {
-  Write-Log "CERTUM_EMAIL and CERTUM_OTP must be set"
+  Write-Err "CERTUM_EMAIL and CERTUM_OTP must be set"
   exit 1
 }
 
@@ -62,7 +55,7 @@ function Resolve-Tool {
       return $cand
     }
   }
-  Write-Log "$Label not found (set $EnvName)"
+  Write-Err "$Label not found (set $EnvName)"
   exit 1
 }
 
@@ -87,7 +80,7 @@ if (-not (Test-Path -LiteralPath $certFile)) {
   if (Test-Path -LiteralPath $alt) { $certFile = $alt }
 }
 if (-not (Test-Path -LiteralPath $certFile)) {
-  Write-Log "Certum intermediate PEM not found next to script"
+  Write-Err "Certum intermediate PEM not found next to script"
   exit 1
 }
 
@@ -122,22 +115,12 @@ function Replace-FileWithRetry {
     [int] $TimeoutSec = 300
   )
   $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSec)
-  $attempt = 0
   while ([DateTime]::UtcNow -lt $deadline) {
-    $attempt++
     try {
-      # Copy over destination, then drop the temp — more reliable than Move when
-      # another process briefly holds DestinationPath.
       [System.IO.File]::Copy($SourcePath, $DestinationPath, $true)
       Remove-Item -LiteralPath $SourcePath -Force -ErrorAction Stop
-      if ($attempt -gt 1) {
-        Write-Log "replaced $DestinationPath after $attempt tries"
-      }
       return $true
     } catch {
-      if (($attempt % 10) -eq 0) {
-        Write-Log "waiting to replace $DestinationPath ($($_.Exception.Message))"
-      }
       Start-Sleep -Milliseconds 1000
     }
   }
@@ -150,10 +133,10 @@ $keyUri = 'pkcs11:object=Certum%20SimplySign%20%28ssign%29;type=private'
 $maxAttempts = 4
 
 function Invoke-OsslSign {
-  param([string] $FilePath, [int] $Attempt)
+  param([string] $FilePath)
 
   if (-not (Wait-FileReadable -FilePath $FilePath -TimeoutSec 120)) {
-    Write-Log "timed out waiting for readable file: $FilePath"
+    Write-Err "timed out waiting for readable file: $FilePath"
     return 1
   }
 
@@ -189,30 +172,20 @@ function Invoke-OsslSign {
   $stderr = $proc.StandardError.ReadToEnd()
   $proc.WaitForExit()
 
-  $combined = @()
-  if ($stdout) { $combined += $stdout -split "`r?`n" }
-  if ($stderr) { $combined += $stderr -split "`r?`n" }
-  foreach ($line in $combined) {
-    if (-not [string]::IsNullOrWhiteSpace($line)) {
-      Write-Log $line
-    }
-  }
-
-  $outFile = Join-Path $stateDir "ssign-tauri-attempt-$Attempt.txt"
-  Set-Content -LiteralPath $outFile -Value ($combined -join "`n")
-
   if ($proc.ExitCode -ne 0) {
     Remove-Item -LiteralPath $outPath -ErrorAction SilentlyContinue
+    if ($stderr) { Write-Err $stderr.Trim() }
+    if ($stdout) { Write-Err $stdout.Trim() }
     return $proc.ExitCode
   }
 
   if (-not (Test-Path -LiteralPath $outPath)) {
-    Write-Log "osslsigncode reported success but missing $outPath"
+    Write-Err "osslsigncode reported success but missing $outPath"
     return 1
   }
 
   if (-not (Replace-FileWithRetry -SourcePath $outPath -DestinationPath $FilePath -TimeoutSec 300)) {
-    Write-Log "timed out replacing $FilePath with signed output (see $outPath)"
+    Write-Err "timed out replacing $FilePath with signed output"
     return 1
   }
 
@@ -220,19 +193,15 @@ function Invoke-OsslSign {
 }
 
 for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
-  Write-Log "signing $Path (attempt $attempt/$maxAttempts via osslsigncode + ssign-pkcs11)"
-
-  $code = Invoke-OsslSign -FilePath $Path -Attempt $attempt
+  $code = Invoke-OsslSign -FilePath $Path
   if ($null -eq $code) { $code = 1 }
 
   if ($code -eq 0) {
-    Write-Log "signed $Path"
     exit 0
   }
 
-  Write-Log "sign attempt failed with code $code"
   if ($attempt -eq $maxAttempts) {
-    Write-Log "giving up after $maxAttempts attempts (see $script:LogFile)"
+    Write-Err "giving up after $maxAttempts attempts signing $Path"
     exit $code
   }
 

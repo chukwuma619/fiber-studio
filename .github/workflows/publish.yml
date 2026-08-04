@@ -290,21 +290,3 @@ jobs:
             In-app updates are available via **Settings → Updates**.
           prerelease: false
           args: ${{ matrix.args }}
-
-      - name: Dump Certum signing log (Windows)
-        if: failure() && matrix.platform == 'windows-latest'
-        shell: pwsh
-        working-directory: .
-        run: |
-          $log = Join-Path $env:RUNNER_TEMP "ssign-tauri.log"
-          if (Test-Path -LiteralPath $log) {
-            Write-Host "---- $log ----"
-            Get-Content -LiteralPath $log
-          } else {
-            Write-Host "No ssign-tauri.log at $log"
-          }
-          Get-ChildItem -Path $env:RUNNER_TEMP -Filter "ssign-tauri-*.txt" -ErrorAction SilentlyContinue |
-            ForEach-Object {
-              Write-Host "---- $($_.FullName) ----"
-              Get-Content -LiteralPath $_.FullName
-            }
