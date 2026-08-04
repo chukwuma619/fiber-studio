@@ -218,8 +218,12 @@ jobs:
             throw "ssign.exe not found after extracting $url"
           }
           $binDir = $exe.DirectoryName
+          # Tauri signs each PE separately; wrap ssign so Certum TOTP reuse
+          # across back-to-back logins is retried on the next 30s window.
+          Copy-Item -Force "app/scripts/ssign-tauri.cmd" (Join-Path $binDir "ssign-tauri.cmd")
           Add-Content -Path $env:GITHUB_PATH -Value $binDir
           & $exe.FullName --version
+
 
       - uses: tauri-apps/tauri-action@v1
         env:

@@ -3,7 +3,10 @@
   "bundle": {
     "targets": ["nsis"],
     "windows": {
-      "signCommand": "ssign %1"
+      "signCommand": {
+        "cmd": "cmd",
+        "args": ["/c", "ssign-tauri.cmd", "%1"]
+      }
     }
   }
 }

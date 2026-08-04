@@ -413,7 +413,7 @@ Add these GitHub repository secrets:
 
 #### Windows Certum signing secrets (publish)
 
-Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign`](https://github.com/Le-Syl21/ssign) on the Windows job and Tauri’s `signCommand` signs the app `.exe` and NSIS `-setup.exe` over SimplySign HTTPS. MSI is not produced on publish (ssign signs PE files only).
+Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign`](https://github.com/Le-Syl21/ssign) on the Windows job and Tauri’s `signCommand` signs the app `.exe` and NSIS `-setup.exe` over SimplySign HTTPS (via `app/scripts/ssign-tauri.cmd`, which retries across TOTP windows — Certum rejects reusing the same 6-digit code when each file is a separate login). MSI is not produced on publish (ssign signs PE files only).
 
 Add these GitHub repository secrets:
 
