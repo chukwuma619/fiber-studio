@@ -12,6 +12,8 @@
 #   APPLE_ID                     # Apple ID email
 #   APPLE_PASSWORD               # app-specific password (appleid.apple.com)
 #   APPLE_TEAM_ID                # 10-char Team ID (developer.apple.com → Membership)
+#   CERTUM_EMAIL                 # SimplySign login email (Windows Authenticode)
+#   CERTUM_OTP                   # SimplySign TOTP seed / otpauth:// URI (not the 6-digit code)
 # Optional:
 #   TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 
@@ -57,7 +59,8 @@ jobs:
             fnn_triple: aarch64-unknown-linux-gnu
             rust_target: ""
           - platform: windows-latest
-            args: ""
+            # NSIS only: Certum cloud signing via ssign supports PE (.exe), not MSI yet.
+            args: --config src-tauri/tauri.windows-signing.conf.json
             fnn_triple: x86_64-pc-windows-msvc
             rust_target: ""
 
@@ -180,6 +183,44 @@ jobs:
           echo "Imported signing identity: $CERT_ID"
           rm -f "$CERT_PATH"
 
+      - name: Verify Certum signing secrets (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: bash
+        working-directory: .
+        run: |
+          missing=0
+          for name in CERTUM_EMAIL CERTUM_OTP; do
+            if [ -z "${!name}" ]; then
+              echo "::error::$name is not set. Required for Windows Authenticode with Certum SimplySign. See README.md → Windows Certum signing secrets."
+              missing=1
+            fi
+          done
+          exit $missing
+        env:
+          CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
+          CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
+
+      # Certum cloud keys are not exportable as .pfx. Publish uses ssign
+      # (https://github.com/Le-Syl21/ssign) to Authenticode-sign PE files via SimplySign HTTPS.
+      - name: Install ssign (Windows Certum signing)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        working-directory: .
+        run: |
+          $ver = "v0.1.4"
+          $zip = Join-Path $env:RUNNER_TEMP "ssign.zip"
+          $dest = Join-Path $env:RUNNER_TEMP "ssign"
+          $url = "https://github.com/Le-Syl21/ssign/releases/download/$ver/ssign-windows-x86_64.zip"
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $dest -Force
+          $exe = Get-ChildItem -Path $dest -Recurse -Filter ssign.exe | Select-Object -First 1
+          if (-not $exe) {
+            throw "ssign.exe not found after extracting $url"
+          }
+          $binDir = $exe.DirectoryName
+          Add-Content -Path $env:GITHUB_PATH -Value $binDir
+          & $exe.FullName --version
+
       - uses: tauri-apps/tauri-action@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -191,6 +232,8 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CERTUM_EMAIL: ${{ secrets.CERTUM_EMAIL }}
+          CERTUM_OTP: ${{ secrets.CERTUM_OTP }}
         with:
           projectPath: app
           tagName: ${{ github.ref_name }}
@@ -200,7 +243,7 @@ jobs:
             Download the asset for your platform below.
 
             - **macOS:** `.dmg` for Apple Silicon or Intel
-            - **Windows:** `-setup.exe` NSIS installer
+            - **Windows:** `-setup.exe` NSIS installer (Authenticode-signed)
             - **Linux:** `.AppImage` (`chmod +x` then run)
 
             In-app updates are available via **Settings → Updates**.

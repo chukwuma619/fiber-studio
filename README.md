@@ -280,7 +280,7 @@ For protocol details beyond the app UI, see the [Fiber documentation](https://ww
 
 ## Download
 
-Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS publish builds can be Developer ID–signed and notarized when Apple secrets are configured; Windows builds are not code-signed yet.
+Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS publish builds are Developer ID–signed and notarized when Apple secrets are configured; Windows publish builds are Authenticode-signed with Certum SimplySign when Certum secrets are configured.
 
 | OS | Download this file | Install |
 |----|-------------------|---------|
@@ -308,7 +308,7 @@ If a release was built **without** Apple notarization secrets, Gatekeeper may bl
 
 After the first successful launch, macOS remembers your choice and you can open the app normally.
 
-Windows SmartScreen may show a similar warning for unsigned builds — choose **More info → Run anyway**.
+Windows SmartScreen may still warn for new publishers even when Authenticode-signed — choose **More info → Run anyway** until reputation builds.
 
 In-app updates use a separate Tauri signing key (not Apple/Windows code signing). After install, use **Settings → Updates** or wait for the launch prompt.
 
@@ -389,7 +389,7 @@ bun run fetch-fnn
 bun run tauri build
 ```
 
-macOS **publish** builds are signed with Developer ID and notarized when Apple secrets are set (see below). Windows code signing is not configured yet. macOS **smoke** builds on `main` stay [ad-hoc signed](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing).
+macOS **publish** builds are signed with Developer ID and notarized when Apple secrets are set (see below). Windows **publish** builds are Authenticode-signed with Certum SimplySign when Certum secrets are set (see below). macOS **smoke** builds on `main` stay [ad-hoc signed](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing); Windows smoke builds stay unsigned.
 
 In-app updates use a separate Tauri updater key (`TAURI_SIGNING_PRIVATE_KEY`). The updater reads `latest.json` from GitHub Releases, so release tags must not be marked as GitHub prereleases — otherwise `releases/latest/download/latest.json` 404s and update checks fail.
 
@@ -410,6 +410,21 @@ Add these GitHub repository secrets:
 | `APPLE_ID` | Your Apple ID email |
 | `APPLE_PASSWORD` | [App-specific password](https://appleid.apple.com) (not your Apple ID password) |
 | `APPLE_TEAM_ID` | 10-character Team ID from [Membership](https://developer.apple.com/account) |
+
+#### Windows Certum signing secrets (publish)
+
+Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign`](https://github.com/Le-Syl21/ssign) on the Windows job and Tauri’s `signCommand` signs the app `.exe` and NSIS `-setup.exe` over SimplySign HTTPS. MSI is not produced on publish (ssign signs PE files only).
+
+Add these GitHub repository secrets:
+
+| Secret | Value |
+|--------|--------|
+| `CERTUM_EMAIL` | Your SimplySign login email |
+| `CERTUM_OTP` | The **TOTP seed** (base32) or full `otpauth://…` URI from the SimplySign activation QR — **not** the rotating 6-digit code. Treat this like a private key. |
+
+If you only have the mobile app and no seed saved, re-issue the SimplySign QR from Certum and capture the secret (for example by scanning into a password manager that shows the `otpauth://` URI), then store that seed as `CERTUM_OTP`.
+
+Config used on publish: `app/src-tauri/tauri.windows-signing.conf.json`.
 
 ## Project structure
 
@@ -444,7 +459,7 @@ fiber-studio/
 | **build** (`.github/workflows/build.yml`) | Push / PR to `main` | App frontend build, website build, cross-platform Tauri smoke test (no release) |
 | **publish** (`.github/workflows/publish.yml`) | Tag push `v*`, or manual **workflow_dispatch** | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release, signed updater artifacts, and `latest.json` |
 
-Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. macOS publish also needs the Apple secrets listed above. GitHub Actions workflow permissions must allow **read and write** for releases.
+Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. macOS publish also needs the Apple secrets listed above; Windows publish needs the Certum secrets. GitHub Actions workflow permissions must allow **read and write** for releases.
 
 ## Related projects
 
