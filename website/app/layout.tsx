@@ -15,9 +15,28 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Fiber Studio',
+  metadataBase: new URL('https://www.getfiberstudio.com'),
+  title: {
+    default: 'Fiber Studio',
+    template: '%s · Fiber Studio',
+  },
   description:
     'Native desktop app for the Fiber Network on Nervos CKB — run channels, payments, and your node without the terminal.',
+  openGraph: {
+    type: 'website',
+    locale: 'en_US',
+    url: 'https://www.getfiberstudio.com',
+    siteName: 'Fiber Studio',
+    title: 'Fiber Studio',
+    description:
+      'Native desktop app for the Fiber Network on Nervos CKB — run channels, payments, and your node without the terminal.',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Fiber Studio',
+    description:
+      'Native desktop app for the Fiber Network on Nervos CKB — run channels, payments, and your node without the terminal.',
+  },
 }
 
 export default function RootLayout({

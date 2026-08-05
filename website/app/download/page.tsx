@@ -4,7 +4,7 @@ import { DownloadPage } from '@/component/download/download-page'
 import { fetchLatestRelease, type LatestRelease } from '@/lib/releases'
 
 export const metadata: Metadata = {
-  title: 'Download — Fiber Studio',
+  title: 'Download',
   description:
     'Download Fiber Studio for macOS, Windows, or Linux. Install from the latest GitHub release and set up your local Fiber node.',
 }
