@@ -144,7 +144,7 @@ export default async function Image() {
                 background: '#0284c7',
               }}
             />
-            Nervos CKB · Testnet ready
+            Nervos CKB
           </div>
           <div
             style={{
