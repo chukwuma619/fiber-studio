@@ -113,20 +113,9 @@ pub fn asset_for_discovered_udt(script: &CkbScript) -> AssetView {
     }
 }
 
-pub fn merge_asset_catalog(catalog: &[AssetView], discovered: &[AssetView]) -> Vec<AssetView> {
-    let mut merged = catalog.to_vec();
-    for asset in discovered {
-        if !merged.iter().any(|entry| entry.id.eq_ignore_ascii_case(&asset.id)) {
-            merged.push(asset.clone());
-        }
-    }
-    merged
-}
-
 #[derive(Debug, Clone)]
 pub struct WalletOnChainSnapshot {
     pub balances: Vec<AssetBalanceView>,
-    pub discovered_assets: Vec<AssetView>,
 }
 
 fn udt_amount_from_scan(
@@ -319,6 +308,7 @@ pub fn asset_for_invoice(catalog: &[AssetView], invoice: &rpc::CkbInvoice) -> As
 
 pub fn build_channel_totals(catalog: &[AssetView], channels: &[Channel]) -> Vec<AssetChannelTotals> {
     let mut totals: Vec<AssetChannelTotals> = Vec::new();
+    let mut seen_ids = std::collections::HashSet::new();
 
     for asset in catalog {
         let funding_udt = asset.udt_type_script.as_ref();
@@ -329,6 +319,7 @@ pub fn build_channel_totals(catalog: &[AssetView], channels: &[Channel]) -> Vec<
         }
 
         let capacity = local.saturating_add(remote);
+        seen_ids.insert(asset.id.to_lowercase());
         totals.push(AssetChannelTotals {
             asset_id: asset.id.clone(),
             symbol: asset.symbol.clone(),
@@ -336,6 +327,31 @@ pub fn build_channel_totals(catalog: &[AssetView], channels: &[Channel]) -> Vec<
             remote_balance: format!("0x{remote:x}"),
             local_balance_display: format_amount_display(local, asset),
             capacity_display: format_amount_display(capacity, asset),
+        });
+    }
+
+    for channel in channels {
+        let Some(script) = channel.funding_udt_type_script.as_ref() else {
+            continue;
+        };
+        let asset = asset_for_channel_funding(catalog, Some(script));
+        if seen_ids.contains(&asset.id.to_lowercase()) {
+            continue;
+        }
+        let local = sum_local_balances_for_asset(channels, Some(script));
+        let remote = sum_remote_balances_for_asset(channels, Some(script));
+        if local == 0 && remote == 0 {
+            continue;
+        }
+        let capacity = local.saturating_add(remote);
+        seen_ids.insert(asset.id.to_lowercase());
+        totals.push(AssetChannelTotals {
+            asset_id: asset.id.clone(),
+            symbol: asset.symbol.clone(),
+            local_balance: format!("0x{local:x}"),
+            remote_balance: format!("0x{remote:x}"),
+            local_balance_display: format_amount_display(local, &asset),
+            capacity_display: format_amount_display(capacity, &asset),
         });
     }
 
@@ -354,7 +370,6 @@ pub async fn fetch_wallet_on_chain_snapshot(
         super::ckb_indexer::scan_wallet_udt_balances(rpc_url, lock_script).await?;
 
     let mut balances = vec![balance_view(&ckb_asset(), ckb_raw)];
-    let mut discovered_assets = Vec::new();
 
     for asset in catalog {
         if let Some(udt_script) = asset.udt_type_script.as_ref() {
@@ -375,15 +390,9 @@ pub async fn fetch_wallet_on_chain_snapshot(
         }
         let asset = asset_for_discovered_udt(&script);
         balances.push(balance_view(&asset, raw));
-        if !discovered_assets.iter().any(|entry: &AssetView| entry.id == asset.id) {
-            discovered_assets.push(asset);
-        }
     }
 
-    Ok(WalletOnChainSnapshot {
-        balances,
-        discovered_assets,
-    })
+    Ok(WalletOnChainSnapshot { balances })
 }
 
 pub fn balance_view(asset: &AssetView, raw: u128) -> AssetBalanceView {

@@ -257,6 +257,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           network={data?.network ?? null}
           relayStatus={data?.relayStatus ?? "not_configured"}
           sendTargets={sendTargets}
+          assets={data?.assets ?? []}
           isActing={isActing}
           actionError={actionError}
           onParseInvoicePreview={handleParseInvoicePreview}

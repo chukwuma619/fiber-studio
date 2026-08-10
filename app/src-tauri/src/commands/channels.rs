@@ -96,7 +96,7 @@ pub(crate) async fn fetch_wallet_balance_for_network(
     )
     .await
     .map_err(|error| format!("Failed to read on-chain wallet balance: {error}"))?;
-    let assets = assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets);
+    let assets = catalog;
     let balances = snapshot.balances;
 
     let shannons = balances
@@ -328,7 +328,9 @@ pub async fn open_channel(
     let asset = if let Some(script) = payload.udt_type_script.as_ref() {
         assets::find_asset_for_udt_script(&catalog, script)
             .cloned()
-            .unwrap_or_else(|| assets::asset_for_channel_funding(&catalog, Some(script)))
+            .ok_or_else(|| {
+                "Selected UDT is not in this node's whitelist. Add it to config.yml and restart the node.".to_string()
+            })?
     } else {
         assets::ckb_asset()
     };

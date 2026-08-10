@@ -283,6 +283,7 @@ export type KeysendPaymentPayload = {
   amount: number
   maxFeeCkb?: number
   timeoutSeconds?: number
+  udtTypeScript?: CkbScript | null
 }
 
 export type SendPaymentMode = "invoice" | "keysend"

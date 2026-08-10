@@ -66,7 +66,7 @@ pub async fn get_assets_page(
         .map(|metadata| metadata.network.as_str())
     {
         Some(network) => match fetch_wallet_balance_for_network(network).await {
-            Ok(balance) => (None, balance.balances, balance.assets),
+            Ok(balance) => (None, balance.balances, catalog.clone()),
             Err(error) => (Some(error), Vec::new(), catalog.clone()),
         },
         None => (

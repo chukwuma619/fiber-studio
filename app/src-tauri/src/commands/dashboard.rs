@@ -162,10 +162,7 @@ pub async fn get_home_dashboard(
         )
         .await
         {
-            Ok(snapshot) => (
-                snapshot.balances,
-                assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets),
-            ),
+            Ok(snapshot) => (snapshot.balances, catalog.clone()),
             Err(_) => (Vec::new(), catalog.clone()),
         },
         None => (Vec::new(), catalog.clone()),

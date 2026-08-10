@@ -448,6 +448,7 @@ pub enum PaymentKind<'a> {
     Keysend {
         target_pubkey: &'a str,
         amount: u128,
+        udt_type_script: Option<&'a CkbScript>,
     },
 }
 
@@ -549,10 +550,18 @@ pub async fn send_payment(request: SendPaymentRequest<'_>) -> Result<SendPayment
         PaymentKind::Keysend {
             target_pubkey,
             amount,
+            udt_type_script,
         } => {
             params["target_pubkey"] = serde_json::Value::String(target_pubkey.to_string());
             params["amount"] = serde_json::Value::String(format!("0x{amount:x}"));
             params["keysend"] = serde_json::Value::Bool(true);
+            if let Some(script) = udt_type_script {
+                params["udt_type_script"] = serde_json::json!({
+                    "code_hash": script.code_hash,
+                    "hash_type": script.hash_type,
+                    "args": script.args,
+                });
+            }
         }
     }
 

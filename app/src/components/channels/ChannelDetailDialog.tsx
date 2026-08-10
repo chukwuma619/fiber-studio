@@ -273,14 +273,14 @@ export function ChannelDetailDialog({
             <div className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
               <span className="font-mono">{truncatePubkey(channel.pubkey)}</span>
               {" · "}
-              {capacity} CKB
+              {capacity}
             </div>
           </div>
         ) : (
           <div className="space-y-4">
             <Text className="text-sm text-zinc-600 dark:text-zinc-400">
               Abandon removes this opening attempt from your node. If funding
-              never completed on-chain, your CKB stays in your wallet.
+              never completed on-chain, your funds stay in your wallet.
             </Text>
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
               <span className="font-mono">{truncatePubkey(channel.pubkey)}</span>

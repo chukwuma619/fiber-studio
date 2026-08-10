@@ -8,8 +8,6 @@ import type {
 import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { HomeEmptyState } from "../home/HomeEmptyState"
 import { Badge } from "../ui/badge"
-import { Subheading } from "../ui/heading"
-import { Text } from "../ui/text"
 import {
   Table,
   TableBody,
@@ -50,12 +48,6 @@ export function WalletPortfolioSection({
 
   return (
     <section className="overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-      <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-        <Subheading level={2}>Your assets</Subheading>
-        <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-          On-chain wallet balances and spendable amounts in Fiber channels.
-        </Text>
-      </div>
 
       {onChainError ? (
         <div className="border-b border-zinc-200 px-5 py-3 text-sm text-amber-800 dark:border-zinc-800 dark:text-amber-300">

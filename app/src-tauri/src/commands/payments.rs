@@ -186,6 +186,8 @@ pub struct KeysendPaymentPayload {
     pub max_fee_ckb: Option<f64>,
     #[serde(default)]
     pub timeout_seconds: Option<u64>,
+    #[serde(default)]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -370,7 +372,8 @@ fn send_payment_request<'a>(
 
 fn keysend_payment_request<'a>(
     target_pubkey: &'a str,
-    amount_shannons: u128,
+    amount_raw: u128,
+    udt_type_script: Option<&'a CkbScript>,
     dry_run: bool,
     max_fee_amount: Option<u128>,
     timeout: Option<u64>,
@@ -378,7 +381,8 @@ fn keysend_payment_request<'a>(
     SendPaymentRequest {
         kind: PaymentKind::Keysend {
             target_pubkey,
-            amount: amount_shannons,
+            amount: amount_raw,
+            udt_type_script,
         },
         dry_run,
         max_fee_amount,
@@ -590,8 +594,6 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
                 .await
                 {
                     Ok(snapshot) => {
-                        let merged_assets =
-                            assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets);
                         let ckb_balance = snapshot
                             .balances
                             .iter()
@@ -605,7 +607,7 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
                             ckb_balance,
                             None,
                             snapshot.balances,
-                            merged_assets,
+                            catalog.clone(),
                         )
                     }
                     Err(error) => (
@@ -693,7 +695,9 @@ pub async fn create_invoice(
     let asset = if let Some(script) = payload.udt_type_script.as_ref() {
         assets::find_asset_for_udt_script(&catalog, script)
             .cloned()
-            .unwrap_or_else(|| assets::asset_for_channel_funding(&catalog, Some(script)))
+            .ok_or_else(|| {
+                "Selected UDT is not in this node's whitelist. Add it to config.yml and restart the node.".to_string()
+            })?
     } else {
         assets::ckb_asset()
     };
@@ -882,14 +886,33 @@ pub async fn preview_keysend_payment(
     }
 
     let _data_directory = require_running_data_dir(&state).await?;
-    let amount_shannons = ckb_to_shannons(payload.amount)?;
-    let ckb_asset = assets::ckb_asset();
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
+    let asset = if let Some(script) = payload.udt_type_script.as_ref() {
+        assets::find_asset_for_udt_script(&catalog, script)
+            .cloned()
+            .ok_or_else(|| {
+                "Selected UDT is not in this node's whitelist. Add it to config.yml and restart the node.".to_string()
+            })?
+    } else {
+        assets::ckb_asset()
+    };
+
+    let amount_raw = if asset.udt_type_script.is_some() {
+        assets::parse_human_amount(payload.amount, asset.decimals)?
+    } else {
+        ckb_to_shannons(payload.amount)?
+    };
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
+    let fee_asset = assets::ckb_asset();
 
     let preview = rpc::send_payment(keysend_payment_request(
         target_pubkey,
-        amount_shannons,
+        amount_raw,
+        asset.udt_type_script.as_ref(),
         true,
         max_fee_amount,
         timeout,
@@ -901,9 +924,9 @@ pub async fn preview_keysend_payment(
 
     Ok(PreviewSendPaymentResult {
         fee_shannons: preview.fee.clone(),
-        fee_display: assets::format_amount_display(fee_raw, &ckb_asset),
-        amount_display: assets::format_amount_display(amount_shannons, &ckb_asset),
-        asset_symbol: ckb_asset.symbol,
+        fee_display: assets::format_amount_display(fee_raw, &fee_asset),
+        amount_display: assets::format_amount_display(amount_raw, &asset),
+        asset_symbol: asset.symbol,
         route_hops: payment_display::route_hops_from_payment(&preview),
     })
 }
@@ -919,13 +942,32 @@ pub async fn send_keysend_payment(
     }
 
     let data_directory = require_running_data_dir(&state).await?;
-    let amount_shannons = ckb_to_shannons(payload.amount)?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
+    let asset = if let Some(script) = payload.udt_type_script.as_ref() {
+        assets::find_asset_for_udt_script(&catalog, script)
+            .cloned()
+            .ok_or_else(|| {
+                "Selected UDT is not in this node's whitelist. Add it to config.yml and restart the node.".to_string()
+            })?
+    } else {
+        assets::ckb_asset()
+    };
+
+    let amount_raw = if asset.udt_type_script.is_some() {
+        assets::parse_human_amount(payload.amount, asset.decimals)?
+    } else {
+        ckb_to_shannons(payload.amount)?
+    };
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
 
     let result = rpc::send_payment(keysend_payment_request(
         target_pubkey,
-        amount_shannons,
+        amount_raw,
+        asset.udt_type_script.as_ref(),
         false,
         max_fee_amount,
         timeout,
@@ -938,11 +980,15 @@ pub async fn send_keysend_payment(
         &data_directory,
         &result.payment_hash,
         "keysend",
-        amount_shannons,
+        amount_raw,
         Some(target_pubkey.to_string()),
         route_hops,
-        None,
-        None,
+        asset.udt_type_script.clone(),
+        if asset.udt_type_script.is_some() {
+            Some(asset.symbol.clone())
+        } else {
+            None
+        },
     );
 
     Ok(send_payment_command_result(result))

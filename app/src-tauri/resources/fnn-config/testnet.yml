@@ -97,6 +97,18 @@ ckb:
             hash_type: type
             args: 0x97d30b723c0b2c66e9cb8d4d0df4ab5d7222cbb00d4a9a2055ce2e5d7f0d8b0f
       auto_accept_amount: 1000000000
+    - name: cWBTC
+      script:
+        code_hash: 0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb
+        hash_type: type
+        args: 0x9a1086531ed6dc69e0bd44cef5278e03faf3015b31aff60b08fb87663ce8507100000000
+      cell_deps:
+        - cell_dep:
+            out_point:
+              tx_hash: 0xbf6fb538763efec2a70a6a3dcb7242787087e1030c4e7d86585bc63a9d337f5f
+              index: 0x0
+            dep_type: code
+      auto_accept_amount: 100000000
 
 services:
   - fiber

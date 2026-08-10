@@ -1,30 +1,12 @@
-import type { CkbScript } from "./types"
-
-export type AssetView = {
-  id: string
-  name: string
-  symbol: string
-  decimals: number
-  udtTypeScript?: CkbScript | null
-}
-
-export type AssetBalanceView = {
-  assetId: string
-  symbol: string
-  amountDisplay: string
-  rawAmount: string
-}
-
-export type AssetChannelTotals = {
-  assetId: string
-  symbol: string
-  localBalance: string
-  remoteBalance: string
-  localBalanceDisplay: string
-  capacityDisplay: string
-}
-
+import type {
+  AssetBalanceView,
+  AssetChannelTotals,
+  AssetView,
+  CkbScript,
+} from "./types"
 import { formatCkb, parseHexU128 } from "./format"
+
+export type { AssetBalanceView, AssetChannelTotals, AssetView }
 
 export function channelCapacityDisplay(
   localBalance: string,
