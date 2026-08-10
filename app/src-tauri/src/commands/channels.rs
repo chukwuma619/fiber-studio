@@ -89,13 +89,15 @@ pub(crate) async fn fetch_wallet_balance_for_network(
         .await
         .map_err(|error| error.to_string())?;
     let catalog = assets::build_asset_catalog(&node_info);
-    let balances = assets::fetch_on_chain_balances(
+    let snapshot = assets::fetch_wallet_on_chain_snapshot(
         network,
         &node_info.default_funding_lock_script,
         &catalog,
     )
     .await
     .map_err(|error| format!("Failed to read on-chain wallet balance: {error}"))?;
+    let assets = assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets);
+    let balances = snapshot.balances;
 
     let shannons = balances
         .iter()
@@ -107,7 +109,7 @@ pub(crate) async fn fetch_wallet_balance_for_network(
     Ok(WalletBalanceResponse {
         available_ckb,
         shannons: format!("0x{shannons:x}"),
-        assets: catalog,
+        assets,
         balances,
     })
 }
@@ -247,17 +249,23 @@ pub async fn get_channels_page(
         .map(|peer| build_channels_saved_peer_entry(peer, &peers, &channels))
         .collect();
 
-    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances) =
+    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
             Some(network) => match fetch_wallet_balance_for_network(network).await {
                 Ok(balance) => (
                     Some(balance.available_ckb),
                     None,
                     balance.balances,
+                    balance.assets,
                 ),
-                Err(error) => (None, Some(error), Vec::new()),
+                Err(error) => (None, Some(error), Vec::new(), catalog.clone()),
             },
-            None => (None, Some("Network is not configured.".to_string()), Vec::new()),
+            None => (
+                None,
+                Some("Network is not configured.".to_string()),
+                Vec::new(),
+                catalog.clone(),
+            ),
         };
 
     Ok(ChannelsPageResponse {
@@ -275,7 +283,7 @@ pub async fn get_channels_page(
         saved_peers: saved_peer_entries,
         relay_status,
         min_funding_ckb,
-        assets: catalog,
+        assets,
         on_chain_balances,
         channel_totals,
     })

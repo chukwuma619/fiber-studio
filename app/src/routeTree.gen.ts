@@ -17,6 +17,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppPaymentsRouteImport } from './routes/_app/payments'
 import { Route as AppNetworkRouteImport } from './routes/_app/network'
 import { Route as AppChannelsRouteImport } from './routes/_app/channels'
+import { Route as AppAssetsRouteImport } from './routes/_app/assets'
 
 const SetupRoute = SetupRouteImport.update({
   id: '/setup',
@@ -57,10 +58,16 @@ const AppChannelsRoute = AppChannelsRouteImport.update({
   path: '/channels',
   getParentRoute: () => AppRoute,
 } as any)
+const AppAssetsRoute = AppAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AppRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/setup': typeof SetupRoute
+  '/assets': typeof AppAssetsRoute
   '/channels': typeof AppChannelsRoute
   '/network': typeof AppNetworkRoute
   '/payments': typeof AppPaymentsRoute
@@ -69,6 +76,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
+  '/assets': typeof AppAssetsRoute
   '/channels': typeof AppChannelsRoute
   '/network': typeof AppNetworkRoute
   '/payments': typeof AppPaymentsRoute
@@ -80,6 +88,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteWithChildren
   '/setup': typeof SetupRoute
+  '/_app/assets': typeof AppAssetsRoute
   '/_app/channels': typeof AppChannelsRoute
   '/_app/network': typeof AppNetworkRoute
   '/_app/payments': typeof AppPaymentsRoute
@@ -92,6 +101,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/setup'
+    | '/assets'
     | '/channels'
     | '/network'
     | '/payments'
@@ -100,6 +110,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/setup'
+    | '/assets'
     | '/channels'
     | '/network'
     | '/payments'
@@ -110,6 +121,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/_app'
     | '/setup'
+    | '/_app/assets'
     | '/_app/channels'
     | '/_app/network'
     | '/_app/payments'
@@ -181,10 +193,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppChannelsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/assets': {
+      id: '/_app/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AppAssetsRouteImport
+      parentRoute: typeof AppRoute
+    }
   }
 }
 
 interface AppRouteChildren {
+  AppAssetsRoute: typeof AppAssetsRoute
   AppChannelsRoute: typeof AppChannelsRoute
   AppNetworkRoute: typeof AppNetworkRoute
   AppPaymentsRoute: typeof AppPaymentsRoute
@@ -194,6 +214,7 @@ interface AppRouteChildren {
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppAssetsRoute: AppAssetsRoute,
   AppChannelsRoute: AppChannelsRoute,
   AppNetworkRoute: AppNetworkRoute,
   AppPaymentsRoute: AppPaymentsRoute,

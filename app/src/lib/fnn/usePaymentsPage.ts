@@ -69,7 +69,7 @@ export function usePaymentsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
     }
 
     if (manual) {
-      invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+      invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
       setIsRefreshing(true)
     } else if (getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments)) {
       setIsRefreshing(true)

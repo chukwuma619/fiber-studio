@@ -44,6 +44,7 @@ pub fn run() {
             commands::node::start_node,
             commands::node::stop_node,
             commands::dashboard::get_home_dashboard,
+            commands::assets::get_assets_page,
             commands::channels::get_channels_page,
             commands::channels::get_wallet_balance,
             commands::channels::open_channel,

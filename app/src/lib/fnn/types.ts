@@ -96,6 +96,16 @@ export type AssetChannelTotals = {
   capacityDisplay: string
 }
 
+export type AssetsPageResponse = {
+  available: boolean
+  network: string | null
+  assets: AssetView[]
+  onChainBalances: AssetBalanceView[]
+  channelTotals: AssetChannelTotals[]
+  onChainWalletError?: string | null
+  lockScript: CkbScript | null
+}
+
 export type SavedPeerEntry = {
   pubkey: string
   multiaddr: string | null

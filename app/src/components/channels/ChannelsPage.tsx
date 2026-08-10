@@ -67,7 +67,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
 
   const handleMutationSuccess = useCallback(() => {
-    invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
     void refresh()
   }, [refresh])
 
@@ -123,33 +123,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
       ? `${activeCount} active · ${openingChannels.length} opening`
       : `${activeCount} active`
     : "Start node to view channels"
-  const totalCapacity = available
-    ? formatCkb(BigInt(data?.totalCapacity ?? "0"))
-    : "—"
-  const canSpendTotal = available
-    ? formatCkb(BigInt(data?.totalLocalBalance ?? "0"))
-    : "—"
-  const canReceiveTotal = available
-    ? formatCkb(BigInt(data?.totalRemoteBalance ?? "0"))
-    : "—"
-  const onChainWallet = !available
-    ? "—"
-    : isLoading && running
-      ? "…"
-      : data?.onChainWalletError
-        ? "—"
-        : data?.onChainWalletCkb !== null && data?.onChainWalletCkb !== undefined
-          ? String(data.onChainWalletCkb)
-          : "—"
-  const onChainWalletSubtext = (() => {
-    if (!available) {
-      return "Start node to view wallet"
-    }
-    if (data?.onChainWalletError) {
-      return "Could not read on-chain balance"
-    }
-    return "Available to fund channel opens"
-  })()
+  const isChannelsLoading = running && isLoading && data === null
 
   return (
     <div className="space-y-8">
@@ -188,69 +162,19 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        <StatCard
-          label="On-chain wallet"
-          value={isLoading && running ? "…" : onChainWallet}
-          unit={
-            available &&
-            data?.onChainWalletCkb !== null &&
-            data?.onChainWalletCkb !== undefined
-              ? "CKB"
-              : undefined
-          }
-          subtext={onChainWalletSubtext}
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Channels"
-          value={isLoading && running ? "…" : activeChannels}
+          value={isChannelsLoading ? "…" : activeChannels}
           subtext={channelSummarySubtext}
         />
         <StatCard
-          label="Can spend"
-          value={isLoading && running ? "…" : canSpendTotal}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available
-              ? "Across active channels"
-              : "Start node to view balance"
-          }
-        />
-        <StatCard
-          label="Can receive"
-          value={isLoading && running ? "…" : canReceiveTotal}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available
-              ? "Across active channels"
-              : "Start node to view balance"
-          }
-        />
-        <StatCard
-          label="Total capacity"
-          value={isLoading && running ? "…" : totalCapacity}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available ? "Across all channels" : "Start node to view capacity"
-          }
+          label="Min funding"
+          value={String(minFundingCkb)}
+          unit="CKB"
+          subtext="Minimum CKB to open a channel"
         />
       </div>
-
-      {available && (data?.channelTotals?.length ?? 0) > 1 ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">
-            In-channel liquidity by asset
-          </p>
-          <ul className="mt-2 space-y-1">
-            {data?.channelTotals.map((total) => (
-              <li key={total.assetId} className="tabular-nums">
-                {total.symbol}: {total.localBalanceDisplay} spendable ·{" "}
-                {total.capacityDisplay} capacity
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
 
       <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
         {unavailableState ? (

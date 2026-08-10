@@ -1,10 +1,7 @@
 import { RefreshCw } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
-import {
-  truncateLockScriptArgs,
-  type InvoiceListFilter,
-} from "../../lib/fnn/format"
+import { type InvoiceListFilter } from "../../lib/fnn/format"
 import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
@@ -13,7 +10,6 @@ import { usePaymentsActions } from "../../lib/fnn/usePaymentsActions"
 import { usePaymentsPage } from "../../lib/fnn/usePaymentsPage"
 import { loadMorePayments } from "../../lib/fnn/invoke"
 import type { PaymentsInvoiceItem, PaymentsPaymentItem } from "../../lib/fnn/types"
-import { StatCard } from "../home/StatCard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
@@ -36,7 +32,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const { data, isLoading, isRefreshing, error, refresh } = usePaymentsPage(running)
 
   const handleMutationSuccess = useCallback(() => {
-    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
     void refresh()
   }, [refresh])
 
@@ -132,24 +128,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
     }
   }, [initialAction])
 
-  const inChannelBalance = available
-    ? data?.inChannelBalanceCkb.toFixed(2) ?? "0"
-    : "—"
-  const onChainWallet = available
-    ? data?.onChainWalletCkb !== null && data?.onChainWalletCkb !== undefined
-      ? data.onChainWalletCkb.toFixed(2)
-      : "—"
-    : "—"
-
-  const onChainSubtext = useMemo(() => {
-    if (!available) return "Start node to view balance"
-    if (data?.onChainWalletError) return data.onChainWalletError
-    if (data?.lockScript) {
-      return `${truncateLockScriptArgs(data.lockScript.args)} · L1 funding wallet (not Fiber spendable)`
-    }
-    return "On-chain balances for channel funding — not spendable via Fiber invoices"
-  }, [available, data?.lockScript, data?.onChainWalletError])
-
   const handleParseInvoicePreview = useCallback(
     (invoice: string) => parseInvoicePreview({ invoice }),
     [parseInvoicePreview],
@@ -197,7 +175,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
 
   const handleRefresh = useCallback(() => {
     setHasLoadedMorePayments(false)
-    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
     void refresh()
   }, [refresh])
 
@@ -257,46 +235,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           seconds.
         </div>
       ) : null}
-
-      {available && (data?.inChannelTotals?.length ?? 0) > 0 ? (
-        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
-          <p className="font-medium text-zinc-900 dark:text-zinc-100">
-            Spendable in channels
-          </p>
-          <ul className="mt-2 space-y-1">
-            {data?.inChannelTotals.map((total) => (
-              <li key={total.assetId} className="tabular-nums">
-                {total.symbol}: {total.localBalanceDisplay}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard
-          label="In channels"
-          value={isLoading && running ? "…" : inChannelBalance}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available
-              ? "Can spend across open channels"
-              : "Start node to view balance"
-          }
-        />
-        <StatCard
-          label="On-chain (funding wallet)"
-          value={isLoading && running ? "…" : onChainWallet}
-          unit={
-            available &&
-            data?.onChainWalletCkb !== null &&
-            data?.onChainWalletCkb !== undefined
-              ? "CKB"
-              : undefined
-          }
-          subtext={onChainSubtext}
-        />
-      </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <PaymentsInvoicesSection

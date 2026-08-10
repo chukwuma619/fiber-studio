@@ -69,6 +69,77 @@ pub fn decimals_for_name(name: &str) -> u8 {
     }
 }
 
+struct KnownUdtToken {
+    code_hash: &'static str,
+    args: &'static str,
+    symbol: &'static str,
+}
+
+const KNOWN_UDT_TOKENS: &[KnownUdtToken] = &[
+    KnownUdtToken {
+        code_hash: "0x1142755a044bf2ee358cba9f2da187ce928c91cd4dc8692ded0337efa677d21a",
+        args: "0x878fcc6f1f08d48e87bb1c3b3d5083f23f8a39c5d5c764f253b55b998526439b",
+        symbol: "RUSD",
+    },
+    KnownUdtToken {
+        code_hash: "0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb",
+        args: "0x9a1086531ed6dc69e0bd44cef5278e03faf3015b31aff60b08fb87663ce8507100000000",
+        symbol: "cWBTC",
+    },
+];
+
+pub fn symbol_for_udt_script(script: &CkbScript) -> String {
+    let code_hash = script.code_hash.to_lowercase();
+    let args = script.args.to_lowercase();
+
+    for known in KNOWN_UDT_TOKENS {
+        if code_hash == known.code_hash.to_lowercase() && args == known.args.to_lowercase() {
+            return known.symbol.to_string();
+        }
+    }
+
+    "UDT".to_string()
+}
+
+pub fn asset_for_discovered_udt(script: &CkbScript) -> AssetView {
+    let symbol = symbol_for_udt_script(script);
+    let decimals = decimals_for_name(&symbol);
+    AssetView {
+        id: asset_id_for_udt(script),
+        name: symbol.clone(),
+        symbol,
+        decimals,
+        udt_type_script: Some(script.clone()),
+    }
+}
+
+pub fn merge_asset_catalog(catalog: &[AssetView], discovered: &[AssetView]) -> Vec<AssetView> {
+    let mut merged = catalog.to_vec();
+    for asset in discovered {
+        if !merged.iter().any(|entry| entry.id.eq_ignore_ascii_case(&asset.id)) {
+            merged.push(asset.clone());
+        }
+    }
+    merged
+}
+
+#[derive(Debug, Clone)]
+pub struct WalletOnChainSnapshot {
+    pub balances: Vec<AssetBalanceView>,
+    pub discovered_assets: Vec<AssetView>,
+}
+
+fn udt_amount_from_scan(
+    scanned: &std::collections::HashMap<String, (CkbScript, u128)>,
+    script: &CkbScript,
+) -> u128 {
+    scanned
+        .values()
+        .find(|(candidate, _)| scripts_equal(candidate, script))
+        .map(|(_, amount)| *amount)
+        .unwrap_or(0)
+}
+
 pub fn build_asset_catalog(node_info: &NodeInfo) -> Vec<AssetView> {
     let mut assets = vec![ckb_asset()];
 
@@ -281,19 +352,52 @@ pub async fn fetch_on_chain_balances(
     lock_script: &CkbScript,
     catalog: &[AssetView],
 ) -> Result<Vec<AssetBalanceView>, super::rpc::RpcError> {
+    let snapshot = fetch_wallet_on_chain_snapshot(network, lock_script, catalog).await?;
+    Ok(snapshot.balances)
+}
+
+pub async fn fetch_wallet_on_chain_snapshot(
+    network: &str,
+    lock_script: &CkbScript,
+    catalog: &[AssetView],
+) -> Result<WalletOnChainSnapshot, super::rpc::RpcError> {
     let rpc_url = super::ckb_indexer::ckb_rpc_url(network);
-    let mut balances = Vec::with_capacity(catalog.len());
+    let ckb_raw =
+        super::ckb_indexer::fetch_lock_script_capacity(rpc_url, lock_script).await?;
+    let scanned =
+        super::ckb_indexer::scan_wallet_udt_balances(rpc_url, lock_script).await?;
+
+    let mut balances = vec![balance_view(&ckb_asset(), ckb_raw)];
+    let mut discovered_assets = Vec::new();
 
     for asset in catalog {
-        let raw = if let Some(udt_script) = asset.udt_type_script.as_ref() {
-            super::ckb_indexer::fetch_udt_balance(rpc_url, lock_script, udt_script).await?
-        } else {
-            super::ckb_indexer::fetch_lock_script_capacity(rpc_url, lock_script).await?
-        };
-        balances.push(balance_view(asset, raw));
+        if let Some(udt_script) = asset.udt_type_script.as_ref() {
+            let raw = udt_amount_from_scan(&scanned, udt_script);
+            balances.push(balance_view(asset, raw));
+        }
     }
 
-    Ok(balances)
+    for (_, (script, raw)) in scanned {
+        if raw == 0 {
+            continue;
+        }
+        if catalog
+            .iter()
+            .any(|asset| asset.udt_type_script.as_ref().is_some_and(|s| scripts_equal(s, &script)))
+        {
+            continue;
+        }
+        let asset = asset_for_discovered_udt(&script);
+        balances.push(balance_view(&asset, raw));
+        if !discovered_assets.iter().any(|entry: &AssetView| entry.id == asset.id) {
+            discovered_assets.push(asset);
+        }
+    }
+
+    Ok(WalletOnChainSnapshot {
+        balances,
+        discovered_assets,
+    })
 }
 
 pub fn balance_view(asset: &AssetView, raw: u128) -> AssetBalanceView {
@@ -323,5 +427,15 @@ mod tests {
             super::parse_human_amount_str("2.25", 8).expect("parse"),
             225_000_000
         );
+    }
+
+    #[test]
+    fn symbol_for_cwbtc_testnet_script() {
+        let script = super::rpc::CkbScript {
+            code_hash: "0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb".into(),
+            hash_type: "type".into(),
+            args: "0x9a1086531ed6dc69e0bd44cef5278e03faf3015b31aff60b08fb87663ce8507100000000".into(),
+        };
+        assert_eq!(symbol_for_udt_script(&script), "cWBTC");
     }
 }

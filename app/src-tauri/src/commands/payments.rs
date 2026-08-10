@@ -579,18 +579,21 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
     let relay_status =
         peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
 
-    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances) =
+    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
             Some(network) => {
-                match assets::fetch_on_chain_balances(
+                match assets::fetch_wallet_on_chain_snapshot(
                     network,
                     &node_info.default_funding_lock_script,
                     &catalog,
                 )
                 .await
                 {
-                    Ok(balances) => {
-                        let ckb_balance = balances
+                    Ok(snapshot) => {
+                        let merged_assets =
+                            assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets);
+                        let ckb_balance = snapshot
+                            .balances
                             .iter()
                             .find(|balance| balance.asset_id == assets::CKB_ASSET_ID)
                             .and_then(|balance| {
@@ -598,12 +601,18 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
                                     (raw / SHANNONS_PER_CKB) as u64
                                 })
                             });
-                        (ckb_balance, None, balances)
+                        (
+                            ckb_balance,
+                            None,
+                            snapshot.balances,
+                            merged_assets,
+                        )
                     }
                     Err(error) => (
                         None,
                         Some(format!("Failed to read on-chain wallet balance: {error}")),
                         Vec::new(),
+                        catalog.clone(),
                     ),
                 }
             }
@@ -611,6 +620,7 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
                 None,
                 Some("Network is not configured.".to_string()),
                 Vec::new(),
+                catalog.clone(),
             ),
         };
 
@@ -650,7 +660,7 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         on_chain_wallet_ckb,
         on_chain_wallet_error,
         lock_script: Some(node_info.default_funding_lock_script),
-        assets: catalog,
+        assets,
         on_chain_balances,
         in_channel_totals,
         invoices: invoice_items,

@@ -9,6 +9,7 @@ const store = new Map<string, CacheEntry<unknown>>()
 
 export const PAGE_CACHE_KEYS = {
   home: "page:home",
+  assets: "page:assets",
   payments: "page:payments",
   channels: "page:channels",
   network: "page:network",

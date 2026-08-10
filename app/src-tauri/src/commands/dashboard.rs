@@ -154,15 +154,21 @@ pub async fn get_home_dashboard(
         .as_ref()
         .map(|metadata| metadata.network.as_str());
 
-    let on_chain_balances = match network_str {
-        Some(network) => assets::fetch_on_chain_balances(
+    let (on_chain_balances, assets) = match network_str {
+        Some(network) => match assets::fetch_wallet_on_chain_snapshot(
             network,
             &node_info.default_funding_lock_script,
             &catalog,
         )
         .await
-        .unwrap_or_default(),
-        None => Vec::new(),
+        {
+            Ok(snapshot) => (
+                snapshot.balances,
+                assets::merge_asset_catalog(&catalog, &snapshot.discovered_assets),
+            ),
+            Err(_) => (Vec::new(), catalog.clone()),
+        },
+        None => (Vec::new(), catalog.clone()),
     };
 
     let stored_sent_payments = data_directory
@@ -240,7 +246,7 @@ pub async fn get_home_dashboard(
             .as_ref()
             .map(|metadata| metadata.network.clone()),
         relay_status,
-        assets: catalog,
+        assets,
         channel_totals,
         on_chain_balances,
     })
