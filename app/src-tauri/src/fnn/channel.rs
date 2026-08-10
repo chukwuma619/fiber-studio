@@ -27,6 +27,7 @@ pub struct HomeChannel {
     pub remote_balance_display: String,
 }
 
+#[cfg(test)]
 pub fn ckb_to_shannons_hex(ckb: u64) -> String {
     let shannons = (ckb as u128).saturating_mul(SHANNONS_PER_CKB);
     format!("0x{shannons:x}")

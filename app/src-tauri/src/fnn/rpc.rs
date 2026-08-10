@@ -488,23 +488,6 @@ pub struct SendPaymentResult {
     pub routers: Vec<SessionRoute>,
 }
 
-/// Creates a new CKB invoice via FNN `new_invoice`.
-pub async fn new_invoice(
-    amount_shannons: u128,
-    currency: &str,
-    description: Option<&str>,
-    expiry_seconds: u64,
-) -> Result<NewInvoiceResult, RpcError> {
-    new_invoice_with_udt(
-        amount_shannons,
-        currency,
-        description,
-        expiry_seconds,
-        None,
-    )
-    .await
-}
-
 /// Creates a new invoice, optionally denominated in a UDT.
 pub async fn new_invoice_with_udt(
     amount: u128,

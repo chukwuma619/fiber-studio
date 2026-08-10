@@ -167,12 +167,6 @@ pub fn ckb_asset() -> AssetView {
     }
 }
 
-pub fn find_asset_by_id<'a>(catalog: &'a [AssetView], asset_id: &str) -> Option<&'a AssetView> {
-    catalog
-        .iter()
-        .find(|asset| asset.id.eq_ignore_ascii_case(asset_id))
-}
-
 pub fn find_asset_for_udt_script<'a>(
     catalog: &'a [AssetView],
     script: &CkbScript,
@@ -240,6 +234,7 @@ pub fn parse_human_amount(value: f64, decimals: u8) -> Result<u128, String> {
     Ok(scaled as u128)
 }
 
+#[cfg(test)]
 pub fn parse_human_amount_str(value: &str, decimals: u8) -> Result<u128, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
@@ -345,15 +340,6 @@ pub fn build_channel_totals(catalog: &[AssetView], channels: &[Channel]) -> Vec<
     }
 
     totals
-}
-
-pub async fn fetch_on_chain_balances(
-    network: &str,
-    lock_script: &CkbScript,
-    catalog: &[AssetView],
-) -> Result<Vec<AssetBalanceView>, super::rpc::RpcError> {
-    let snapshot = fetch_wallet_on_chain_snapshot(network, lock_script, catalog).await?;
-    Ok(snapshot.balances)
 }
 
 pub async fn fetch_wallet_on_chain_snapshot(

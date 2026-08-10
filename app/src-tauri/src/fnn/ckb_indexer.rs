@@ -130,69 +130,6 @@ fn get_cells_params(
     }
 }
 
-/// Returns total on-chain UDT amount for cells locked by the wallet and typed by the UDT script.
-pub async fn fetch_udt_balance(
-    rpc_url: &str,
-    lock_script: &CkbScript,
-    udt_type_script: &CkbScript,
-) -> Result<u128, RpcError> {
-    let client = reqwest::Client::new();
-    let search_key = serde_json::json!({
-        "script": {
-            "code_hash": lock_script.code_hash,
-            "hash_type": lock_script.hash_type,
-            "args": lock_script.args,
-        },
-        "script_type": "lock",
-        "filter": {
-            "script": {
-                "code_hash": udt_type_script.code_hash,
-                "hash_type": udt_type_script.hash_type,
-                "args": udt_type_script.args,
-            },
-            "script_type": "type",
-        }
-    });
-
-    let mut total = 0u128;
-    let mut cursor: Option<serde_json::Value> = None;
-
-    loop {
-        let params = get_cells_params(&search_key, cursor.as_ref());
-
-        let body = serde_json::json!({
-            "jsonrpc": "2.0",
-            "method": "get_cells",
-            "params": params,
-            "id": 1
-        });
-
-        let response = client.post(rpc_url).json(&body).send().await?;
-        let payload: IndexerRpcResponse<GetCellsResult> = response.json().await?;
-
-        if let Some(error) = payload.error {
-            return Err(RpcError::Rpc(error));
-        }
-
-        let result = payload.result.ok_or(RpcError::MissingResult)?;
-        let page_empty = result.objects.is_empty();
-        for cell in result.objects {
-            total = total.saturating_add(u128_from_le_hex_data(&cell.output_data));
-        }
-
-        let next_cursor = result.last_cursor;
-        if next_cursor.is_none()
-            || next_cursor.as_ref().is_some_and(is_end_cursor)
-            || page_empty
-        {
-            break;
-        }
-        cursor = next_cursor;
-    }
-
-    Ok(total)
-}
-
 /// Scans all live cells locked by the wallet and aggregates UDT amounts by type script.
 pub async fn scan_wallet_udt_balances(
     rpc_url: &str,

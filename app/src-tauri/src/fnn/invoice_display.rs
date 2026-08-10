@@ -20,10 +20,6 @@ pub struct InvoiceListItem {
     pub expires_in: Option<String>,
 }
 
-pub async fn build_invoice_list_items(stored: Vec<StoredInvoice>) -> Vec<InvoiceListItem> {
-    build_invoice_list_items_with_limit(stored, None, &[]).await
-}
-
 pub async fn build_invoice_list_items_with_catalog(
     stored: Vec<StoredInvoice>,
     catalog: &[AssetView],

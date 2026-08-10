@@ -1,5 +1,6 @@
 use crate::fnn::channel::SHANNONS_PER_CKB;
 
+#[cfg(test)]
 pub fn format_ckb_amount(shannons: u128) -> String {
     let whole = shannons / SHANNONS_PER_CKB;
     let fraction = shannons % SHANNONS_PER_CKB;
@@ -15,11 +16,6 @@ pub fn format_ckb_amount(shannons: u128) -> String {
         decimals
     };
     format!("{whole}.{decimals}")
-}
-
-pub fn ckb_from_shannons_hex(hex: &str) -> String {
-    let shannons = crate::fnn::rpc::parse_hex_u128(hex).unwrap_or(0);
-    format_ckb_amount(shannons)
 }
 
 pub fn ckb_to_shannons(amount_ckb: f64) -> Result<u128, String> {
