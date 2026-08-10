@@ -61,6 +61,44 @@ export function HomeCrop() {
   )
 }
 
+/** Assets — on-chain and in-channel CKB + UDT portfolio. */
+export function AssetsCrop() {
+  return (
+    <PreviewCrop>
+      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
+            Assets
+          </h3>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            On-chain and in Fiber channels
+          </p>
+        </div>
+        <div className="min-h-0 flex-1 divide-y divide-zinc-200 overflow-hidden dark:divide-zinc-800">
+          {[
+            { symbol: 'CKB', onChain: '1,240.5 CKB', inChannel: '1,240 CKB' },
+            { symbol: 'RUSD', onChain: '85.0 RUSD', inChannel: '57.6 RUSD' },
+            { symbol: 'cWBTC', onChain: '0.012 cWBTC', inChannel: '—' },
+          ].map((row) => (
+            <div
+              key={row.symbol}
+              className="grid grid-cols-[auto_1fr_1fr] items-center gap-2 px-4 py-2.5"
+            >
+              <Badge color="zinc">{row.symbol}</Badge>
+              <p className="truncate text-right text-xs tabular-nums text-zinc-950 dark:text-white">
+                {row.onChain}
+              </p>
+              <p className="truncate text-right text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                {row.inChannel}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </PreviewCrop>
+  )
+}
+
 /** Settings — CKB wallet keys on device. */
 export function SettingsCrop() {
   const demoNodePubkey =
@@ -82,6 +120,7 @@ export function SettingsCrop() {
             { label: 'Key file', value: 'ckb/key', mono: true },
             { label: 'Key password', value: 'Stored in OS keychain' },
             { label: 'On-chain address', value: 'ckt1qz…9f2a', mono: true },
+            { label: 'Supported assets', value: 'CKB, RUSD, cWBTC' },
             {
               label: 'Node pubkey',
               value: (
@@ -202,7 +241,7 @@ export function ChannelsCrop() {
               Channels
             </h3>
             <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-              1 active · peer connected
+              2 active · CKB and RUSD
             </p>
           </div>
           <Button className="text-xs">Open channel</Button>
@@ -210,18 +249,18 @@ export function ChannelsCrop() {
         <div className="min-h-0 flex-1 space-y-3 overflow-hidden p-4">
           <div className="flex flex-wrap gap-1.5">
             <Badge color="green">Connected</Badge>
-            <Badge color="blue">Public</Badge>
+            <Badge color="zinc">RUSD</Badge>
             <Badge color="green">Active</Badge>
           </div>
           <p className="font-mono text-xs text-zinc-600 dark:text-zinc-400">03f1a8…c42d</p>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
               <span>Capacity</span>
-              <span className="tabular-nums text-zinc-950 dark:text-white">2,000 CKB</span>
+              <span className="tabular-nums text-zinc-950 dark:text-white">120 RUSD</span>
             </div>
-            <CapacityBar percent={62} showLabel={false} />
+            <CapacityBar percent={48} showLabel={false} />
             <p className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-              62% local / 38% remote
+              48% local / 52% remote
             </p>
           </div>
         </div>
@@ -239,14 +278,21 @@ export function PaymentsCrop() {
           Send payment
         </h3>
         <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-          Pay by invoice or keysend
+          Pay by invoice or push CKB/UDT (keysend)
         </p>
         <div className="mt-3 flex gap-2">
-          <Badge color="zinc">Invoice</Badge>
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">Keysend</span>
+          <span className="text-xs text-zinc-500 dark:text-zinc-400">Invoice</span>
+          <Badge color="zinc">Keysend</Badge>
         </div>
-        <div className="mt-3 truncate rounded-lg bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-500 ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-white/10">
-          fibt1000000001p…
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
+            <span className="text-zinc-500 dark:text-zinc-400">Asset</span>
+            <span className="font-medium text-zinc-950 dark:text-white">RUSD</span>
+          </div>
+          <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
+            <span className="text-zinc-500 dark:text-zinc-400">Amount</span>
+            <span className="tabular-nums text-zinc-950 dark:text-white">12.5 RUSD</span>
+          </div>
         </div>
         <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg bg-zinc-50 p-3 ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
           <div className="flex items-center justify-between gap-2">

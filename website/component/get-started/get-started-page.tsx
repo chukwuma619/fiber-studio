@@ -92,7 +92,7 @@ export function GetStartedPage() {
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           This guide walks you through Fiber Studio on testnet: install the app, start
-          your local Fiber node, open a channel, then send or receive CKB.
+          your local Fiber node, open a channel, then send or receive CKB or UDTs.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button href="/download">Download Fiber Studio</Button>
@@ -208,8 +208,9 @@ export function GetStartedPage() {
               In the sidebar, open <Ui>Channels</Ui>, then click <Ui>Open channel</Ui>.
             </li>
             <li>
-              Choose the connected peer, set <Ui>Channel capacity (CKB)</Ui> to at least{' '}
-              <Ui>1,000</Ui>, then confirm <Ui>Open channel</Ui>.
+              Choose the connected peer, pick an <Ui>Asset</Ui> (CKB or a whitelisted UDT
+              such as RUSD), set capacity, then confirm <Ui>Open channel</Ui>. For CKB,
+              capacity must be at least <Ui>1,000</Ui>.
             </li>
             <li>
               Wait until the channel <Ui>State</Ui> shows <Ui>Ready</Ui> (opening can take
@@ -217,15 +218,17 @@ export function GetStartedPage() {
             </li>
           </Actions>
           <Note>
-            Opening a channel spends on-chain testnet CKB from your funding wallet. That
-            balance is separate from the local balance inside the channel once it is
-            Active.
+            Opening a CKB channel spends on-chain testnet CKB from your funding wallet.
+            UDT channels need that token on-chain and in your node whitelist. Check{' '}
+            <Ui>Assets</Ui> for balances. Channel local balance is separate from on-chain
+            once the channel is Active.
           </Note>
         </GuideStep>
 
         <GuideStep number="4" title="Send a payment" preview={<GuideSendPreview />}>
           <p className="text-base/7 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-            With a <Ui>Ready</Ui> channel, you can move CKB over Fiber from <Ui>Payments</Ui>.
+            With a <Ui>Ready</Ui> channel, you can move CKB or UDTs over Fiber from{' '}
+            <Ui>Payments</Ui>.
           </p>
           <Actions>
             <li>
@@ -237,7 +240,8 @@ export function GetStartedPage() {
             </li>
             <li>
               For an invoice: paste the invoice string (testnet invoices start with{' '}
-              <Code>fibt</Code>). For keysend: pick a recipient and enter an amount in CKB.
+              <Code>fibt</Code>). For keysend: pick a recipient, choose the{' '}
+              <Ui>Asset</Ui>, and enter an amount.
             </li>
             <li>
               Check the route preview (direct or multi-hop, fee), then click{' '}
@@ -256,8 +260,8 @@ export function GetStartedPage() {
               Under <Ui>Receive & invoices</Ui>, click <Ui>Create invoice</Ui>.
             </li>
             <li>
-              Enter the <Ui>Amount (CKB)</Ui>, optional note, and expiry, then click{' '}
-              <Ui>Create invoice</Ui>.
+              Choose the <Ui>Asset</Ui>, enter the amount, optional note, and expiry, then
+              click <Ui>Create invoice</Ui>.
             </li>
             <li>
               Copy the invoice string and share it with the payer. Status stays{' '}
@@ -265,8 +269,8 @@ export function GetStartedPage() {
             </li>
           </Actions>
           <Note>
-            You can also start send or create-invoice flows from <Ui>Home</Ui> with{' '}
-            <Ui>Send payment</Ui> and <Ui>Create invoice</Ui>.
+            You can also start send or create-invoice flows from <Ui>Home</Ui>, and check
+            CKB/UDT balances on <Ui>Assets</Ui>.
           </Note>
         </GuideStep>
       </ol>

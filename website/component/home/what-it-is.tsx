@@ -3,9 +3,9 @@
 import { motion, useReducedMotion } from 'motion/react'
 
 import {
+  AssetsCrop,
   HomeCrop,
   NetworkCrop,
-  SettingsCrop,
 } from '@/component/home/preview-crops'
 import { Divider } from '@/component/ui/divider'
 import { fadeUp, sectionCardDelay, sectionCardEnter } from '@/lib/motion'
@@ -17,9 +17,10 @@ const POINTS = [
     Preview: HomeCrop,
   },
   {
-    title: 'Your keys stay with you',
-    description: 'Your wallet key and password never leave this device.',
-    Preview: SettingsCrop,
+    title: 'CKB and UDTs in one place',
+    description:
+      'See on-chain and in-channel balances for whitelisted assets like RUSD and cWBTC.',
+    Preview: AssetsCrop,
   },
   {
     title: 'Join the public network',
@@ -40,15 +41,16 @@ export function WhatItIs() {
           What Fiber Studio is
         </h2>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Fiber Network is Nervos CKB’s network for fast peer-to-peer payments. To use it,
-          you run the official Fiber Network Node — a small program that connects you to
-          the network.
+          Fiber Network is Nervos CKB’s network for fast peer-to-peer payments — native CKB
+          and user-defined tokens (UDTs) over payment channels. To use it, you run the
+          official Fiber Network Node — a small program that connects you to the network.
         </p>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           Fiber Studio is the desktop app for that node. It guides setup and everyday
-          tasks so you don’t need the command line. Your CKB key stays on your computer,
-          and your password stays in your system’s keychain. Fiber Studio does not replace
-          the official node or change the protocol — and it is not a hosted wallet.
+          tasks so you don’t need the command line: open CKB or UDT channels, invoice and
+          keysend, and track balances on Assets. Your CKB key stays on your computer, and
+          your password stays in the system keychain. Fiber Studio does not replace the
+          official node or change the protocol — and it is not a hosted wallet.
         </p>
 
         <ul className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">

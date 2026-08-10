@@ -88,8 +88,8 @@ export function FaqPage() {
               Fiber Network
             </TextLink>{' '}
             payments on Nervos CKB. It runs the official Fiber Network Node (
-            <Ui>fnn</Ui>) on your computer and gives you a UI for setup, channels, and
-            payments — without living in a terminal.
+            <Ui>fnn</Ui>) on your computer and gives you a UI for setup, channels, assets,
+            and payments — without living in a terminal.
           </p>
         </FaqItem>
 
@@ -98,6 +98,20 @@ export function FaqPage() {
             No. Fiber Studio is local-first. Your CKB key stays on disk, your wallet
             password is stored in the OS keychain, and <Ui>fnn</Ui> runs on your machine.
             There is no Fiber Studio account and no hosted custody.
+          </p>
+        </FaqItem>
+
+        <FaqItem question="Can I pay with UDTs, not just CKB?">
+          <p>
+            Yes. Fiber Studio supports multi-asset channels and payments for tokens in your
+            node’s <Code>udt_whitelist</Code> (for example RUSD and cWBTC on testnet). Use{' '}
+            <Ui>Assets</Ui> to see on-chain and in-channel balances, pick an asset when you
+            open a channel or create an invoice, and choose CKB or a UDT for keysend.
+          </p>
+          <p>
+            On mainnet, Fiber’s official template currently whitelists <Ui>USDI</Ui> only.
+            Public mainnet liquidity for UDT channels is still limited — testnet is where
+            multi-UDT flow is practical today.
           </p>
         </FaqItem>
 
@@ -135,9 +149,9 @@ export function FaqPage() {
         <FaqItem question="What’s the difference between a peer and a channel?">
           <p>
             A <Ui>peer</Ui> connection is a P2P link on <Ui>Network</Ui>. A{' '}
-            <Ui>channel</Ui> is the off-chain CKB lane you open on <Ui>Channels</Ui>. You
-            need a connected peer <em>and</em> a channel in state <Ui>Ready</Ui> before
-            you can send or receive. Connecting alone is not enough.
+            <Ui>channel</Ui> is the off-chain lane you open on <Ui>Channels</Ui> — for CKB
+            or a whitelisted UDT. You need a connected peer <em>and</em> a channel in state{' '}
+            <Ui>Ready</Ui> before you can send or receive. Connecting alone is not enough.
           </p>
           <p>
             Bootnodes under discovery help you find the network; you cannot open payment

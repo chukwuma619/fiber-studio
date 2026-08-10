@@ -232,7 +232,7 @@ export function GuideOpenChannelPreview() {
   return (
     <DialogShell
       title="Open channel"
-      description="Open a public channel with a connected saved peer. You can open multiple channels with the same peer."
+      description="Open a public channel with a connected saved peer. Choose CKB or a whitelisted UDT."
       primaryAction="Open channel"
     >
       <Field
@@ -244,8 +244,11 @@ export function GuideOpenChannelPreview() {
       <Field label="Peer connection">
         <Badge color="green">Connected</Badge>
       </Field>
-      <Field label="Channel capacity (CKB)" hint="Minimum 1000 CKB to open a channel.">
-        <FakeInput>1000</FakeInput>
+      <Field label="Asset">
+        <FakeInput>RUSD</FakeInput>
+      </Field>
+      <Field label="Channel capacity (RUSD)" hint="Amount of the selected asset to fund.">
+        <FakeInput>100</FakeInput>
       </Field>
     </DialogShell>
   )
@@ -260,7 +263,7 @@ export function GuideSendPreview() {
           Send payment
         </h3>
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay by invoice or push CKB to a known node pubkey (keysend)
+          Pay by invoice or push CKB/UDT to a known node pubkey (keysend)
         </p>
         <div className="mt-3 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
           <span className="flex-1 rounded-md bg-white px-2 py-1 text-center text-xs font-medium text-zinc-950 shadow-sm dark:bg-zinc-900 dark:text-white">
@@ -274,7 +277,7 @@ export function GuideSendPreview() {
           <p className="text-xs font-medium text-zinc-950 dark:text-white">Invoice string</p>
           <FakeInput mono>fibt1000000001p…</FakeInput>
           <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            Bech32m invoice (Fibt on testnet)
+            Bech32m invoice (Fibt on testnet) — CKB or UDT
           </p>
         </div>
         <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800/50">
@@ -282,7 +285,7 @@ export function GuideSendPreview() {
             <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Direct route</p>
             <div className="flex items-center gap-2">
               <Badge color="sky">Off-chain (Fiber)</Badge>
-              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">0.01 CKB</span>
+              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">12.5 RUSD</span>
             </div>
           </div>
           <p className="mt-2 font-mono text-[10px] break-all text-zinc-600 dark:text-zinc-400">
@@ -300,12 +303,15 @@ export function GuideReceivePreview() {
   return (
     <DialogShell
       title="Create invoice"
-      description="Generate a Fibt invoice to receive CKB over the Fiber network."
+      description="Generate a Fibt invoice to receive CKB or a UDT over the Fiber network."
       primaryAction="Create invoice"
     >
+      <Field label="Asset">
+        <FakeInput>RUSD</FakeInput>
+      </Field>
       <div className="grid grid-cols-2 gap-2">
-        <Field label="Amount (CKB)">
-          <FakeInput>120</FakeInput>
+        <Field label="Amount (RUSD)">
+          <FakeInput>12.5</FakeInput>
         </Field>
         <Field label="Expiry (hours)" hint="Invoice expires after this duration">
           <FakeInput>24</FakeInput>
