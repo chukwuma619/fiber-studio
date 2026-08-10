@@ -321,7 +321,7 @@ export function SendPaymentPanel({
       >
         <Subheading level={3}>Send payment</Subheading>
         <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay by invoice or push CKB to a known node pubkey (keysend)
+          Pay by invoice (CKB or UDT) or push CKB to a known node pubkey (keysend)
         </Text>
 
         {relayWarning ? (

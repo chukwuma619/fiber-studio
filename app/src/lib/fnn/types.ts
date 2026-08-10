@@ -182,6 +182,9 @@ export type HomeDashboardResponse = {
   savedPeerPubkeys: string[]
   network: string | null
   relayStatus: RelayConnectionStatus
+  assets: AssetView[]
+  channelTotals: AssetChannelTotals[]
+  onChainBalances: AssetBalanceView[]
 }
 
 export type PaymentsInvoiceItem = {
@@ -394,7 +397,8 @@ export type NetworkGraphChannelEntry = {
   channelOutpoint: string
   node1: string
   node2: string
-  capacityCkb: string
+  capacityDisplay: string
+  assetSymbol: string
 }
 
 export type NetworkGraphResponse = {
@@ -430,6 +434,7 @@ export type NodeSettingsResponse = {
   relayStatus: RelayConnectionStatus
   setupCompletedAt: string | null
   backupPaths: BackupPathEntry[]
+  supportedAssets: AssetView[]
 }
 
 export type UpdateWalletPasswordPayload = {

@@ -1,7 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
-use crate::fnn::assets::{self, AssetView};
+use crate::fnn::assets::{self, AssetBalanceView, AssetChannelTotals, AssetView};
 use crate::fnn::channel::{self, HomeChannel};
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
@@ -32,6 +32,9 @@ pub struct HomeDashboardResponse {
     pub saved_peer_pubkeys: Vec<String>,
     pub network: Option<String>,
     pub relay_status: String,
+    pub assets: Vec<AssetView>,
+    pub channel_totals: Vec<AssetChannelTotals>,
+    pub on_chain_balances: Vec<AssetBalanceView>,
 }
 
 #[derive(Debug, Serialize)]
@@ -118,6 +121,9 @@ pub async fn get_home_dashboard(
             saved_peer_pubkeys: Vec::new(),
             network: None,
             relay_status: "not_configured".to_string(),
+            assets: Vec::new(),
+            channel_totals: Vec::new(),
+            on_chain_balances: Vec::new(),
         });
     }
 
@@ -142,6 +148,22 @@ pub async fn get_home_dashboard(
     let payments = payments.map_err(|error| error.to_string())?;
 
     let catalog = assets::build_asset_catalog(&node_info);
+    let channel_totals = assets::build_channel_totals(&catalog, &channels);
+
+    let network_str = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.network.as_str());
+
+    let on_chain_balances = match network_str {
+        Some(network) => assets::fetch_on_chain_balances(
+            network,
+            &node_info.default_funding_lock_script,
+            &catalog,
+        )
+        .await
+        .unwrap_or_default(),
+        None => Vec::new(),
+    };
 
     let stored_sent_payments = data_directory
         .as_ref()
@@ -218,6 +240,9 @@ pub async fn get_home_dashboard(
             .as_ref()
             .map(|metadata| metadata.network.clone()),
         relay_status,
+        assets: catalog,
+        channel_totals,
+        on_chain_balances,
     })
 }
 

@@ -1,4 +1,5 @@
 import { useNodeControlContext } from "../layout/NodeControlProvider"
+import { CKB_ASSET_ID } from "../../lib/fnn/assets"
 import { formatCkb } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { Button } from "../ui/button"
@@ -15,6 +16,30 @@ function peerConnectionsSubtext(count: number): string {
     return "1 peer connection"
   }
   return `${count} peer connections`
+}
+
+function canSpendDisplay(
+  channelTotals: {
+    assetId: string
+    localBalanceDisplay: string
+  }[],
+  totalLocalBalance: string,
+): { value: string; unit?: string } {
+  if (channelTotals.length === 1) {
+    return { value: channelTotals[0].localBalanceDisplay }
+  }
+
+  const ckbTotal = channelTotals.find(
+    (total) => total.assetId.toLowerCase() === CKB_ASSET_ID,
+  )
+  if (ckbTotal) {
+    return { value: ckbTotal.localBalanceDisplay }
+  }
+
+  return {
+    value: formatCkb(BigInt(totalLocalBalance)),
+    unit: "CKB",
+  }
 }
 
 export function HomePage() {
@@ -38,10 +63,14 @@ export function HomePage() {
   const activeChannelCount = dashboard?.activeChannelCount ?? 0
   const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
   const peersCountValue = nodeInfo?.peersCount ?? 0
+  const channelTotals = dashboard?.channelTotals ?? []
 
-  const canSpend = available
-    ? formatCkb(BigInt(dashboard?.totalLocalBalance ?? "0"))
-    : "—"
+  const canSpendParts = available
+    ? canSpendDisplay(channelTotals, dashboard?.totalLocalBalance ?? "0")
+    : { value: "—" }
+  const canSpend = canSpendParts.value
+  const canSpendUnit = available ? canSpendParts.unit : undefined
+
   const activeChannels = available ? String(activeChannelCount) : "—"
   const peersCount = available ? String(peersCountValue) : "—"
   const pendingChannels = available ? String(pendingChannelCount) : "—"
@@ -62,7 +91,7 @@ export function HomePage() {
         <div>
           <Heading level={1}>Home</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Off-chain CKB payments on the Fiber network.
+            Off-chain CKB and UDT payments on the Fiber network.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -80,11 +109,26 @@ export function HomePage() {
         />
       ) : null}
 
+      {available && channelTotals.length > 1 ? (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+            Spendable in channels
+          </p>
+          <ul className="mt-2 space-y-1">
+            {channelTotals.map((total) => (
+              <li key={total.assetId} className="tabular-nums">
+                {total.symbol}: {total.localBalanceDisplay}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Can spend"
           value={isLoading && running ? "…" : canSpend}
-          unit={available ? "CKB" : undefined}
+          unit={canSpendUnit}
           subtext={available ? "Across active channels" : "Start node to view balance"}
         />
         <StatCard

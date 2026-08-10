@@ -24,6 +24,21 @@ export type AssetChannelTotals = {
   capacityDisplay: string
 }
 
+import { formatCkb, parseHexU128 } from "./format"
+
+export function channelCapacityDisplay(
+  localBalance: string,
+  remoteBalance: string,
+  assetSymbol: string,
+): string {
+  const total =
+    parseHexU128(localBalance) + parseHexU128(remoteBalance)
+  if (assetSymbol === "CKB") {
+    return `${formatCkb(total)} CKB`
+  }
+  return `${formatCkb(total)} ${assetSymbol}`
+}
+
 export const CKB_ASSET_ID = "ckb"
 
 export function assetScriptKey(script: CkbScript): string {

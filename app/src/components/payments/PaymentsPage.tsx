@@ -2,7 +2,6 @@ import { RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import {
-  invoiceCurrencyLabel,
   truncateLockScriptArgs,
   type InvoiceListFilter,
 } from "../../lib/fnn/format"
@@ -72,7 +71,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const sendTargets = data?.sendTargets ?? []
-  const invoiceCurrency = invoiceCurrencyLabel(data?.network)
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
 
   useEffect(() => {
@@ -149,7 +147,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
     if (data?.lockScript) {
       return `${truncateLockScriptArgs(data.lockScript.args)} · L1 funding wallet (not Fiber spendable)`
     }
-    return "On-chain CKB for channel funding — not spendable via Fiber invoices"
+    return "On-chain balances for channel funding — not spendable via Fiber invoices"
   }, [available, data?.lockScript, data?.onChainWalletError])
 
   const handleParseInvoicePreview = useCallback(
@@ -209,8 +207,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         <div>
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send CKB off-chain via invoice or keysend, and receive via{" "}
-            {invoiceCurrency} invoices on the Fiber network.
+            Send CKB and UDT off-chain via invoice, or push CKB to a known node pubkey (keysend).
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">

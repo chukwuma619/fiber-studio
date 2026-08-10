@@ -4,6 +4,7 @@ import { useNetworkGraph } from "../../lib/fnn/useNetworkGraph"
 import type { NetworkGraphKind } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
+import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
 import { Subheading } from "../ui/heading"
@@ -152,6 +153,7 @@ export function GraphBrowserSection({ running, graphReady }: GraphBrowserSection
             <TableRow>
               <TableHeader>Node 1</TableHeader>
               <TableHeader>Node 2</TableHeader>
+              <TableHeader>Asset</TableHeader>
               <TableHeader className="text-right">Capacity</TableHeader>
               <TableHeader>Outpoint</TableHeader>
             </TableRow>
@@ -171,8 +173,11 @@ export function GraphBrowserSection({ running, graphReady }: GraphBrowserSection
                 >
                   {truncatePubkey(channel.node2)}
                 </TableCell>
+                <TableCell>
+                  <Badge color="zinc">{channel.assetSymbol}</Badge>
+                </TableCell>
                 <TableCell className="text-right tabular-nums">
-                  {channel.capacityCkb} CKB
+                  {channel.capacityDisplay}
                 </TableCell>
                 <TableCell
                   className="max-w-48 font-mono text-xs text-zinc-600 break-all dark:text-zinc-400"

@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
+use crate::fnn::assets;
 use crate::fnn::bootnodes;
 use crate::fnn::channel::{
     self, has_active_or_pending_channel_to_peer, min_funding_ckb_for_open,
@@ -141,7 +142,8 @@ pub struct NetworkGraphChannelEntry {
     pub channel_outpoint: String,
     pub node1: String,
     pub node2: String,
-    pub capacity_ckb: String,
+    pub capacity_display: String,
+    pub asset_symbol: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -619,12 +621,6 @@ pub async fn disconnect_peer(
 
 const DEFAULT_GRAPH_PAGE_LIMIT: u32 = 25;
 
-fn graph_capacity_ckb(capacity: &str) -> String {
-    let shannons = rpc::parse_hex_u128(capacity).unwrap_or(0);
-    let ckb = shannons / channel::SHANNONS_PER_CKB;
-    format!("{ckb}")
-}
-
 #[tauri::command]
 pub async fn get_network_graph(
     state: State<'_, AppState>,
@@ -664,6 +660,10 @@ pub async fn get_network_graph(
             })
         }
         "channels" => {
+            let node_info = rpc::fetch_node_info()
+                .await
+                .map_err(|error| error.to_string())?;
+            let catalog = assets::build_asset_catalog(&node_info);
             let page = rpc::fetch_graph_channels_page(limit, after)
                 .await
                 .map_err(|error| error.to_string())?;
@@ -674,11 +674,22 @@ pub async fn get_network_graph(
                 channels: page
                     .items
                     .into_iter()
-                    .map(|channel| NetworkGraphChannelEntry {
-                        channel_outpoint: channel.channel_outpoint,
-                        node1: channel.node1,
-                        node2: channel.node2,
-                        capacity_ckb: graph_capacity_ckb(&channel.capacity),
+                    .map(|channel| {
+                        let capacity_raw =
+                            rpc::parse_hex_u128(&channel.capacity).unwrap_or(0);
+                        let funding_udt = channel.udt_type_script.as_ref();
+                        let asset =
+                            assets::asset_for_channel_funding(&catalog, funding_udt);
+                        NetworkGraphChannelEntry {
+                            channel_outpoint: channel.channel_outpoint,
+                            node1: channel.node1,
+                            node2: channel.node2,
+                            capacity_display: assets::format_amount_display(
+                                capacity_raw,
+                                &asset,
+                            ),
+                            asset_symbol: asset.symbol,
+                        }
                     })
                     .collect(),
                 last_cursor: page.last_cursor,

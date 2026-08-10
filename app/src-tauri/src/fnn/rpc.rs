@@ -173,6 +173,8 @@ pub struct GraphChannelInfo {
     pub node1: String,
     pub node2: String,
     pub capacity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 #[derive(Debug, Deserialize)]
