@@ -45,6 +45,15 @@ type ChannelDetailDialogProps = {
   onClearError: () => void
 }
 
+function channelCapacityDisplay(channel: HomeChannel): string {
+  const total =
+    parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance)
+  if (channel.assetSymbol === "CKB") {
+    return `${formatCkb(total)} CKB`
+  }
+  return `${formatCkb(total)} ${channel.assetSymbol}`
+}
+
 function closeDisabledReason(state: string): string | null {
   if (state === "ShuttingDown") {
     return "This channel is already closing."
@@ -90,11 +99,9 @@ export function ChannelDetailDialog({
     return null
   }
 
-  const localBalance = formatCkb(parseHexU128(channel.localBalance))
-  const remoteBalance = formatCkb(parseHexU128(channel.remoteBalance))
-  const capacity = formatCkb(
-    parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance),
-  )
+  const localBalance = channel.localBalanceDisplay
+  const remoteBalance = channel.remoteBalanceDisplay
+  const capacity = channelCapacityDisplay(channel)
   const fundingTxHash = fundingTxHashFromOutpoint(channel.channelOutpoint)
   const stateLabel = channelStateDisplayLabel(channel.state)
   const badgeColor = channelStateBadgeColor(
@@ -218,7 +225,7 @@ export function ChannelDetailDialog({
 
               <DescriptionTerm>Capacity</DescriptionTerm>
               <DescriptionDetails className="font-semibold tabular-nums">
-                {capacity} CKB
+                {capacity}
               </DescriptionDetails>
 
               {isReady ? (
@@ -230,7 +237,7 @@ export function ChannelDetailDialog({
                     </span>
                   </DescriptionTerm>
                   <DescriptionDetails className="tabular-nums">
-                    {localBalance} CKB
+                    {localBalance}
                   </DescriptionDetails>
 
                   <DescriptionTerm>
@@ -240,7 +247,7 @@ export function ChannelDetailDialog({
                     </span>
                   </DescriptionTerm>
                   <DescriptionDetails className="tabular-nums">
-                    {remoteBalance} CKB
+                    {remoteBalance}
                   </DescriptionDetails>
                 </>
               ) : null}

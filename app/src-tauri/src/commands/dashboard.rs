@@ -1,6 +1,7 @@
 use serde::Serialize;
 use tauri::{AppHandle, State};
 
+use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::{self, HomeChannel};
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
@@ -55,7 +56,9 @@ pub struct HomePayment {
     pub fee: String,
     pub payment_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub amount_ckb: Option<String>,
+    pub amount_display: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset_symbol: Option<String>,
     pub route_hops: Vec<String>,
 }
 
@@ -63,7 +66,8 @@ pub struct HomePayment {
 #[serde(rename_all = "camelCase")]
 pub struct HomeIncomingInvoice {
     pub payment_hash: String,
-    pub amount_ckb: String,
+    pub amount_display: String,
+    pub asset_symbol: String,
     pub note: String,
     pub status: String,
 }
@@ -77,7 +81,8 @@ fn to_home_payment(item: PaymentListItem) -> HomePayment {
         failed_error: item.failed_error,
         fee: item.fee,
         payment_kind: item.payment_kind,
-        amount_ckb: item.amount_ckb,
+        amount_display: item.amount_display,
+        asset_symbol: item.asset_symbol,
         route_hops: item.route_hops,
     }
 }
@@ -85,7 +90,8 @@ fn to_home_payment(item: PaymentListItem) -> HomePayment {
 fn to_home_incoming(item: InvoiceListItem) -> HomeIncomingInvoice {
     HomeIncomingInvoice {
         payment_hash: item.payment_hash,
-        amount_ckb: item.amount_ckb,
+        amount_display: item.amount_display,
+        asset_symbol: item.asset_symbol,
         note: item.note,
         status: item.status,
     }
@@ -135,6 +141,8 @@ pub async fn get_home_dashboard(
     let peers = peers.map_err(|error| error.to_string())?;
     let payments = payments.map_err(|error| error.to_string())?;
 
+    let catalog = assets::build_asset_catalog(&node_info);
+
     let stored_sent_payments = data_directory
         .as_ref()
         .map(|path| sent_payments::read_sent_payments(path).unwrap_or_default())
@@ -147,6 +155,7 @@ pub async fn get_home_dashboard(
     let invoice_items = invoice_display::build_invoice_list_items_with_limit(
         stored_invoices,
         Some(invoice_display::DASHBOARD_INVOICE_ENRICH_LIMIT),
+        &catalog,
     )
     .await;
     let incoming_invoices = invoice_display::select_incoming_invoices(
@@ -161,7 +170,7 @@ pub async fn get_home_dashboard(
     let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
     let total_remote_balance = channel::sum_remote_balances(&channels);
-    let home_channels = select_home_channels(channels);
+    let home_channels = select_home_channels(channels, &catalog);
 
     let saved_peers = studio_metadata
         .as_ref()
@@ -195,6 +204,7 @@ pub async fn get_home_dashboard(
                 to_home_payment(payment_display::map_payment_list_item(
                     payment,
                     stored,
+                    &catalog,
                 ))
             })
             .collect(),
@@ -226,8 +236,8 @@ fn parse_hex_u32(hex: &str) -> u32 {
     parse_hex_u128(hex).unwrap_or(0).min(u32::MAX as u128) as u32
 }
 
-fn select_home_channels(channels: Vec<Channel>) -> Vec<HomeChannel> {
-    channel::map_channels(channels)
+fn select_home_channels(channels: Vec<Channel>, catalog: &[AssetView]) -> Vec<HomeChannel> {
+    channel::map_channels(channels, catalog)
         .into_iter()
         .take(HOME_CHANNEL_LIMIT)
         .collect()

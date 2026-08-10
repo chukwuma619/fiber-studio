@@ -124,7 +124,7 @@ export function InvoiceDetailDialog({
             <DescriptionList className="sm:grid-cols-[min(40%,9rem)_minmax(0,1fr)]">
               <DescriptionTerm>Amount</DescriptionTerm>
               <DescriptionDetails className="min-w-0 tabular-nums font-medium">
-                {invoice.amountCkb}
+                {invoice.amountDisplay}
               </DescriptionDetails>
 
               <DescriptionTerm>Note</DescriptionTerm>

@@ -18,6 +18,10 @@ pub struct StoredInvoice {
     pub description: Option<String>,
     pub created_at: String,
     pub expiry_seconds: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udt_type_script: Option<crate::fnn::rpc::CkbScript>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -70,6 +74,8 @@ pub fn new_stored_invoice(
     amount_shannons: u128,
     description: Option<String>,
     expiry_seconds: u64,
+    udt_type_script: Option<crate::fnn::rpc::CkbScript>,
+    asset_name: Option<String>,
 ) -> StoredInvoice {
     StoredInvoice {
         payment_hash,
@@ -78,6 +84,8 @@ pub fn new_stored_invoice(
         description,
         created_at: Utc::now().to_rfc3339(),
         expiry_seconds,
+        udt_type_script,
+        asset_name,
     }
 }
 
@@ -106,6 +114,8 @@ mod tests {
             description: Some("test".to_string()),
             created_at: Utc::now().to_rfc3339(),
             expiry_seconds: 3600,
+            udt_type_script: None,
+            asset_name: None,
         }
     }
 

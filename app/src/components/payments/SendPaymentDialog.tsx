@@ -139,15 +139,15 @@ export function SendPaymentDialog({
   const activePreview = frozenPreview ?? preview
 
   useEffect(() => {
-    if (!open || step !== "review" || !activePreview?.feeCkb || maxFeeCkb) {
+    if (!open || step !== "review" || !activePreview?.feeDisplay || maxFeeCkb) {
       return
     }
 
-    const suggested = activePreview.feeCkb.replace(/\s*CKB$/i, "").trim()
+    const suggested = activePreview.feeDisplay.replace(/\s+CKB$/i, "").trim()
     if (suggested) {
       setMaxFeeCkb(suggested)
     }
-  }, [activePreview?.feeCkb, maxFeeCkb, open, step])
+  }, [activePreview?.feeDisplay, maxFeeCkb, open, step])
 
   useEffect(() => {
     if (step !== "inflight" || !result?.paymentHash) {
@@ -277,7 +277,7 @@ export function SendPaymentDialog({
   }
 
   const displayAmount = activePreview?.amountDisplay ?? "—"
-  const displayFee = activePreview?.feeCkb ?? "—"
+  const displayFee = activePreview?.feeDisplay ?? "—"
   const hopCount = activePreview?.routeHops.length ?? result?.routeHops.length ?? 0
   const displayRoute = hopCount > 0
     ? formatRouteHops(activePreview?.routeHops ?? result?.routeHops ?? [])

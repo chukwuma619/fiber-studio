@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 
-use crate::fnn::amounts::ckb_from_shannons_hex;
+use crate::fnn::assets::{self, AssetView};
 use crate::fnn::invoices::StoredInvoice;
 use crate::fnn::rpc::{self, CkbInvoiceStatus, GetInvoiceResult};
 
@@ -13,19 +13,28 @@ pub const DASHBOARD_INVOICE_ENRICH_LIMIT: usize = 15;
 pub struct InvoiceListItem {
     pub payment_hash: String,
     pub invoice_address: String,
-    pub amount_ckb: String,
+    pub amount_display: String,
+    pub asset_symbol: String,
     pub note: String,
     pub status: String,
     pub expires_in: Option<String>,
 }
 
 pub async fn build_invoice_list_items(stored: Vec<StoredInvoice>) -> Vec<InvoiceListItem> {
-    build_invoice_list_items_with_limit(stored, None).await
+    build_invoice_list_items_with_limit(stored, None, &[]).await
+}
+
+pub async fn build_invoice_list_items_with_catalog(
+    stored: Vec<StoredInvoice>,
+    catalog: &[AssetView],
+) -> Vec<InvoiceListItem> {
+    build_invoice_list_items_with_limit(stored, None, catalog).await
 }
 
 pub async fn build_invoice_list_items_with_limit(
     stored: Vec<StoredInvoice>,
     enrich_limit: Option<usize>,
+    catalog: &[AssetView],
 ) -> Vec<InvoiceListItem> {
     if stored.is_empty() {
         return Vec::new();
@@ -39,14 +48,17 @@ pub async fn build_invoice_list_items_with_limit(
         .enumerate()
         .map(|(index, record)| {
             let live = live_statuses.get(index).and_then(|result| result.as_ref().ok());
-            stored_invoice_to_item(record, live)
+            stored_invoice_to_item(record, live, catalog)
         })
         .collect()
 }
 
-pub async fn build_invoice_list_item(stored: StoredInvoice) -> InvoiceListItem {
+pub async fn build_invoice_list_item(
+    stored: StoredInvoice,
+    catalog: &[AssetView],
+) -> InvoiceListItem {
     let live = rpc::get_invoice(&stored.payment_hash).await.ok();
-    stored_invoice_to_item(stored, live.as_ref())
+    stored_invoice_to_item(stored, live.as_ref(), catalog)
 }
 
 pub fn select_incoming_invoices(items: &[InvoiceListItem], paid_limit: usize) -> Vec<InvoiceListItem> {
@@ -95,17 +107,21 @@ async fn fetch_live_invoice_statuses(
 fn stored_invoice_to_item(
     record: StoredInvoice,
     live: Option<&GetInvoiceResult>,
+    catalog: &[AssetView],
 ) -> InvoiceListItem {
     let mut status = "Open".to_string();
     let mut amount_hex = record.amount_shannons.clone();
+    let mut asset = asset_for_stored_invoice(&record, catalog);
 
     if let Some(live) = live {
         status = invoice_status_label(&live.status).to_string();
         if let Some(amount) = &live.invoice.amount {
             amount_hex = amount.clone();
         }
+        asset = assets::asset_for_invoice(catalog, &live.invoice);
     }
 
+    let raw = rpc::parse_hex_u128(&amount_hex).unwrap_or(0);
     let note = record
         .description
         .clone()
@@ -115,11 +131,24 @@ fn stored_invoice_to_item(
     InvoiceListItem {
         payment_hash: record.payment_hash,
         invoice_address: record.invoice_address,
-        amount_ckb: format!("{} CKB", ckb_from_shannons_hex(&amount_hex)),
+        amount_display: assets::format_amount_display(raw, &asset),
+        asset_symbol: asset.symbol,
         note,
         status: status.clone(),
         expires_in: expires_in_label(&record.created_at, record.expiry_seconds, &status),
     }
+}
+
+fn asset_for_stored_invoice(record: &StoredInvoice, catalog: &[AssetView]) -> AssetView {
+    if let Some(script) = record.udt_type_script.as_ref() {
+        return assets::asset_for_channel_funding(catalog, Some(script));
+    }
+    if let Some(name) = record.asset_name.as_deref() {
+        if let Some(asset) = catalog.iter().find(|entry| entry.symbol.eq_ignore_ascii_case(name)) {
+            return asset.clone();
+        }
+    }
+    assets::ckb_asset()
 }
 
 fn invoice_status_label(status: &CkbInvoiceStatus) -> &'static str {

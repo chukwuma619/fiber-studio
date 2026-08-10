@@ -114,7 +114,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
       updated &&
       (updated.status !== selectedInvoice.status ||
         updated.expiresIn !== selectedInvoice.expiresIn ||
-        updated.amountCkb !== selectedInvoice.amountCkb)
+        updated.amountDisplay !== selectedInvoice.amountDisplay)
     ) {
       setSelectedInvoice(updated)
     }
@@ -261,6 +261,21 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         </div>
       ) : null}
 
+      {available && (data?.inChannelTotals?.length ?? 0) > 0 ? (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+            Spendable in channels
+          </p>
+          <ul className="mt-2 space-y-1">
+            {data?.inChannelTotals.map((total) => (
+              <li key={total.assetId} className="tabular-nums">
+                {total.symbol}: {total.localBalanceDisplay}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="In channels"
@@ -332,6 +347,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         network={data?.network ?? null}
+        assets={data?.assets ?? []}
         isActing={isActing}
         actionError={actionError}
         onCreateInvoice={createInvoice}

@@ -19,6 +19,10 @@ pub struct StoredSentPayment {
     #[serde(default)]
     pub route_hops: Vec<String>,
     pub created_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udt_type_script: Option<crate::fnn::rpc::CkbScript>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asset_name: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -88,6 +92,8 @@ pub fn new_stored_sent_payment(
     amount_shannons: u128,
     target_pubkey: Option<String>,
     route_hops: Vec<String>,
+    udt_type_script: Option<crate::fnn::rpc::CkbScript>,
+    asset_name: Option<String>,
 ) -> StoredSentPayment {
     StoredSentPayment {
         payment_hash,
@@ -96,6 +102,8 @@ pub fn new_stored_sent_payment(
         target_pubkey,
         route_hops,
         created_at: Utc::now().to_rfc3339(),
+        udt_type_script,
+        asset_name,
     }
 }
 
@@ -125,6 +133,8 @@ mod tests {
             100_000_000,
             None,
             vec!["0x01".to_string()],
+            None,
+            None,
         );
         upsert_sent_payment(&dir, payment.clone()).unwrap();
 

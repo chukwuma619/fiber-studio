@@ -7,9 +7,9 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tokio::sync::Mutex;
 
-use crate::fnn::amounts::{self, ckb_from_shannons_hex, format_ckb_amount};
+use crate::fnn::amounts;
+use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::{sum_local_balances, SHANNONS_PER_CKB};
-use crate::fnn::ckb_indexer;
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
@@ -79,6 +79,9 @@ pub struct PaymentsPageResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_chain_wallet_error: Option<String>,
     pub lock_script: Option<CkbScript>,
+    pub assets: Vec<AssetView>,
+    pub on_chain_balances: Vec<assets::AssetBalanceView>,
+    pub in_channel_totals: Vec<assets::AssetChannelTotals>,
     pub invoices: Vec<PaymentsInvoiceItem>,
     pub payments: Vec<PaymentsPaymentItem>,
     pub payments_last_cursor: Option<String>,
@@ -100,7 +103,8 @@ pub struct PaymentsSendTarget {
 pub struct PaymentsInvoiceItem {
     pub payment_hash: String,
     pub invoice_address: String,
-    pub amount_ckb: String,
+    pub amount_display: String,
+    pub asset_symbol: String,
     pub note: String,
     pub status: String,
     pub expires_in: Option<String>,
@@ -117,7 +121,9 @@ pub struct PaymentsPaymentItem {
     pub fee: String,
     pub payment_kind: String,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub amount_ckb: Option<String>,
+    pub amount_display: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub asset_symbol: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_pubkey: Option<String>,
     pub route_hops: Vec<String>,
@@ -130,6 +136,8 @@ pub struct CreateInvoicePayload {
     pub expiry_hours: u64,
     #[serde(default)]
     pub description: Option<String>,
+    #[serde(default)]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,6 +151,7 @@ pub struct ParseInvoicePayload {
 pub struct ParseInvoicePreview {
     pub amount_display: String,
     pub currency: String,
+    pub asset_symbol: String,
     pub payment_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
@@ -203,8 +212,9 @@ pub struct LoadMorePaymentsResult {
 #[serde(rename_all = "camelCase")]
 pub struct PreviewSendPaymentResult {
     pub fee_shannons: String,
-    pub fee_ckb: String,
+    pub fee_display: String,
     pub amount_display: String,
+    pub asset_symbol: String,
     pub route_hops: Vec<String>,
 }
 
@@ -228,6 +238,9 @@ fn payments_page_unavailable() -> PaymentsPageResponse {
         on_chain_wallet_ckb: None,
         on_chain_wallet_error: None,
         lock_script: None,
+        assets: Vec::new(),
+        on_chain_balances: Vec::new(),
+        in_channel_totals: Vec::new(),
         invoices: Vec::new(),
         payments: Vec::new(),
         payments_last_cursor: None,
@@ -253,7 +266,8 @@ fn to_payments_invoice(item: InvoiceListItem) -> PaymentsInvoiceItem {
     PaymentsInvoiceItem {
         payment_hash: item.payment_hash,
         invoice_address: item.invoice_address,
-        amount_ckb: item.amount_ckb,
+        amount_display: item.amount_display,
+        asset_symbol: item.asset_symbol,
         note: item.note,
         status: item.status,
         expires_in: item.expires_in,
@@ -269,7 +283,8 @@ fn to_payments_payment(item: PaymentListItem) -> PaymentsPaymentItem {
         failed_error: item.failed_error,
         fee: item.fee,
         payment_kind: item.payment_kind,
-        amount_ckb: item.amount_ckb,
+        amount_display: item.amount_display,
+        asset_symbol: item.asset_symbol,
         target_pubkey: item.target_pubkey,
         route_hops: item.route_hops,
     }
@@ -304,6 +319,7 @@ fn expected_currency_for_network(network: &str) -> &'static str {
 fn build_parse_invoice_preview(
     invoice: &CkbInvoice,
     network: Option<&str>,
+    catalog: &[AssetView],
 ) -> ParseInvoicePreview {
     let amount_shannons = invoice
         .amount
@@ -314,6 +330,7 @@ fn build_parse_invoice_preview(
         .currency
         .clone()
         .unwrap_or_else(|| "Fibt".to_string());
+    let asset = assets::asset_for_invoice(catalog, invoice);
     let network_match = network.is_none_or(|value| {
         expected_currency_for_network(value).eq_ignore_ascii_case(&currency)
     });
@@ -327,8 +344,9 @@ fn build_parse_invoice_preview(
     };
 
     ParseInvoicePreview {
-        amount_display: format!("{} CKB", format_ckb_amount(amount_shannons)),
+        amount_display: assets::format_amount_display(amount_shannons, &asset),
         currency,
+        asset_symbol: asset.symbol,
         payment_hash: invoice.data.payment_hash.clone(),
         description: extract_invoice_description(&invoice.data.attrs),
         network_match,
@@ -418,6 +436,7 @@ fn normalize_payment_hash(payment_hash: &str) -> String {
 fn map_wallet_payments(
     payments: Vec<rpc::PaymentSummary>,
     stored_sent_payments: &[sent_payments::StoredSentPayment],
+    catalog: &[AssetView],
 ) -> Vec<PaymentsPaymentItem> {
     payments
         .into_iter()
@@ -425,7 +444,7 @@ fn map_wallet_payments(
             let stored = stored_sent_payments
                 .iter()
                 .find(|entry| entry.payment_hash == payment.payment_hash);
-            to_payments_payment(payment_display::map_payment_list_item(payment, stored))
+            to_payments_payment(payment_display::map_payment_list_item(payment, stored, catalog))
         })
         .collect()
 }
@@ -446,6 +465,7 @@ fn default_import_expiry_seconds() -> u64 {
 fn stored_invoice_from_get_invoice(
     payment_hash: String,
     result: rpc::GetInvoiceResult,
+    catalog: &[AssetView],
 ) -> invoices::StoredInvoice {
     let amount_shannons = result
         .invoice
@@ -454,6 +474,8 @@ fn stored_invoice_from_get_invoice(
         .and_then(rpc::parse_hex_u128)
         .unwrap_or(0);
     let description = extract_invoice_description(&result.invoice.data.attrs);
+    let asset = assets::asset_for_invoice(catalog, &result.invoice);
+    let udt_script = assets::invoice_udt_script(&result.invoice);
 
     invoices::new_stored_invoice(
         payment_hash,
@@ -461,24 +483,13 @@ fn stored_invoice_from_get_invoice(
         amount_shannons,
         description,
         default_import_expiry_seconds(),
+        udt_script,
+        if asset.udt_type_script.is_some() {
+            Some(asset.symbol.clone())
+        } else {
+            None
+        },
     )
-}
-
-async fn fetch_on_chain_balance(
-    network: &str,
-    lock_script: &CkbScript,
-) -> (Option<u64>, Option<String>) {
-    let rpc_url = ckb_indexer::ckb_rpc_url(network);
-    match ckb_indexer::fetch_lock_script_capacity(rpc_url, lock_script).await {
-        Ok(shannons) => {
-            let available_ckb = (shannons / SHANNONS_PER_CKB) as u64;
-            (Some(available_ckb), None)
-        }
-        Err(error) => (
-            None,
-            Some(format!("Failed to read on-chain wallet balance: {error}")),
-        ),
-    }
 }
 
 fn persist_sent_payment(
@@ -488,6 +499,8 @@ fn persist_sent_payment(
     amount_shannons: u128,
     target_pubkey: Option<String>,
     route_hops: Vec<String>,
+    udt_type_script: Option<CkbScript>,
+    asset_name: Option<String>,
 ) {
     let stored = sent_payments::new_stored_sent_payment(
         payment_hash.to_string(),
@@ -495,6 +508,8 @@ fn persist_sent_payment(
         amount_shannons,
         target_pubkey,
         route_hops,
+        udt_type_script,
+        asset_name,
     );
     let _ = sent_payments::upsert_sent_payment(data_directory, stored);
 }
@@ -551,6 +566,8 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
     let peers = peers.map_err(|error| error.to_string())?;
     let payments_page = payments_page.map_err(|error| error.to_string())?;
 
+    let catalog = assets::build_asset_catalog(&node_info);
+    let in_channel_totals = assets::build_channel_totals(&catalog, &channels);
     let total_local = sum_local_balances(&channels);
     let in_channel_balance_ckb = (total_local / SHANNONS_PER_CKB) as u64;
 
@@ -562,19 +579,49 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
     let relay_status =
         peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
 
-    let (on_chain_wallet_ckb, on_chain_wallet_error) =
+    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
             Some(network) => {
-                fetch_on_chain_balance(network, &node_info.default_funding_lock_script).await
+                match assets::fetch_on_chain_balances(
+                    network,
+                    &node_info.default_funding_lock_script,
+                    &catalog,
+                )
+                .await
+                {
+                    Ok(balances) => {
+                        let ckb_balance = balances
+                            .iter()
+                            .find(|balance| balance.asset_id == assets::CKB_ASSET_ID)
+                            .and_then(|balance| {
+                                rpc::parse_hex_u128(&balance.raw_amount).map(|raw| {
+                                    (raw / SHANNONS_PER_CKB) as u64
+                                })
+                            });
+                        (ckb_balance, None, balances)
+                    }
+                    Err(error) => (
+                        None,
+                        Some(format!("Failed to read on-chain wallet balance: {error}")),
+                        Vec::new(),
+                    ),
+                }
             }
-            None => (None, Some("Network is not configured.".to_string())),
+            None => (
+                None,
+                Some("Network is not configured.".to_string()),
+                Vec::new(),
+            ),
         };
 
     let stored_invoices = data_directory
         .as_ref()
         .map(|path| invoices::read_invoices(path).unwrap_or_default())
         .unwrap_or_default();
-    let invoice_items = invoice_display::build_invoice_list_items(stored_invoices)
+    let invoice_items = invoice_display::build_invoice_list_items_with_catalog(
+        stored_invoices,
+        &catalog,
+    )
         .await
         .into_iter()
         .map(to_payments_invoice)
@@ -585,7 +632,8 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         .map(|path| sent_payments::read_sent_payments(path).unwrap_or_default())
         .unwrap_or_default();
 
-    let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
+    let payment_items =
+        map_wallet_payments(payments_page.payments, &stored_sent_payments, &catalog);
     let (payments_last_cursor, payments_has_more) = payments_page_meta(
         PAYMENTS_PAGE_SIZE,
         payments_page.last_cursor,
@@ -602,6 +650,9 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         on_chain_wallet_ckb,
         on_chain_wallet_error,
         lock_script: Some(node_info.default_funding_lock_script),
+        assets: catalog,
+        on_chain_balances,
+        in_channel_totals,
         invoices: invoice_items,
         payments: payment_items,
         payments_last_cursor,
@@ -624,15 +675,35 @@ pub async fn create_invoice(
     let studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
-    let amount_shannons = ckb_to_shannons(payload.amount)?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
+
+    let asset = if let Some(script) = payload.udt_type_script.as_ref() {
+        assets::find_asset_for_udt_script(&catalog, script)
+            .cloned()
+            .unwrap_or_else(|| assets::asset_for_channel_funding(&catalog, Some(script)))
+    } else {
+        assets::ckb_asset()
+    };
+
+    let amount_raw = if asset.udt_type_script.is_some() {
+        assets::parse_human_amount(payload.amount, asset.decimals)?
+    } else {
+        ckb_to_shannons(payload.amount)?
+    };
+
     let expiry_seconds = payload.expiry_hours.saturating_mul(3600);
     let currency = rpc::currency_for_network(&studio_metadata.network);
+    let udt_script = asset.udt_type_script.as_ref();
 
-    let result = rpc::new_invoice(
-        amount_shannons,
+    let result = rpc::new_invoice_with_udt(
+        amount_raw,
         currency,
         payload.description.as_deref(),
         expiry_seconds,
+        udt_script,
     )
     .await
     .map_err(|error| error.to_string())?;
@@ -642,9 +713,15 @@ pub async fn create_invoice(
     let stored = invoices::new_stored_invoice(
         payment_hash.clone(),
         result.invoice_address.clone(),
-        amount_shannons,
+        amount_raw,
         payload.description,
         expiry_seconds,
+        udt_script.cloned(),
+        if udt_script.is_some() {
+            Some(asset.symbol.clone())
+        } else {
+            None
+        },
     );
     invoices::append_invoice(&data_directory, stored)
         .map_err(|error| format!("Failed to save invoice: {error}"))?;
@@ -666,16 +743,16 @@ pub async fn preview_send_payment(
     }
 
     let _data_directory = require_running_data_dir(&state).await?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
 
     let parsed = parse_invoice_cached(invoice).await?;
 
-    let parse_preview = build_parse_invoice_preview(&parsed.invoice, None);
-    let amount_shannons = parsed
-        .invoice
-        .amount
-        .as_deref()
-        .and_then(rpc::parse_hex_u128)
-        .unwrap_or(0);
+    let parse_preview = build_parse_invoice_preview(&parsed.invoice, None, &catalog);
+    let asset = assets::asset_for_invoice(&catalog, &parsed.invoice);
+    let fee_asset = assets::ckb_asset();
 
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
@@ -690,15 +767,13 @@ pub async fn preview_send_payment(
         .map_err(|error| error.to_string())?;
 
     let route_hops = payment_display::route_hops_from_payment(&preview);
+    let fee_raw = rpc::parse_hex_u128(&preview.fee).unwrap_or(0);
 
     Ok(PreviewSendPaymentResult {
         fee_shannons: preview.fee.clone(),
-        fee_ckb: format!("{} CKB", ckb_from_shannons_hex(&preview.fee)),
-        amount_display: if parse_preview.amount_display.is_empty() {
-            format!("{} CKB", format_ckb_amount(amount_shannons))
-        } else {
-            parse_preview.amount_display
-        },
+        fee_display: assets::format_amount_display(fee_raw, &fee_asset),
+        amount_display: parse_preview.amount_display,
+        asset_symbol: asset.symbol,
         route_hops,
     })
 }
@@ -718,10 +793,15 @@ pub async fn parse_invoice_preview(
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
     let parsed = parse_invoice_cached(invoice).await?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
 
     Ok(build_parse_invoice_preview(
         &parsed.invoice,
         Some(studio_metadata.network.as_str()),
+        &catalog,
     ))
 }
 
@@ -738,7 +818,12 @@ pub async fn send_payment(
     let data_directory = require_running_data_dir(&state).await?;
 
     let parsed = parse_invoice_cached(invoice).await?;
-    let amount_shannons = parsed
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
+    let asset = assets::asset_for_invoice(&catalog, &parsed.invoice);
+    let amount_raw = parsed
         .invoice
         .amount
         .as_deref()
@@ -762,9 +847,15 @@ pub async fn send_payment(
         &data_directory,
         &result.payment_hash,
         "invoice",
-        amount_shannons,
+        amount_raw,
         None,
         route_hops,
+        asset.udt_type_script.clone(),
+        if asset.udt_type_script.is_some() {
+            Some(asset.symbol.clone())
+        } else {
+            None
+        },
     );
 
     Ok(send_payment_command_result(result))
@@ -782,6 +873,7 @@ pub async fn preview_keysend_payment(
 
     let _data_directory = require_running_data_dir(&state).await?;
     let amount_shannons = ckb_to_shannons(payload.amount)?;
+    let ckb_asset = assets::ckb_asset();
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
 
@@ -795,10 +887,13 @@ pub async fn preview_keysend_payment(
     .await
     .map_err(|error| error.to_string())?;
 
+    let fee_raw = rpc::parse_hex_u128(&preview.fee).unwrap_or(0);
+
     Ok(PreviewSendPaymentResult {
         fee_shannons: preview.fee.clone(),
-        fee_ckb: format!("{} CKB", ckb_from_shannons_hex(&preview.fee)),
-        amount_display: format!("{} CKB", format_ckb_amount(amount_shannons)),
+        fee_display: assets::format_amount_display(fee_raw, &ckb_asset),
+        amount_display: assets::format_amount_display(amount_shannons, &ckb_asset),
+        asset_symbol: ckb_asset.symbol,
         route_hops: payment_display::route_hops_from_payment(&preview),
     })
 }
@@ -836,6 +931,8 @@ pub async fn send_keysend_payment(
         amount_shannons,
         Some(target_pubkey.to_string()),
         route_hops,
+        None,
+        None,
     );
 
     Ok(send_payment_command_result(result))
@@ -871,6 +968,10 @@ pub async fn cancel_invoice(
     }
 
     let _data_directory = require_running_data_dir(&state).await?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
 
     let result = rpc::cancel_invoice(payment_hash)
         .await
@@ -881,11 +982,14 @@ pub async fn cancel_invoice(
         .amount
         .as_deref()
         .unwrap_or("0x0");
+    let raw = rpc::parse_hex_u128(amount_hex).unwrap_or(0);
+    let asset = assets::asset_for_invoice(&catalog, &result.invoice);
 
     Ok(PaymentsInvoiceItem {
         payment_hash: payment_hash.to_string(),
         invoice_address: result.invoice_address,
-        amount_ckb: format!("{} CKB", ckb_from_shannons_hex(amount_hex)),
+        amount_display: assets::format_amount_display(raw, &asset),
+        asset_symbol: asset.symbol,
         note: "—".to_string(),
         status: match result.status {
             CkbInvoiceStatus::Open => "Open",
@@ -910,13 +1014,18 @@ pub async fn load_more_payments(
     }
 
     let data_directory = require_running_data_dir(&state).await?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
 
     let payments_page = rpc::fetch_list_payments_page(PAYMENTS_PAGE_SIZE, Some(after))
         .await
         .map_err(|error| error.to_string())?;
 
     let stored_sent_payments = sent_payments::read_sent_payments(&data_directory).unwrap_or_default();
-    let payment_items = map_wallet_payments(payments_page.payments, &stored_sent_payments);
+    let payment_items =
+        map_wallet_payments(payments_page.payments, &stored_sent_payments, &catalog);
     let (last_cursor, has_more) = payments_page_meta(
         PAYMENTS_PAGE_SIZE,
         payments_page.last_cursor,
@@ -941,16 +1050,20 @@ pub async fn import_invoice(
     }
 
     let data_directory = require_running_data_dir(&state).await?;
+    let node_info = rpc::fetch_node_info()
+        .await
+        .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
 
     let live = rpc::get_invoice(&payment_hash)
         .await
         .map_err(|error| format!("Invoice not found on this node: {error}"))?;
 
-    let stored = stored_invoice_from_get_invoice(payment_hash.clone(), live);
+    let stored = stored_invoice_from_get_invoice(payment_hash.clone(), live, &catalog);
     invoices::append_invoice(&data_directory, stored.clone())
         .map_err(|error| format!("Failed to save imported invoice: {error}"))?;
 
-    let imported = invoice_display::build_invoice_list_item(stored).await;
+    let imported = invoice_display::build_invoice_list_item(stored, &catalog).await;
 
     Ok(to_payments_invoice(imported))
 }

@@ -26,6 +26,9 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   savedPeers: [],
   relayStatus: "not_configured",
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
+  assets: [],
+  onChainBalances: [],
+  channelTotals: [],
 }
 
 const OPENING_POLL_INTERVAL_MS = 3_000

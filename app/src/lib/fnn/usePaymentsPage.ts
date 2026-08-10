@@ -24,6 +24,9 @@ const EMPTY_RESPONSE: PaymentsPageResponse = {
   paymentsHasMore: false,
   sendTargets: [],
   relayStatus: "not_configured",
+  assets: [],
+  onChainBalances: [],
+  inChannelTotals: [],
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000

@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
+use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::{
     self, count_active_channels, count_pending_channels, has_active_or_pending_channel_to_peer,
-    map_channels, min_funding_ckb_for_open, sum_local_balances, sum_remote_balances,
+    min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances, sum_remote_balances,
     sum_total_capacity, HomeChannel,
 };
-use crate::fnn::ckb_indexer;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
 use crate::fnn::rpc::{self, CkbScript};
@@ -41,13 +41,18 @@ pub struct ChannelsPageResponse {
     pub saved_peers: Vec<ChannelsSavedPeerEntry>,
     pub relay_status: String,
     pub min_funding_ckb: u64,
+    pub assets: Vec<AssetView>,
+    pub on_chain_balances: Vec<assets::AssetBalanceView>,
+    pub channel_totals: Vec<assets::AssetChannelTotals>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OpenChannelPayload {
     pub pubkey: String,
-    pub funding_ckb: u64,
+    pub funding_amount: f64,
+    #[serde(default)]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 #[derive(Debug, Serialize)]
@@ -73,6 +78,8 @@ pub struct AbandonChannelPayload {
 pub struct WalletBalanceResponse {
     pub available_ckb: u64,
     pub shannons: String,
+    pub assets: Vec<AssetView>,
+    pub balances: Vec<assets::AssetBalanceView>,
 }
 
 pub(crate) async fn fetch_wallet_balance_for_network(
@@ -81,18 +88,27 @@ pub(crate) async fn fetch_wallet_balance_for_network(
     let node_info = rpc::fetch_node_info()
         .await
         .map_err(|error| error.to_string())?;
-    let rpc_url = ckb_indexer::ckb_rpc_url(network);
-    let shannons = ckb_indexer::fetch_lock_script_capacity(
-        rpc_url,
+    let catalog = assets::build_asset_catalog(&node_info);
+    let balances = assets::fetch_on_chain_balances(
+        network,
         &node_info.default_funding_lock_script,
+        &catalog,
     )
     .await
     .map_err(|error| format!("Failed to read on-chain wallet balance: {error}"))?;
+
+    let shannons = balances
+        .iter()
+        .find(|balance| balance.asset_id == assets::CKB_ASSET_ID)
+        .and_then(|balance| rpc::parse_hex_u128(&balance.raw_amount))
+        .unwrap_or(0);
     let available_ckb = (shannons / channel::SHANNONS_PER_CKB as u128) as u64;
 
     Ok(WalletBalanceResponse {
         available_ckb,
         shannons: format!("0x{shannons:x}"),
+        assets: catalog,
+        balances,
     })
 }
 
@@ -134,6 +150,9 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         saved_peers: Vec::new(),
         relay_status: "not_configured".to_string(),
         min_funding_ckb: channel::CHANNEL_OPEN_MIN_FUNDING_CKB,
+        assets: Vec::new(),
+        on_chain_balances: Vec::new(),
+        channel_totals: Vec::new(),
     }
 }
 
@@ -201,6 +220,9 @@ pub async fn get_channels_page(
         .await
         .map_err(|error| error.to_string())?;
 
+    let catalog = assets::build_asset_catalog(&node_info);
+    let channel_totals = assets::build_channel_totals(&catalog, &channels);
+
     let active_channel_count = count_active_channels(&channels);
     let pending_channel_count = count_pending_channels(&channels);
     let total_capacity = sum_total_capacity(&channels);
@@ -225,18 +247,22 @@ pub async fn get_channels_page(
         .map(|peer| build_channels_saved_peer_entry(peer, &peers, &channels))
         .collect();
 
-    let (on_chain_wallet_ckb, on_chain_wallet_error) =
+    let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
             Some(network) => match fetch_wallet_balance_for_network(network).await {
-                Ok(balance) => (Some(balance.available_ckb), None),
-                Err(error) => (None, Some(error)),
+                Ok(balance) => (
+                    Some(balance.available_ckb),
+                    None,
+                    balance.balances,
+                ),
+                Err(error) => (None, Some(error), Vec::new()),
             },
-            None => (None, Some("Network is not configured.".to_string())),
+            None => (None, Some("Network is not configured.".to_string()), Vec::new()),
         };
 
     Ok(ChannelsPageResponse {
         available: true,
-        channels: map_channels(channels),
+        channels: channel::map_channels(channels, &catalog),
         active_channel_count,
         pending_channel_count,
         total_capacity: total_capacity.to_string(),
@@ -249,6 +275,9 @@ pub async fn get_channels_page(
         saved_peers: saved_peer_entries,
         relay_status,
         min_funding_ckb,
+        assets: catalog,
+        on_chain_balances,
+        channel_totals,
     })
 }
 
@@ -284,13 +313,32 @@ pub async fn open_channel(
     let node_info = rpc::fetch_node_info()
         .await
         .map_err(|error| error.to_string())?;
+    let catalog = assets::build_asset_catalog(&node_info);
     let min_funding_ckb =
         min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
 
-    if payload.funding_ckb < min_funding_ckb {
-        return Err(format!(
-            "Channel capacity must be at least {min_funding_ckb} CKB.",
-        ));
+    let asset = if let Some(script) = payload.udt_type_script.as_ref() {
+        assets::find_asset_for_udt_script(&catalog, script)
+            .cloned()
+            .unwrap_or_else(|| assets::asset_for_channel_funding(&catalog, Some(script)))
+    } else {
+        assets::ckb_asset()
+    };
+
+    let funding_raw = if asset.udt_type_script.is_some() {
+        assets::parse_human_amount(payload.funding_amount, asset.decimals)?
+    } else {
+        let funding_ckb = payload.funding_amount.round() as u64;
+        if funding_ckb < min_funding_ckb {
+            return Err(format!(
+                "Channel capacity must be at least {min_funding_ckb} CKB.",
+            ));
+        }
+        funding_ckb as u128 * channel::SHANNONS_PER_CKB
+    };
+
+    if asset.udt_type_script.is_some() && funding_raw == 0 {
+        return Err("Funding amount must be greater than zero.".to_string());
     }
 
     let saved_multiaddr = studio_metadata
@@ -308,21 +356,48 @@ pub async fn open_channel(
         );
     }
 
-    let required_ckb = channel::required_wallet_ckb_for_open(payload.funding_ckb);
-    let wallet_balance =
-        fetch_wallet_balance_for_network(&studio_metadata.network).await?;
-    if wallet_balance.available_ckb < required_ckb {
+    let wallet_balance = fetch_wallet_balance_for_network(&studio_metadata.network).await?;
+
+    if asset.udt_type_script.is_some() {
+        let udt_balance = wallet_balance
+            .balances
+            .iter()
+            .find(|balance| balance.asset_id == asset.id)
+            .and_then(|balance| rpc::parse_hex_u128(&balance.raw_amount))
+            .unwrap_or(0);
+        if udt_balance < funding_raw {
+            return Err(format!(
+                "Insufficient on-chain {symbol}. Need {need} but wallet has {have}.",
+                symbol = asset.symbol,
+                need = assets::format_amount_display(funding_raw, &asset),
+                have = assets::format_amount_display(udt_balance, &asset),
+            ));
+        }
+    } else {
+        let funding_ckb = (funding_raw / channel::SHANNONS_PER_CKB) as u64;
+        let required_ckb = required_wallet_ckb_for_open(funding_ckb);
+        if wallet_balance.available_ckb < required_ckb {
+            return Err(format!(
+                "Insufficient on-chain CKB. Need at least {required_ckb} CKB ({} funding + {} reserve + {} fee buffer) but wallet has {} CKB.",
+                funding_ckb,
+                channel::CHANNEL_RESERVE_CKB,
+                channel::CHANNEL_OPEN_FEE_BUFFER_CKB,
+                wallet_balance.available_ckb,
+            ));
+        }
+    }
+
+    if wallet_balance.available_ckb < channel::CHANNEL_RESERVE_CKB + channel::CHANNEL_OPEN_FEE_BUFFER_CKB {
         return Err(format!(
-            "Insufficient on-chain CKB. Need at least {required_ckb} CKB ({} funding + {} reserve + {} fee buffer) but wallet has {} CKB.",
-            payload.funding_ckb,
-            channel::CHANNEL_RESERVE_CKB,
-            channel::CHANNEL_OPEN_FEE_BUFFER_CKB,
+            "Insufficient on-chain CKB for channel reserve and fees. Need at least {} CKB but wallet has {} CKB.",
+            channel::CHANNEL_RESERVE_CKB + channel::CHANNEL_OPEN_FEE_BUFFER_CKB,
             wallet_balance.available_ckb,
         ));
     }
 
-    let funding_amount = channel::ckb_to_shannons_hex(payload.funding_ckb);
-    let channel_id = rpc::open_channel(pubkey, &funding_amount, true)
+    let funding_amount = format!("0x{funding_raw:x}");
+    let udt_script = asset.udt_type_script.as_ref();
+    let channel_id = rpc::open_channel(pubkey, &funding_amount, true, udt_script)
         .await
         .map_err(|error| error.to_string())?;
 

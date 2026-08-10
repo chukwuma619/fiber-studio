@@ -1,7 +1,8 @@
 use serde::Serialize;
 
+use super::assets::{self, AssetView};
 use super::peer_connect;
-use super::rpc::{self, parse_hex_u128, Channel};
+use super::rpc::{self, parse_hex_u128, CkbScript, Channel};
 
 pub const SHANNONS_PER_CKB: u128 = 100_000_000;
 
@@ -19,6 +20,11 @@ pub struct HomeChannel {
     pub channel_outpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
+    pub asset_symbol: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub funding_udt_type_script: Option<CkbScript>,
+    pub local_balance_display: String,
+    pub remote_balance_display: String,
 }
 
 pub fn ckb_to_shannons_hex(ckb: u64) -> String {
@@ -55,7 +61,7 @@ pub fn has_active_or_pending_channel_to_peer(channels: &[Channel], pubkey: &str)
     })
 }
 
-pub fn to_home_channel(channel: Channel) -> HomeChannel {
+pub fn to_home_channel(channel: Channel, catalog: &[AssetView]) -> HomeChannel {
     let local = parse_hex_u128(&channel.local_balance).unwrap_or(0);
     let remote = parse_hex_u128(&channel.remote_balance).unwrap_or(0);
     let total = local.saturating_add(remote);
@@ -64,6 +70,8 @@ pub fn to_home_channel(channel: Channel) -> HomeChannel {
     } else {
         ((local * 100) / total).min(100) as u8
     };
+
+    let asset = assets::asset_for_channel_funding(catalog, channel.funding_udt_type_script.as_ref());
 
     HomeChannel {
         channel_id: channel.channel_id,
@@ -75,23 +83,51 @@ pub fn to_home_channel(channel: Channel) -> HomeChannel {
         local_percent,
         channel_outpoint: channel.channel_outpoint,
         failure_detail: channel.failure_detail,
+        asset_symbol: asset.symbol.clone(),
+        funding_udt_type_script: channel.funding_udt_type_script,
+        local_balance_display: assets::format_amount_display(local, &asset),
+        remote_balance_display: assets::format_amount_display(remote, &asset),
     }
 }
 
-pub fn sum_local_balances(channels: &[Channel]) -> u128 {
+pub fn channel_matches_funding_asset(channel: &Channel, funding_udt: Option<&CkbScript>) -> bool {
+    match (channel.funding_udt_type_script.as_ref(), funding_udt) {
+        (None, None) => true,
+        (Some(left), Some(right)) => assets::scripts_equal(left, right),
+        _ => false,
+    }
+}
+
+pub fn sum_local_balances_for_asset(
+    channels: &[Channel],
+    funding_udt: Option<&CkbScript>,
+) -> u128 {
     channels
         .iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))
+        .filter(|channel| channel_matches_funding_asset(channel, funding_udt))
         .filter_map(|channel| parse_hex_u128(&channel.local_balance))
         .sum()
 }
 
-pub fn sum_remote_balances(channels: &[Channel]) -> u128 {
+pub fn sum_remote_balances_for_asset(
+    channels: &[Channel],
+    funding_udt: Option<&CkbScript>,
+) -> u128 {
     channels
         .iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))
+        .filter(|channel| channel_matches_funding_asset(channel, funding_udt))
         .filter_map(|channel| parse_hex_u128(&channel.remote_balance))
         .sum()
+}
+
+pub fn sum_local_balances(channels: &[Channel]) -> u128 {
+    sum_local_balances_for_asset(channels, None)
+}
+
+pub fn sum_remote_balances(channels: &[Channel]) -> u128 {
+    sum_remote_balances_for_asset(channels, None)
 }
 
 pub fn sum_total_capacity(channels: &[Channel]) -> u128 {
@@ -120,8 +156,11 @@ pub fn count_pending_channels(channels: &[Channel]) -> u32 {
         .count() as u32
 }
 
-pub fn map_channels(channels: Vec<Channel>) -> Vec<HomeChannel> {
-    let mut mapped: Vec<HomeChannel> = channels.into_iter().map(to_home_channel).collect();
+pub fn map_channels(channels: Vec<Channel>, catalog: &[AssetView]) -> Vec<HomeChannel> {
+    let mut mapped: Vec<HomeChannel> = channels
+        .into_iter()
+        .map(|channel| to_home_channel(channel, catalog))
+        .collect();
     mapped.sort_by(|left, right| {
         let left_ready = left.state == "ChannelReady";
         let right_ready = right.state == "ChannelReady";
@@ -181,6 +220,7 @@ mod tests {
                 enabled: true,
                 channel_outpoint: None,
                 failure_detail: None,
+                funding_udt_type_script: None,
             },
             Channel {
                 channel_id: "0x2".into(),
@@ -194,6 +234,7 @@ mod tests {
                 enabled: false,
                 channel_outpoint: None,
                 failure_detail: None,
+                funding_udt_type_script: None,
             },
         ];
 
@@ -216,6 +257,7 @@ mod tests {
                 enabled: true,
                 channel_outpoint: None,
                 failure_detail: None,
+                funding_udt_type_script: None,
             },
             Channel {
                 channel_id: "0x2".into(),
@@ -229,6 +271,7 @@ mod tests {
                 enabled: false,
                 channel_outpoint: None,
                 failure_detail: None,
+                funding_udt_type_script: None,
             },
         ];
 

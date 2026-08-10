@@ -169,7 +169,7 @@ export function PaymentsInvoicesSection({
                 key={item.paymentHash}
                 tabIndex={0}
                 role="button"
-                aria-label={`Invoice ${item.amountCkb}, ${invoiceStatusDisplayLabel(item.status)}`}
+                aria-label={`Invoice ${item.amountDisplay}, ${invoiceStatusDisplayLabel(item.status)}`}
                 className={`cursor-pointer ${
                   item.status === "Received"
                     ? "bg-amber-50/80 hover:bg-amber-100/80 dark:bg-amber-950/25 dark:hover:bg-amber-950/40"
@@ -184,7 +184,7 @@ export function PaymentsInvoicesSection({
                 }}
               >
                 <TableCell className="tabular-nums font-medium">
-                  {item.amountCkb}
+                  {item.amountDisplay}
                 </TableCell>
                 <TableCell className="text-zinc-600 dark:text-zinc-400">
                   {item.note}

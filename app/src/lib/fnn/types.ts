@@ -53,6 +53,10 @@ export type HomeChannel = {
   localPercent: number
   channelOutpoint?: string | null
   failureDetail?: string | null
+  assetSymbol: string
+  fundingUdtTypeScript?: CkbScript | null
+  localBalanceDisplay: string
+  remoteBalanceDisplay: string
 }
 
 export type CkbScript = {
@@ -64,6 +68,32 @@ export type CkbScript = {
 export type WalletBalanceResponse = {
   availableCkb: number
   shannons: string
+  assets: AssetView[]
+  balances: AssetBalanceView[]
+}
+
+export type AssetView = {
+  id: string
+  name: string
+  symbol: string
+  decimals: number
+  udtTypeScript?: CkbScript | null
+}
+
+export type AssetBalanceView = {
+  assetId: string
+  symbol: string
+  amountDisplay: string
+  rawAmount: string
+}
+
+export type AssetChannelTotals = {
+  assetId: string
+  symbol: string
+  localBalance: string
+  remoteBalance: string
+  localBalanceDisplay: string
+  capacityDisplay: string
 }
 
 export type SavedPeerEntry = {
@@ -89,11 +119,15 @@ export type ChannelsPageResponse = {
   savedPeers: SavedPeerEntry[]
   relayStatus: RelayConnectionStatus
   minFundingCkb: number
+  assets: AssetView[]
+  onChainBalances: AssetBalanceView[]
+  channelTotals: AssetChannelTotals[]
 }
 
 export type OpenChannelPayload = {
   pubkey: string
-  fundingCkb: number
+  fundingAmount: number
+  udtTypeScript?: CkbScript | null
 }
 
 export type OpenChannelResult = {
@@ -116,13 +150,15 @@ export type HomePayment = {
   failedError: string | null
   fee: string
   paymentKind: "invoice" | "keysend" | "unknown" | string
-  amountCkb?: string | null
+  amountDisplay?: string | null
+  assetSymbol?: string | null
   routeHops: string[]
 }
 
 export type HomeIncomingInvoice = {
   paymentHash: string
-  amountCkb: string
+  amountDisplay: string
+  assetSymbol: string
   note: string
   status: string
 }
@@ -151,7 +187,8 @@ export type HomeDashboardResponse = {
 export type PaymentsInvoiceItem = {
   paymentHash: string
   invoiceAddress: string
-  amountCkb: string
+  amountDisplay: string
+  assetSymbol: string
   note: string
   status: string
   expiresIn: string | null
@@ -165,7 +202,8 @@ export type PaymentsPaymentItem = {
   failedError: string | null
   fee: string
   paymentKind: "invoice" | "keysend" | "unknown" | string
-  amountCkb?: string | null
+  amountDisplay?: string | null
+  assetSymbol?: string | null
   targetPubkey?: string | null
   routeHops: string[]
 }
@@ -190,12 +228,16 @@ export type PaymentsPageResponse = {
   paymentsHasMore: boolean
   sendTargets: PaymentsSendTarget[]
   relayStatus: RelayConnectionStatus
+  assets: AssetView[]
+  onChainBalances: AssetBalanceView[]
+  inChannelTotals: AssetChannelTotals[]
 }
 
 export type CreateInvoicePayload = {
   amount: number
   expiryHours: number
   description?: string
+  udtTypeScript?: CkbScript | null
 }
 
 export type ParseInvoicePayload = {
@@ -205,6 +247,7 @@ export type ParseInvoicePayload = {
 export type ParseInvoicePreview = {
   amountDisplay: string
   currency: string
+  assetSymbol: string
   paymentHash: string
   description?: string | null
   networkMatch: boolean
@@ -233,8 +276,9 @@ export type SendPaymentMode = "invoice" | "keysend"
 
 export type PreviewSendPaymentResult = {
   feeShannons: string
-  feeCkb: string
+  feeDisplay: string
   amountDisplay: string
+  assetSymbol: string
   routeHops: string[]
 }
 

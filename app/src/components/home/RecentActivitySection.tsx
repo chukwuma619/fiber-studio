@@ -39,7 +39,8 @@ function paymentDetail(payment: HomePayment): string {
   }
 
   const parts = [
-    payment.amountCkb ?? null,
+    payment.amountDisplay ?? null,
+    payment.assetSymbol ?? null,
     route ? `route ${route}` : null,
     `fee ${fee} CKB`,
   ].filter(Boolean)
@@ -108,7 +109,7 @@ export function RecentActivitySection({
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="text-sm font-medium tabular-nums text-zinc-950 dark:text-white">
-                            {invoice.amountCkb}
+                            {invoice.amountDisplay}
                           </p>
                           <Badge color={invoiceStatusTone(invoice.status)}>
                             {invoiceStatusDisplayLabel(invoice.status)}
@@ -146,9 +147,9 @@ export function RecentActivitySection({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          {payment.amountCkb ? (
+                          {payment.amountDisplay ? (
                             <p className="text-sm font-medium tabular-nums text-zinc-950 dark:text-white">
-                              {payment.amountCkb}
+                              {payment.amountDisplay}
                             </p>
                           ) : (
                             <p className="text-sm font-medium text-zinc-950 dark:text-white">

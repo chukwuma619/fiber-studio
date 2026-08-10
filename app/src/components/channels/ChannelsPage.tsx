@@ -40,22 +40,26 @@ type ChannelsPageProps = {
   initialChannelId?: string
 }
 
-function channelCapacityCkb(channel: HomeChannel): string {
-  const total =
-    parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance)
-  return formatCkb(total)
-}
 
 function channelPendingValue() {
   return <span className="text-xs text-zinc-500 dark:text-zinc-400">—</span>
 }
 
-function channelBalanceCell(amountCkb: string, channel: HomeChannel) {
+function channelCapacityDisplay(channel: HomeChannel): string {
+  const total =
+    parseHexU128(channel.localBalance) + parseHexU128(channel.remoteBalance)
+  if (channel.assetSymbol === "CKB") {
+    return `${formatCkb(total)} CKB`
+  }
+  return `${formatCkb(total)} ${channel.assetSymbol}`
+}
+
+function channelBalanceCell(display: string, channel: HomeChannel) {
   if (channel.state !== "ChannelReady") {
     return channelPendingValue()
   }
 
-  return <span className="tabular-nums">{amountCkb} CKB</span>
+  return <span className="tabular-nums">{display}</span>
 }
 
 export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
@@ -232,6 +236,22 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         />
       </div>
 
+      {available && (data?.channelTotals?.length ?? 0) > 1 ? (
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-700 dark:border-zinc-800 dark:bg-zinc-900/40 dark:text-zinc-300">
+          <p className="font-medium text-zinc-900 dark:text-zinc-100">
+            In-channel liquidity by asset
+          </p>
+          <ul className="mt-2 space-y-1">
+            {data?.channelTotals.map((total) => (
+              <li key={total.assetId} className="tabular-nums">
+                {total.symbol}: {total.localBalanceDisplay} spendable ·{" "}
+                {total.capacityDisplay} capacity
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
         {unavailableState ? (
           <HomeEmptyState
@@ -251,6 +271,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
               <TableRow>
                 <TableHeader className="w-10">S/N</TableHeader>
                 <TableHeader>Peer</TableHeader>
+                <TableHeader>Asset</TableHeader>
                 <TableHeader>Visibility</TableHeader>
                 <TableHeader>State</TableHeader>
                 <TableHeader className="text-right">Capacity</TableHeader>
@@ -275,8 +296,8 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                   channel.localPercent,
                 )
                 const stateLabel = channelStateDisplayLabel(channel.state)
-                const canSpend = formatCkb(parseHexU128(channel.localBalance))
-                const canReceive = formatCkb(parseHexU128(channel.remoteBalance))
+                const canSpend = channel.localBalanceDisplay
+                const canReceive = channel.remoteBalanceDisplay
 
                 return (
                   <TableRow
@@ -294,6 +315,9 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                       >
                         {truncatePubkey(channel.pubkey)}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <Badge color="zinc">{channel.assetSymbol}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge color={channel.isPublic ? "sky" : "zinc"}>
@@ -314,7 +338,7 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                       </div>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {channelCapacityCkb(channel)} CKB
+                      {channelCapacityDisplay(channel)}
                     </TableCell>
                     <TableCell className="text-right">
                       {channelBalanceCell(canSpend, channel)}
@@ -334,6 +358,8 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
         savedPeers={data?.savedPeers ?? []}
+        assets={data?.assets ?? []}
+        onChainBalances={data?.onChainBalances ?? []}
         minFundingCkb={minFundingCkb}
         availableWalletCkb={data?.onChainWalletCkb ?? null}
         onChainWalletError={data?.onChainWalletError ?? null}
