@@ -4,7 +4,17 @@ import {
   CHANNEL_RESERVE_CKB,
   requiredWalletCkbForOpen,
 } from "../../lib/fnn/format"
-import type { OpenChannelPayload, SavedPeerEntry } from "../../lib/fnn/types"
+import {
+  CKB_ASSET_ID,
+  defaultAsset,
+  findAssetById,
+} from "../../lib/fnn/assets"
+import type {
+  AssetBalanceView,
+  AssetView,
+  OpenChannelPayload,
+  SavedPeerEntry,
+} from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -26,6 +36,8 @@ type OpenChannelDialogProps = {
   open: boolean
   onClose: () => void
   savedPeers: SavedPeerEntry[]
+  assets: AssetView[]
+  onChainBalances: AssetBalanceView[]
   minFundingCkb: number
   availableWalletCkb: number | null
   onChainWalletError: string | null
@@ -33,20 +45,6 @@ type OpenChannelDialogProps = {
   actionError: string | null
   onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
   onClearError: () => void
-}
-
-function parseFundingCkb(value: string, minimumCkb: number): number | null {
-  const trimmed = value.trim()
-  if (!trimmed) return null
-  const parsed = Number(trimmed)
-  if (
-    !Number.isFinite(parsed) ||
-    parsed < minimumCkb ||
-    !Number.isInteger(parsed)
-  ) {
-    return null
-  }
-  return parsed
 }
 
 function peerChannelLabel(peer: SavedPeerEntry): string {
@@ -60,6 +58,8 @@ export function OpenChannelDialog({
   open,
   onClose,
   savedPeers,
+  assets,
+  onChainBalances,
   minFundingCkb,
   availableWalletCkb,
   onChainWalletError,
@@ -68,9 +68,15 @@ export function OpenChannelDialog({
   onOpenChannel,
   onClearError,
 }: OpenChannelDialogProps) {
+  const catalog = assets.length > 0 ? assets : [defaultAsset([])]
+  const [selectedAssetId, setSelectedAssetId] = useState(CKB_ASSET_ID)
   const [selectedPubkey, setSelectedPubkey] = useState("")
   const [capacity, setCapacity] = useState("")
   const [validationError, setValidationError] = useState<string | null>(null)
+
+  const selectedAsset =
+    findAssetById(catalog, selectedAssetId) ?? defaultAsset(catalog)
+  const isCkbChannel = selectedAsset.id === CKB_ASSET_ID
 
   const connectedPeers = useMemo(
     () => savedPeers.filter((peer) => peer.connected),
@@ -83,21 +89,34 @@ export function OpenChannelDialog({
     [connectedPeers, selectedPubkey],
   )
 
+  const assetBalanceDisplay = useMemo(() => {
+    const match = onChainBalances.find(
+      (balance) => balance.assetId === selectedAsset.id,
+    )
+    return match?.amountDisplay ?? "0"
+  }, [onChainBalances, selectedAsset.id])
+
   const parsedCapacity = useMemo(() => {
     const trimmed = capacity.trim()
     if (!trimmed) return null
     const parsed = Number(trimmed)
-    if (!Number.isFinite(parsed) || !Number.isInteger(parsed)) return null
+    if (!Number.isFinite(parsed) || parsed <= 0) return null
+    if (isCkbChannel && !Number.isInteger(parsed)) return null
     return parsed
-  }, [capacity])
+  }, [capacity, isCkbChannel])
 
   const belowMinimum =
-    parsedCapacity !== null && parsedCapacity < minFundingCkb
+    isCkbChannel &&
+    parsedCapacity !== null &&
+    parsedCapacity < minFundingCkb
 
   const requiredWalletCkb =
-    parsedCapacity !== null ? requiredWalletCkbForOpen(parsedCapacity) : null
+    isCkbChannel && parsedCapacity !== null
+      ? requiredWalletCkbForOpen(parsedCapacity)
+      : null
 
   const insufficientWalletBalance =
+    isCkbChannel &&
     availableWalletCkb !== null &&
     requiredWalletCkb !== null &&
     availableWalletCkb < requiredWalletCkb
@@ -123,12 +142,12 @@ export function OpenChannelDialog({
 
     setValidationError(null)
     onClearError()
+    setSelectedAssetId(CKB_ASSET_ID)
     const defaultPeer = connectedPeers[0]?.pubkey ?? ""
     setSelectedPubkey(defaultPeer)
     setCapacity(defaultPeer ? String(minFundingCkb) : "")
   }, [connectedPeers, minFundingCkb, onClearError, open])
 
-  // Keep selection on a connected peer while the dialog is open.
   useEffect(() => {
     if (!open) return
     if (
@@ -139,6 +158,11 @@ export function OpenChannelDialog({
     }
     setSelectedPubkey(connectedPeers[0]?.pubkey ?? "")
   }, [connectedPeers, open, selectedPubkey])
+
+  useEffect(() => {
+    if (!open || isCkbChannel) return
+    setCapacity("")
+  }, [isCkbChannel, open, selectedAssetId])
 
   async function handleSubmit() {
     if (!selectedPubkey) {
@@ -153,21 +177,35 @@ export function OpenChannelDialog({
       return
     }
 
-    const fundingCkb = parseFundingCkb(capacity, minFundingCkb)
-    if (fundingCkb === null) {
+    if (parsedCapacity === null) {
       setValidationError(
-        `Enter a whole number of at least ${minFundingCkb} CKB.`,
+        isCkbChannel
+          ? `Enter a whole number of at least ${minFundingCkb} CKB.`
+          : `Enter a valid ${selectedAsset.symbol} amount greater than zero.`,
       )
       return
     }
 
+    if (isCkbChannel) {
+      if (
+        availableWalletCkb !== null &&
+        availableWalletCkb < requiredWalletCkbForOpen(parsedCapacity)
+      ) {
+        const required = requiredWalletCkbForOpen(parsedCapacity)
+        setValidationError(
+          `Insufficient on-chain CKB. Need at least ${required} CKB (${parsedCapacity} funding + ${CHANNEL_RESERVE_CKB} reserve + ${CHANNEL_OPEN_FEE_BUFFER_CKB} fee buffer) but wallet has ${availableWalletCkb} CKB.`,
+        )
+        return
+      }
+    }
+
     if (
       availableWalletCkb !== null &&
-      availableWalletCkb < requiredWalletCkbForOpen(fundingCkb)
+      availableWalletCkb <
+        CHANNEL_RESERVE_CKB + CHANNEL_OPEN_FEE_BUFFER_CKB
     ) {
-      const required = requiredWalletCkbForOpen(fundingCkb)
       setValidationError(
-        `Insufficient on-chain CKB. Need at least ${required} CKB (${fundingCkb} funding + ${CHANNEL_RESERVE_CKB} reserve + ${CHANNEL_OPEN_FEE_BUFFER_CKB} fee buffer) but wallet has ${availableWalletCkb} CKB.`,
+        `Insufficient on-chain CKB for reserve and fees. Need at least ${CHANNEL_RESERVE_CKB + CHANNEL_OPEN_FEE_BUFFER_CKB} CKB.`,
       )
       return
     }
@@ -175,12 +213,20 @@ export function OpenChannelDialog({
     setValidationError(null)
 
     try {
-      await onOpenChannel({ pubkey: selectedPubkey, fundingCkb })
+      await onOpenChannel({
+        pubkey: selectedPubkey,
+        fundingAmount: parsedCapacity,
+        udtTypeScript: selectedAsset.udtTypeScript ?? undefined,
+      })
       onClose()
     } catch {
       // actionError is set by the hook
     }
   }
+
+  const capacityLabel = isCkbChannel
+    ? "Channel capacity (CKB)"
+    : `Channel capacity (${selectedAsset.symbol})`
 
   return (
     <Dialog
@@ -194,11 +240,32 @@ export function OpenChannelDialog({
           ? "Add at least one saved peer on the Network page before opening a channel."
           : noConnectedPeers
             ? "None of your saved peers are connected. Connect a peer on the Network page first."
-            : "Open a public channel with a connected saved peer. You can open multiple channels with the same peer."}
+            : `Open a public channel funded with ${selectedAsset.symbol}. CKB is still required for reserve and fees.`}
       </DialogDescription>
 
       <DialogBody>
         <FieldGroup>
+          <Field>
+            <Label>Funding asset</Label>
+            <Select
+              value={selectedAssetId}
+              onChange={(event) => setSelectedAssetId(event.target.value)}
+              disabled={isActing}
+            >
+              {catalog.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.name}
+                </option>
+              ))}
+            </Select>
+            <Description>
+              On-chain wallet: {assetBalanceDisplay}
+              {availableWalletCkb !== null
+                ? ` · CKB reserve buffer: ${availableWalletCkb} CKB`
+                : null}
+            </Description>
+          </Field>
+
           <Field>
             <Label>Connected peer</Label>
             {noSavedPeers ? (
@@ -235,10 +302,6 @@ export function OpenChannelDialog({
                 <CopyButton value={selectedPubkey} label="Copy peer pubkey" />
               </div>
             ) : null}
-            <Description>
-              Only connected saved peers are listed. Multiple channels can share
-              the same peer connection.
-            </Description>
           </Field>
 
           {selectedPeer ? (
@@ -258,17 +321,23 @@ export function OpenChannelDialog({
           ) : null}
 
           <Field>
-            <Label>Channel capacity (CKB)</Label>
+            <Label>{capacityLabel}</Label>
             <Input
               value={capacity}
               onChange={(event) => setCapacity(event.target.value)}
-              inputMode="numeric"
-              placeholder={String(minFundingCkb)}
+              inputMode={isCkbChannel ? "numeric" : "decimal"}
+              placeholder={isCkbChannel ? String(minFundingCkb) : "0.00"}
               disabled={!selectedPubkey}
             />
-            <Description>
-              Minimum {minFundingCkb} CKB to open a channel.
-            </Description>
+            {isCkbChannel ? (
+              <Description>
+                Minimum {minFundingCkb} CKB to open a channel.
+              </Description>
+            ) : (
+              <Description>
+                Enter the {selectedAsset.symbol} amount to fund this channel.
+              </Description>
+            )}
           </Field>
         </FieldGroup>
 

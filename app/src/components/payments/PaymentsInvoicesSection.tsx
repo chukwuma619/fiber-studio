@@ -66,7 +66,7 @@ export function PaymentsInvoicesSection({
         <div>
           <Subheading level={3}>Receive & invoices</Subheading>
           <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            Invoices you create to receive CKB over Fiber.
+            Invoices you create to receive CKB and UDT over Fiber.
           </Text>
         </div>
         <div className="flex gap-2">
@@ -145,10 +145,10 @@ export function PaymentsInvoicesSection({
           }
           description={
             invoiceFilter === "active"
-              ? `Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`
+              ? `Create a ${invoiceCurrency} invoice to receive assets over Fiber.`
               : invoiceFilter === "paid"
                 ? "Paid invoices appear here after someone pays you."
-                : `Create a ${invoiceCurrency} invoice to receive CKB over Fiber.`
+                : `Create a ${invoiceCurrency} invoice to receive assets over Fiber.`
           }
           actionLabel={invoiceFilter === "paid" ? undefined : "Create invoice"}
           onAction={invoiceFilter === "paid" ? undefined : onCreate}
@@ -169,7 +169,7 @@ export function PaymentsInvoicesSection({
                 key={item.paymentHash}
                 tabIndex={0}
                 role="button"
-                aria-label={`Invoice ${item.amountCkb}, ${invoiceStatusDisplayLabel(item.status)}`}
+                aria-label={`Invoice ${item.amountDisplay}, ${invoiceStatusDisplayLabel(item.status)}`}
                 className={`cursor-pointer ${
                   item.status === "Received"
                     ? "bg-amber-50/80 hover:bg-amber-100/80 dark:bg-amber-950/25 dark:hover:bg-amber-950/40"
@@ -184,7 +184,7 @@ export function PaymentsInvoicesSection({
                 }}
               >
                 <TableCell className="tabular-nums font-medium">
-                  {item.amountCkb}
+                  {item.amountDisplay}
                 </TableCell>
                 <TableCell className="text-zinc-600 dark:text-zinc-400">
                   {item.note}

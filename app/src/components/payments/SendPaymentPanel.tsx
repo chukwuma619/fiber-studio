@@ -7,6 +7,7 @@ import {
 } from "../../lib/fnn/format"
 import { relaySendPaymentWarning } from "../../lib/fnn/relay"
 import type {
+  AssetView,
   KeysendPaymentPayload,
   ParseInvoicePreview,
   PreviewSendPaymentResult,
@@ -16,6 +17,7 @@ import type {
   SendPaymentResult,
   PaymentsSendTarget,
 } from "../../lib/fnn/types"
+import { CKB_ASSET_ID, defaultAsset, findAssetById } from "../../lib/fnn/assets"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
@@ -42,6 +44,7 @@ type SendPaymentPanelProps = {
   network: string | null
   relayStatus: RelayConnectionStatus
   sendTargets: PaymentsSendTarget[]
+  assets: AssetView[]
   isActing: boolean
   actionError: string | null
   onParseInvoicePreview: (invoice: string) => Promise<ParseInvoicePreview>
@@ -66,6 +69,7 @@ export function SendPaymentPanel({
   network,
   relayStatus,
   sendTargets,
+  assets,
   isActing,
   actionError,
   onParseInvoicePreview,
@@ -89,6 +93,11 @@ export function SendPaymentPanel({
 
   const [targetPubkey, setTargetPubkey] = useState("")
   const [keysendAmount, setKeysendAmount] = useState("")
+  const [keysendAssetId, setKeysendAssetId] = useState(CKB_ASSET_ID)
+
+  const catalog = assets.length > 0 ? assets : [defaultAsset([])]
+  const keysendAsset =
+    findAssetById(catalog, keysendAssetId) ?? defaultAsset(catalog)
 
   const [routePreview, setRoutePreview] = useState<PreviewSendPaymentResult | null>(
     null,
@@ -248,6 +257,7 @@ export function SendPaymentPanel({
       void onPreviewKeysendPayment({
         targetPubkey: pubkey,
         amount: parsedAmount,
+        udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
       })
         .then((preview) => {
           if (cancelled) return
@@ -272,6 +282,7 @@ export function SendPaymentPanel({
   }, [
     available,
     keysendAmount,
+    keysendAsset.udtTypeScript,
     onPreviewKeysendPayment,
     running,
     sendDialogOpen,
@@ -321,7 +332,7 @@ export function SendPaymentPanel({
       >
         <Subheading level={3}>Send payment</Subheading>
         <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay by invoice or push CKB to a known node pubkey (keysend)
+          Pay by invoice or push CKB/UDT to a known node pubkey (keysend)
         </Text>
 
         {relayWarning ? (
@@ -409,7 +420,26 @@ export function SendPaymentPanel({
             )}
 
             <Field>
-              <Label>Amount (CKB)</Label>
+              <Label>Asset</Label>
+              <Select
+                value={keysendAsset.id}
+                onChange={(event) => setKeysendAssetId(event.target.value)}
+                disabled={!running}
+              >
+                {catalog.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.symbol}
+                    {asset.name !== asset.symbol ? ` · ${asset.name}` : ""}
+                  </option>
+                ))}
+              </Select>
+              <Description>
+                Whitelisted assets your node can route over Fiber
+              </Description>
+            </Field>
+
+            <Field>
+              <Label>Amount ({keysendAsset.symbol})</Label>
               <Input
                 type="text"
                 inputMode="decimal"
@@ -517,6 +547,7 @@ export function SendPaymentPanel({
             ? {
                 targetPubkey: targetPubkey.trim(),
                 amount: Number(keysendAmount.trim()),
+                udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
               }
             : undefined
         }

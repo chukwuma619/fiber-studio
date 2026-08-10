@@ -3,6 +3,7 @@ import { normalizeCkbPrivateKey } from "../ckb-key"
 import type { SetupConfig } from "../setup/types"
 import type {
   AbandonChannelPayload,
+  AssetsPageResponse,
   ChannelsPageResponse,
   CompleteSetupPayload,
   CompleteSetupResult,
@@ -92,6 +93,10 @@ export async function stopNode(): Promise<NodeStatusResponse> {
 
 export async function getHomeDashboard(): Promise<HomeDashboardResponse> {
   return invoke<HomeDashboardResponse>("get_home_dashboard")
+}
+
+export async function getAssetsPage(): Promise<AssetsPageResponse> {
+  return invoke<AssetsPageResponse>("get_assets_page")
 }
 
 export async function getChannelsPage(): Promise<ChannelsPageResponse> {

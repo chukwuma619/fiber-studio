@@ -1,11 +1,7 @@
 import { RefreshCw } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
-import {
-  invoiceCurrencyLabel,
-  truncateLockScriptArgs,
-  type InvoiceListFilter,
-} from "../../lib/fnn/format"
+import { type InvoiceListFilter } from "../../lib/fnn/format"
 import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
@@ -14,7 +10,6 @@ import { usePaymentsActions } from "../../lib/fnn/usePaymentsActions"
 import { usePaymentsPage } from "../../lib/fnn/usePaymentsPage"
 import { loadMorePayments } from "../../lib/fnn/invoke"
 import type { PaymentsInvoiceItem, PaymentsPaymentItem } from "../../lib/fnn/types"
-import { StatCard } from "../home/StatCard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
@@ -37,7 +32,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const { data, isLoading, isRefreshing, error, refresh } = usePaymentsPage(running)
 
   const handleMutationSuccess = useCallback(() => {
-    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
     void refresh()
   }, [refresh])
 
@@ -72,7 +67,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const sendTargets = data?.sendTargets ?? []
-  const invoiceCurrency = invoiceCurrencyLabel(data?.network)
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
 
   useEffect(() => {
@@ -114,7 +108,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
       updated &&
       (updated.status !== selectedInvoice.status ||
         updated.expiresIn !== selectedInvoice.expiresIn ||
-        updated.amountCkb !== selectedInvoice.amountCkb)
+        updated.amountDisplay !== selectedInvoice.amountDisplay)
     ) {
       setSelectedInvoice(updated)
     }
@@ -133,24 +127,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
       })
     }
   }, [initialAction])
-
-  const inChannelBalance = available
-    ? data?.inChannelBalanceCkb.toFixed(2) ?? "0"
-    : "—"
-  const onChainWallet = available
-    ? data?.onChainWalletCkb !== null && data?.onChainWalletCkb !== undefined
-      ? data.onChainWalletCkb.toFixed(2)
-      : "—"
-    : "—"
-
-  const onChainSubtext = useMemo(() => {
-    if (!available) return "Start node to view balance"
-    if (data?.onChainWalletError) return data.onChainWalletError
-    if (data?.lockScript) {
-      return `${truncateLockScriptArgs(data.lockScript.args)} · L1 funding wallet (not Fiber spendable)`
-    }
-    return "On-chain CKB for channel funding — not spendable via Fiber invoices"
-  }, [available, data?.lockScript, data?.onChainWalletError])
 
   const handleParseInvoicePreview = useCallback(
     (invoice: string) => parseInvoicePreview({ invoice }),
@@ -199,7 +175,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
 
   const handleRefresh = useCallback(() => {
     setHasLoadedMorePayments(false)
-    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+    invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
     void refresh()
   }, [refresh])
 
@@ -209,8 +185,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         <div>
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send CKB off-chain via invoice or keysend, and receive via{" "}
-            {invoiceCurrency} invoices on the Fiber network.
+            Send CKB and UDT off-chain via invoice, or push CKB to a known node pubkey (keysend).
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -261,31 +236,6 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <StatCard
-          label="In channels"
-          value={isLoading && running ? "…" : inChannelBalance}
-          unit={available ? "CKB" : undefined}
-          subtext={
-            available
-              ? "Can spend across open channels"
-              : "Start node to view balance"
-          }
-        />
-        <StatCard
-          label="On-chain (funding wallet)"
-          value={isLoading && running ? "…" : onChainWallet}
-          unit={
-            available &&
-            data?.onChainWalletCkb !== null &&
-            data?.onChainWalletCkb !== undefined
-              ? "CKB"
-              : undefined
-          }
-          subtext={onChainSubtext}
-        />
-      </div>
-
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <PaymentsInvoicesSection
           status={status}
@@ -307,6 +257,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           network={data?.network ?? null}
           relayStatus={data?.relayStatus ?? "not_configured"}
           sendTargets={sendTargets}
+          assets={data?.assets ?? []}
           isActing={isActing}
           actionError={actionError}
           onParseInvoicePreview={handleParseInvoicePreview}
@@ -332,6 +283,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         network={data?.network ?? null}
+        assets={data?.assets ?? []}
         isActing={isActing}
         actionError={actionError}
         onCreateInvoice={createInvoice}

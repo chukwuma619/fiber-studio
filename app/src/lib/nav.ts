@@ -4,10 +4,12 @@ import {
   Settings,
   Banknote,
   Globe,
+  Wallet,
   type LucideIcon,
 } from "lucide-react"
 export type NavItemId =
   | "home"
+  | "assets"
   | "payments"
   | "channels"
   | "network"
@@ -28,6 +30,13 @@ export const NAV_ITEMS: NavItem[] = [
     href: "/",
     icon: Home,
     description: "Overview of your node, balances, and recent activity.",
+  },
+  {
+    id: "assets",
+    label: "Assets",
+    href: "/assets",
+    icon: Wallet,
+    description: "View CKB and UDT balances on-chain and in Fiber channels.",
   },
   {
     id: "payments",

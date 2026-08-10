@@ -114,7 +114,7 @@ export default async function Image() {
               color: '#52525b',
             }}
           >
-            Run the official Fiber node, send and receive payments, and keep your
+            Run the official Fiber node, send and receive CKB and UDTs, and keep your
             keys on your device.
           </div>
         </div>

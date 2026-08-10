@@ -76,7 +76,7 @@ export function PaymentRoutePreview({
         <div className="flex items-center gap-2">
           <Badge color="sky">Off-chain (Fiber)</Badge>
           <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
-            {preview.feeCkb}
+            {preview.feeDisplay}
           </span>
         </div>
       </div>

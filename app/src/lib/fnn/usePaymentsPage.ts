@@ -24,6 +24,9 @@ const EMPTY_RESPONSE: PaymentsPageResponse = {
   paymentsHasMore: false,
   sendTargets: [],
   relayStatus: "not_configured",
+  assets: [],
+  onChainBalances: [],
+  inChannelTotals: [],
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000
@@ -66,7 +69,7 @@ export function usePaymentsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
     }
 
     if (manual) {
-      invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home)
+      invalidatePageCaches(PAGE_CACHE_KEYS.payments, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
       setIsRefreshing(true)
     } else if (getPageCache<PaymentsPageResponse>(PAGE_CACHE_KEYS.payments)) {
       setIsRefreshing(true)

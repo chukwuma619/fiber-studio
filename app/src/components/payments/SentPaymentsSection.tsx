@@ -37,7 +37,8 @@ function paymentSummaryLine(payment: PaymentsPaymentItem): string {
   }
 
   const parts = [
-    payment.amountCkb ?? null,
+    payment.amountDisplay ?? null,
+    payment.assetSymbol ?? null,
     route ? `route ${route}` : null,
     `fee ${fee} CKB`,
   ].filter(Boolean)
@@ -100,9 +101,9 @@ export function SentPaymentsSection({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          {payment.amountCkb ? (
+                          {payment.amountDisplay ? (
                             <span className="text-sm font-medium tabular-nums text-zinc-950 dark:text-white">
-                              {payment.amountCkb}
+                              {payment.amountDisplay}
                             </span>
                           ) : null}
                           <Badge color="sky">

@@ -22,14 +22,14 @@ const STEPS = [
     step: '02',
     title: 'Open a channel',
     description:
-      'Connect to that peer and open a channel with CKB. Fiber payments need channel capacity first.',
+      'Connect to that peer and open a CKB or UDT channel. Fiber payments need channel capacity first.',
     Preview: ChannelsCrop,
   },
   {
     step: '03',
     title: 'Send and receive',
     description:
-      'Pay invoices or create invoices from Payments once your channel is active.',
+      'Pay invoices or keysend CKB and UDTs from Payments once your channel is active.',
     Preview: PaymentsCrop,
   },
 ] as const
@@ -46,8 +46,8 @@ export function HowItWorks() {
           How it works
         </h2>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Fiber Studio walks you through the real Fiber path: run a node, open a channel,
-          then send and receive payments.
+          Fiber Studio walks you through the real Fiber path: run a node, open a channel
+          for CKB or a whitelisted UDT, then send and receive payments.
         </p>
 
         <ol className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">

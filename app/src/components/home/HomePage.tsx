@@ -1,5 +1,4 @@
 import { useNodeControlContext } from "../layout/NodeControlProvider"
-import { formatCkb } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
@@ -39,9 +38,6 @@ export function HomePage() {
   const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
   const peersCountValue = nodeInfo?.peersCount ?? 0
 
-  const canSpend = available
-    ? formatCkb(BigInt(dashboard?.totalLocalBalance ?? "0"))
-    : "—"
   const activeChannels = available ? String(activeChannelCount) : "—"
   const peersCount = available ? String(peersCountValue) : "—"
   const pendingChannels = available ? String(pendingChannelCount) : "—"
@@ -62,10 +58,11 @@ export function HomePage() {
         <div>
           <Heading level={1}>Home</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Off-chain CKB payments on the Fiber network.
+            Node overview, channel liquidity, and recent activity.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button href="/assets">View assets</Button>
           <Button href="/payments?action=send">Send payment</Button>
           <Button href="/payments?action=create-invoice" outline>
             Create invoice
@@ -80,13 +77,7 @@ export function HomePage() {
         />
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Can spend"
-          value={isLoading && running ? "…" : canSpend}
-          unit={available ? "CKB" : undefined}
-          subtext={available ? "Across active channels" : "Start node to view balance"}
-        />
+      <div className="grid gap-4 sm:grid-cols-3">
         <StatCard
           label="Active channels"
           value={isLoading && running ? "…" : activeChannels}

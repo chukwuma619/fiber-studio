@@ -23,6 +23,9 @@ const EMPTY_RESPONSE: HomeDashboardResponse = {
   savedPeerPubkeys: [],
   network: null,
   relayStatus: "not_configured",
+  assets: [],
+  channelTotals: [],
+  onChainBalances: [],
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000

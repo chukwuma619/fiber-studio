@@ -26,6 +26,9 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   savedPeers: [],
   relayStatus: "not_configured",
   minFundingCkb: CHANNEL_OPEN_MIN_FUNDING_CKB,
+  assets: [],
+  onChainBalances: [],
+  channelTotals: [],
 }
 
 const OPENING_POLL_INTERVAL_MS = 3_000
@@ -57,7 +60,7 @@ export function useChannelsPage(running: boolean, pollIntervalMs = DEFAULT_POLL_
     }
 
     if (manual) {
-      invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home)
+      invalidatePageCaches(PAGE_CACHE_KEYS.channels, PAGE_CACHE_KEYS.home, PAGE_CACHE_KEYS.assets)
       setIsRefreshing(true)
     } else if (getPageCache<ChannelsPageResponse>(PAGE_CACHE_KEYS.channels)) {
       setIsRefreshing(true)

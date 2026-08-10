@@ -14,9 +14,8 @@ import {
   channelStateBadgeColor,
   channelStateDisplayLabel,
   channelStatusLabel,
-  formatCkb,
-  parseHexU128,
 } from "../../lib/fnn/format"
+import { channelCapacityDisplay } from "../../lib/fnn/assets"
 import type { HomeChannel, NodeStatusState } from "../../lib/fnn/types"
 import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { truncatePubkey } from "../../lib/public-relays"
@@ -60,13 +59,14 @@ export function ChannelLiquiditySection({
             <TableRow>
               <TableHeader className="w-10">S/N</TableHeader>
               <TableHeader>Peer</TableHeader>
+              <TableHeader>Asset</TableHeader>
               <TableHeader>Capacity</TableHeader>
               <TableHeader>Liquidity</TableHeader>
               <TableHeader>Status</TableHeader>
             </TableRow>
           </TableHead>
           <TableBody>
-            <TableRowsSkeleton rows={3} cols={5} />
+            <TableRowsSkeleton rows={3} cols={6} />
           </TableBody>
         </Table>
       ) : unavailableState ? (
@@ -85,6 +85,7 @@ export function ChannelLiquiditySection({
             <TableRow>
               <TableHeader className="w-10">S/N</TableHeader>
               <TableHeader>Peer</TableHeader>
+              <TableHeader>Asset</TableHeader>
               <TableHeader>Capacity</TableHeader>
               <TableHeader>Liquidity</TableHeader>
               <TableHeader>Status</TableHeader>
@@ -109,12 +110,15 @@ export function ChannelLiquiditySection({
                   <TableCell className="font-mono text-zinc-600 dark:text-zinc-400">
                     {truncatePubkey(channel.pubkey)}
                   </TableCell>
+                  <TableCell>
+                    <Badge color="zinc">{channel.assetSymbol}</Badge>
+                  </TableCell>
                   <TableCell className="tabular-nums">
-                    {formatCkb(
-                      parseHexU128(channel.localBalance) +
-                        parseHexU128(channel.remoteBalance),
-                    )}{" "}
-                    CKB
+                    {channelCapacityDisplay(
+                      channel.localBalance,
+                      channel.remoteBalance,
+                      channel.assetSymbol,
+                    )}
                   </TableCell>
                   <TableCell>
                     <CapacityBar percent={channel.localPercent} />

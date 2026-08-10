@@ -25,17 +25,19 @@ import {
 const DEMO_CHANNELS = [
   {
     peer: '03a1b2…9f4e',
-    capacity: '2,000',
+    asset: 'CKB',
+    capacity: '2,000 CKB',
     localPercent: 62,
     status: 'Active' as const,
     statusColor: 'green' as const,
   },
   {
     peer: '02c8d4…1a70',
-    capacity: '1,500',
-    localPercent: 11,
-    status: 'Low' as const,
-    statusColor: 'amber' as const,
+    asset: 'RUSD',
+    capacity: '120 RUSD',
+    localPercent: 48,
+    status: 'Active' as const,
+    statusColor: 'green' as const,
   },
 ]
 
@@ -47,22 +49,17 @@ export function AppPreview() {
         <div className="space-y-8">
           <PreviewPageTitle
             title="Home"
-            subtitle="Off-chain CKB payments on the Fiber network."
+            subtitle="Node overview, channel liquidity, and recent activity."
             actions={
               <>
+                <Button outline>View assets</Button>
                 <Button>Send payment</Button>
                 <Button outline>Create invoice</Button>
               </>
             }
           />
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <PreviewStatCard
-              label="Local balance"
-              value="1,240.5"
-              unit="CKB"
-              subtext="Across active channels"
-            />
+          <div className="grid gap-4 sm:grid-cols-3">
             <PreviewStatCard
               label="Active channels"
               value="2"
@@ -95,6 +92,7 @@ export function AppPreview() {
                   <TableRow>
                     <TableHeader className="w-10">S/N</TableHeader>
                     <TableHeader>Peer</TableHeader>
+                    <TableHeader>Asset</TableHeader>
                     <TableHeader>Capacity</TableHeader>
                     <TableHeader>Liquidity</TableHeader>
                     <TableHeader>Status</TableHeader>
@@ -102,16 +100,17 @@ export function AppPreview() {
                 </TableHead>
                 <TableBody>
                   {DEMO_CHANNELS.map((channel, index) => (
-                    <TableRow key={channel.peer}>
+                    <TableRow key={`${channel.peer}-${channel.asset}`}>
                       <TableCell className="tabular-nums text-zinc-500 dark:text-zinc-400">
                         {index + 1}
                       </TableCell>
                       <TableCell className="font-mono text-zinc-600 dark:text-zinc-400">
                         {channel.peer}
                       </TableCell>
-                      <TableCell className="tabular-nums">
-                        {channel.capacity} CKB
+                      <TableCell>
+                        <Badge color="zinc">{channel.asset}</Badge>
                       </TableCell>
+                      <TableCell className="tabular-nums">{channel.capacity}</TableCell>
                       <TableCell>
                         <CapacityBar percent={channel.localPercent} />
                       </TableCell>

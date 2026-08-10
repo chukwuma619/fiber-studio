@@ -58,8 +58,8 @@ export function InvoiceParsePreview({
           </dd>
         </div>
         <div className="flex justify-between gap-3">
-          <dt className="text-zinc-500 dark:text-zinc-400">Currency</dt>
-          <dd className="text-zinc-700 dark:text-zinc-300">{preview.currency}</dd>
+          <dt className="text-zinc-500 dark:text-zinc-400">Asset</dt>
+          <dd className="text-zinc-700 dark:text-zinc-300">{preview.assetSymbol}</dd>
         </div>
         {preview.description ? (
           <div className="flex justify-between gap-3">

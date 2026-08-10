@@ -137,6 +137,8 @@ pub struct Channel {
     pub channel_outpoint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub funding_udt_type_script: Option<CkbScript>,
 }
 
 /// Peer entry from `list_peers`.
@@ -171,6 +173,8 @@ pub struct GraphChannelInfo {
     pub node1: String,
     pub node2: String,
     pub capacity: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -432,6 +436,8 @@ pub struct CkbInvoice {
     pub currency: Option<String>,
     pub amount: Option<String>,
     pub data: InvoiceData,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub udt_type_script: Option<CkbScript>,
 }
 
 /// Payment target for FNN `send_payment`.
@@ -442,6 +448,7 @@ pub enum PaymentKind<'a> {
     Keysend {
         target_pubkey: &'a str,
         amount: u128,
+        udt_type_script: Option<&'a CkbScript>,
     },
 }
 
@@ -482,15 +489,16 @@ pub struct SendPaymentResult {
     pub routers: Vec<SessionRoute>,
 }
 
-/// Creates a new CKB invoice via FNN `new_invoice`.
-pub async fn new_invoice(
-    amount_shannons: u128,
+/// Creates a new invoice, optionally denominated in a UDT.
+pub async fn new_invoice_with_udt(
+    amount: u128,
     currency: &str,
     description: Option<&str>,
     expiry_seconds: u64,
+    udt_type_script: Option<&CkbScript>,
 ) -> Result<NewInvoiceResult, RpcError> {
     let mut params = serde_json::json!({
-        "amount": format!("0x{amount_shannons:x}"),
+        "amount": format!("0x{amount:x}"),
         "currency": currency,
         "expiry": format!("0x{expiry_seconds:x}"),
         "hash_algorithm": "sha256",
@@ -498,6 +506,14 @@ pub async fn new_invoice(
 
     if let Some(desc) = description.filter(|value| !value.trim().is_empty()) {
         params["description"] = serde_json::Value::String(desc.to_string());
+    }
+
+    if let Some(script) = udt_type_script {
+        params["udt_type_script"] = serde_json::json!({
+            "code_hash": script.code_hash,
+            "hash_type": script.hash_type,
+            "args": script.args,
+        });
     }
 
     call_rpc("new_invoice", serde_json::json!([params])).await
@@ -534,10 +550,18 @@ pub async fn send_payment(request: SendPaymentRequest<'_>) -> Result<SendPayment
         PaymentKind::Keysend {
             target_pubkey,
             amount,
+            udt_type_script,
         } => {
             params["target_pubkey"] = serde_json::Value::String(target_pubkey.to_string());
             params["amount"] = serde_json::Value::String(format!("0x{amount:x}"));
             params["keysend"] = serde_json::Value::Bool(true);
+            if let Some(script) = udt_type_script {
+                params["udt_type_script"] = serde_json::json!({
+                    "code_hash": script.code_hash,
+                    "hash_type": script.hash_type,
+                    "args": script.args,
+                });
+            }
         }
     }
 
@@ -581,14 +605,23 @@ pub async fn open_channel(
     pubkey: &str,
     funding_amount: &str,
     is_public: bool,
+    funding_udt_type_script: Option<&CkbScript>,
 ) -> Result<Option<String>, RpcError> {
-    let params = serde_json::json!([{
+    let mut open_params = serde_json::json!({
         "pubkey": pubkey,
         "funding_amount": funding_amount,
         "public": is_public,
-    }]);
+    });
 
-    let result: OpenChannelResult = call_rpc("open_channel", params).await?;
+    if let Some(script) = funding_udt_type_script {
+        open_params["funding_udt_type_script"] = serde_json::json!({
+            "code_hash": script.code_hash,
+            "hash_type": script.hash_type,
+            "args": script.args,
+        });
+    }
+
+    let result: OpenChannelResult = call_rpc("open_channel", serde_json::json!([open_params])).await?;
     Ok(result.channel_id)
 }
 
@@ -1061,6 +1094,7 @@ mod tests {
             enabled: true,
             channel_outpoint: None,
             failure_detail: None,
+            funding_udt_type_script: None,
         }];
         let pending = vec![
             Channel {
@@ -1075,6 +1109,7 @@ mod tests {
                 enabled: false,
                 channel_outpoint: None,
                 failure_detail: None,
+                funding_udt_type_script: None,
             },
             Channel {
                 channel_id: "0xdef".into(),
@@ -1091,6 +1126,7 @@ mod tests {
                 enabled: false,
                 channel_outpoint: None,
                 failure_detail: Some("Peer did not respond".into()),
+                funding_udt_type_script: None,
             },
         ];
 

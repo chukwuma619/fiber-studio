@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
+use crate::fnn::assets::{self, AssetView};
 use crate::fnn::ckb_address;
 use crate::fnn::config_read;
 use crate::fnn::data_directory;
@@ -39,6 +40,7 @@ pub struct NodeSettingsResponse {
     pub relay_status: String,
     pub setup_completed_at: Option<String>,
     pub backup_paths: Vec<BackupPathEntry>,
+    pub supported_assets: Vec<AssetView>,
 }
 
 #[derive(Debug, Serialize)]
@@ -132,17 +134,24 @@ async fn build_node_settings(
         .map(|metadata| metadata.network.clone())
         .or_else(|| parsed_config.as_ref().and_then(|config| config.chain.clone()));
 
-    let (node_pub_key, live_version, funding_script) = if matches!(node_status, NodeRuntimeStatus::Running { .. }) {
+    let (node_pub_key, live_version, funding_script, supported_assets) = if matches!(
+        node_status,
+        NodeRuntimeStatus::Running { .. }
+    ) {
         match rpc::fetch_node_info().await {
-            Ok(info) => (
-                Some(info.pubkey),
-                Some(info.version),
-                Some(info.default_funding_lock_script),
-            ),
-            Err(_) => (None, None, None),
+            Ok(info) => {
+                let catalog = assets::build_asset_catalog(&info);
+                (
+                    Some(info.pubkey),
+                    Some(info.version),
+                    Some(info.default_funding_lock_script),
+                    catalog,
+                )
+            }
+            Err(_) => (None, None, None, Vec::new()),
         }
     } else {
-        (None, None, None)
+        (None, None, None, Vec::new())
     };
 
     let ckb_wallet_address = network
@@ -202,6 +211,7 @@ async fn build_node_settings(
             .as_ref()
             .map(|metadata| metadata.setup_completed_at.clone()),
         backup_paths: backup_paths(),
+        supported_assets,
     })
 }
 

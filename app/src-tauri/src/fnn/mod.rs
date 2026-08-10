@@ -1,4 +1,5 @@
 pub mod amounts;
+pub mod assets;
 pub mod backup;
 pub mod bootnodes;
 pub mod channel;

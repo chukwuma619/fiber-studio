@@ -66,7 +66,7 @@ export function PaymentDetailDialog({
             <DescriptionList className="sm:grid-cols-[min(40%,9rem)_minmax(0,1fr)]">
               <DescriptionTerm>Amount</DescriptionTerm>
               <DescriptionDetails className="tabular-nums font-medium">
-                {payment.amountCkb ?? "—"}
+                {payment.amountDisplay ?? "—"}
               </DescriptionDetails>
 
               <DescriptionTerm>Route fee</DescriptionTerm>

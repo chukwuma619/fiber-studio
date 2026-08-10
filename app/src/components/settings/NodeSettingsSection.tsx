@@ -59,6 +59,17 @@ export function NodeSettingsSection({
             mono
           />
           <SettingsRow label="fnn version" value={settings.fnnVersion} />
+          {settings.supportedAssets.length > 0 ? (
+            <SettingsRow
+              label="Supported assets"
+              value={settings.supportedAssets.map((asset) => asset.symbol).join(", ")}
+            />
+          ) : (
+            <SettingsRow
+              label="Supported assets"
+              value="CKB only (add UDTs under fiber.udt_whitelist in config.yml)"
+            />
+          )}
         </SettingsRows>
         {!nodeStopped ? (
           <p className="border-t border-zinc-200 px-5 py-3 text-xs text-amber-700 dark:border-zinc-800 dark:text-amber-400">
