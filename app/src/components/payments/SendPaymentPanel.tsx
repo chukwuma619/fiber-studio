@@ -24,6 +24,7 @@ import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Subheading } from "../ui/heading"
 import { Input } from "../ui/input"
+import { Link } from "../ui/link"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Select } from "../ui/select"
 import { Text } from "../ui/text"
@@ -137,6 +138,33 @@ export function SendPaymentPanel({
 
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
+
+  const modeHint =
+    sendMode === "invoice"
+      ? `Paste a Fiber (${invoiceCurrency}) invoice to pay over the network.`
+      : sendMode === "keysend"
+        ? "Push an amount to a node pubkey without an invoice."
+        : cchConfigured
+          ? "Paste a Lightning invoice — paid with cWBTC via your CCH hub."
+          : "Lightning payments need a CCH hub URL in Settings."
+
+  const applyInvoiceInput = useCallback((value: string) => {
+    if (looksLikeBolt11(value)) {
+      setSendMode("lightning")
+      setLightningInvoice(value)
+      setInvoice("")
+      setParsedInvoice(null)
+      setParseError(null)
+      setRoutePreview(null)
+      setPreviewError(null)
+      setExistingPayment(null)
+      setCchOrder(null)
+      setCchQuoteError(null)
+      return
+    }
+
+    setInvoice(value)
+  }, [])
 
   useEffect(() => {
     if (sendTargets.length === 0) {
@@ -416,277 +444,280 @@ export function SendPaymentPanel({
     <>
       <div
         id="send-payment-panel"
-        className="min-w-0 rounded-lg bg-white p-6 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10"
+        className="flex min-w-0 flex-col rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10"
       >
-        <Subheading level={3}>Send payment</Subheading>
-        <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay a Fiber invoice, push via keysend, or pay Lightning via CCH
-          (cWBTC)
-        </Text>
-
-        {relayWarning ? (
-          <Text className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-            {relayWarning}
+        <div className="border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+          <Subheading level={3}>Send</Subheading>
+          <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            {modeHint}
           </Text>
-        ) : null}
-
-        <div className="mt-4 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              sendMode === "invoice"
-                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
-                : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-            onClick={() => setSendMode("invoice")}
-          >
-            Invoice
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              sendMode === "keysend"
-                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
-                : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-            onClick={() => setSendMode("keysend")}
-          >
-            Keysend
-          </button>
-          <button
-            type="button"
-            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
-              sendMode === "lightning"
-                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
-                : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
-            }`}
-            onClick={() => setSendMode("lightning")}
-          >
-            Lightning
-          </button>
         </div>
 
-        {sendMode === "invoice" ? (
-          <FieldGroup className="mt-4">
-            <Field>
-              <Label>Invoice string</Label>
-              <Input
-                type="text"
-                placeholder="fibt1000000001p…"
-                className="font-mono text-xs"
-                value={invoice}
-                onChange={(event) => setInvoice(event.target.value)}
-                disabled={!running}
-              />
-              <Description>
-                Bech32m invoice ({invoiceCurrency} on{" "}
-                {network === "mainnet" ? "mainnet" : "testnet"})
-              </Description>
-            </Field>
-          </FieldGroup>
-        ) : sendMode === "lightning" ? (
-          <FieldGroup className="mt-4">
-            <Field>
-              <Label>Lightning invoice</Label>
-              <Input
-                type="text"
-                placeholder="lnbc… or lntb…"
-                className="font-mono text-xs"
-                value={lightningInvoice}
-                onChange={(event) => {
-                  setLightningInvoice(event.target.value)
-                  setCchOrder(null)
-                  setCchQuoteError(null)
-                }}
-                disabled={!running}
-              />
-              <Description>
-                Pays the Lightning invoice with cWBTC through a Cross-Chain Hub.
-                Requires a configured hub URL and a cWBTC channel path.
-              </Description>
-            </Field>
-          </FieldGroup>
-        ) : (
-          <FieldGroup className="mt-4">
-            {sendTargets.length > 0 ? (
+        <div className="flex flex-1 flex-col px-5 py-4">
+          {relayWarning ? (
+            <Text className="mb-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              {relayWarning}
+            </Text>
+          ) : null}
+
+          <div
+            role="tablist"
+            aria-label="Send payment mode"
+            className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800"
+          >
+            {(
+              [
+                ["invoice", "Fiber"],
+                ["keysend", "Keysend"],
+                ["lightning", "Lightning"],
+              ] as const
+            ).map(([mode, label]) => (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={sendMode === mode}
+                className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                  sendMode === mode
+                    ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
+                    : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+                }`}
+                onClick={() => setSendMode(mode)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {sendMode === "invoice" ? (
+            <FieldGroup className="mt-4">
               <Field>
-                <Label>Recipient node</Label>
+                <Label>Fiber invoice</Label>
+                <Input
+                  type="text"
+                  placeholder={`${invoiceCurrency.toLowerCase()}1…`}
+                  className="font-mono text-xs"
+                  value={invoice}
+                  onChange={(event) => applyInvoiceInput(event.target.value)}
+                  disabled={!running}
+                />
+                <Description>
+                  {invoiceCurrency} on{" "}
+                  {network === "mainnet" ? "mainnet" : "testnet"}. Lightning
+                  invoices (ln…) switch to the Lightning tab automatically.
+                </Description>
+              </Field>
+            </FieldGroup>
+          ) : sendMode === "lightning" ? (
+            <FieldGroup className="mt-4">
+              <Field>
+                <Label>Lightning invoice</Label>
+                <Input
+                  type="text"
+                  placeholder="lnbc… or lntb…"
+                  className="font-mono text-xs"
+                  value={lightningInvoice}
+                  onChange={(event) => {
+                    setLightningInvoice(event.target.value)
+                    setCchOrder(null)
+                    setCchQuoteError(null)
+                  }}
+                  disabled={!running}
+                />
+                <Description>
+                  Paid with cWBTC through your configured Cross-Chain Hub.
+                </Description>
+              </Field>
+            </FieldGroup>
+          ) : (
+            <FieldGroup className="mt-4">
+              {sendTargets.length > 0 ? (
+                <Field>
+                  <Label>Recipient node</Label>
+                  <Select
+                    value={targetPubkey}
+                    onChange={(event) => setTargetPubkey(event.target.value)}
+                    disabled={!running}
+                  >
+                    {sendTargets.map((target) => (
+                      <option key={target.pubkey} value={target.pubkey}>
+                        {target.label} · {truncatePubkey(target.pubkey)}
+                      </option>
+                    ))}
+                  </Select>
+                  <Description>
+                    Peers with a ready channel you can spend from
+                  </Description>
+                </Field>
+              ) : (
+                <Field>
+                  <Label>Recipient node</Label>
+                  <Input
+                    type="text"
+                    placeholder="66-character hex pubkey (02 or 03…)"
+                    className="font-mono text-xs"
+                    value={targetPubkey}
+                    onChange={(event) => setTargetPubkey(event.target.value)}
+                    disabled={!running}
+                  />
+                  <Description>Paste the recipient node pubkey</Description>
+                </Field>
+              )}
+
+              <Field>
+                <Label>Asset</Label>
                 <Select
-                  value={targetPubkey}
-                  onChange={(event) => setTargetPubkey(event.target.value)}
+                  value={keysendAsset.id}
+                  onChange={(event) => setKeysendAssetId(event.target.value)}
                   disabled={!running}
                 >
-                  {sendTargets.map((target) => (
-                    <option key={target.pubkey} value={target.pubkey}>
-                      {target.label} · {truncatePubkey(target.pubkey)}
+                  {catalog.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.symbol}
+                      {asset.name !== asset.symbol ? ` · ${asset.name}` : ""}
                     </option>
                   ))}
                 </Select>
                 <Description>
-                  Peers with a ready channel you can spend from
+                  Whitelisted assets your node can route over Fiber
                 </Description>
               </Field>
-            ) : (
+
               <Field>
-                <Label>Recipient node</Label>
+                <Label>Amount ({keysendAsset.symbol})</Label>
                 <Input
                   type="text"
-                  placeholder="66-character hex pubkey (02 or 03…)"
-                  className="font-mono text-xs"
-                  value={targetPubkey}
-                  onChange={(event) => setTargetPubkey(event.target.value)}
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={keysendAmount}
+                  onChange={(event) => setKeysendAmount(event.target.value)}
                   disabled={!running}
                 />
-                <Description>Paste the recipient node pubkey</Description>
               </Field>
-            )}
+            </FieldGroup>
+          )}
 
-            <Field>
-              <Label>Asset</Label>
-              <Select
-                value={keysendAsset.id}
-                onChange={(event) => setKeysendAssetId(event.target.value)}
-                disabled={!running}
-              >
-                {catalog.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.symbol}
-                    {asset.name !== asset.symbol ? ` · ${asset.name}` : ""}
-                  </option>
-                ))}
-              </Select>
-              <Description>
-                Whitelisted assets your node can route over Fiber
-              </Description>
-            </Field>
-
-            <Field>
-              <Label>Amount ({keysendAsset.symbol})</Label>
-              <Input
-                type="text"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={keysendAmount}
-                onChange={(event) => setKeysendAmount(event.target.value)}
-                disabled={!running}
+          {sendMode === "invoice" ? (
+            <div className="mt-4">
+              <InvoiceParsePreview
+                preview={parsedInvoice}
+                isLoading={parseLoading}
+                error={parseError}
+                onDismissError={() => setParseError(null)}
               />
-            </Field>
-          </FieldGroup>
-        )}
+            </div>
+          ) : null}
 
-        {sendMode === "invoice" ? (
-          <div className="mt-4">
-            <InvoiceParsePreview
-              preview={parsedInvoice}
-              isLoading={parseLoading}
-              error={parseError}
-              onDismissError={() => setParseError(null)}
-            />
+          {sendMode === "lightning" && !cchConfigured ? (
+            <Text className="mt-3 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              Set a CCH hub RPC URL in{" "}
+              <Link
+                href="/settings"
+                className="font-medium underline underline-offset-2"
+              >
+                Settings → Cross-chain
+              </Link>{" "}
+              before paying Lightning invoices.
+            </Text>
+          ) : null}
+
+          {sendMode === "lightning" && cchQuoteError ? (
+            <div className="mt-4">
+              <PageErrorBanner
+                message={cchQuoteError}
+                onDismiss={() => setCchQuoteError(null)}
+                className="px-3 py-2.5 text-xs"
+              />
+            </div>
+          ) : null}
+
+          {sendMode === "lightning" && cchOrder && !cchDialogOpen ? (
+            <div className="mt-4 rounded-lg bg-zinc-50 px-3 py-2.5 text-xs dark:bg-zinc-800/50">
+              <p className="font-medium">
+                Hub quote: {cchOrder.amountDisplay} (fee {cchOrder.feeDisplay})
+              </p>
+              <p className="mt-1 text-zinc-500 dark:text-zinc-400">
+                Status {cchOrder.status}
+              </p>
+            </div>
+          ) : null}
+
+          {existingPayment ? (
+            <div
+              className={`mt-4 rounded-lg px-3 py-2.5 text-xs ${
+                existingPayment.status === "Success"
+                  ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
+                  : existingPayment.status === "Failed"
+                    ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
+                    : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+              }`}
+            >
+              <p className="font-medium">{existingPayment.message}</p>
+              <p className="mt-1 font-mono opacity-80">
+                {existingPayment.paymentHash.length > 18
+                  ? `${existingPayment.paymentHash.slice(0, 14)}…`
+                  : existingPayment.paymentHash}
+              </p>
+            </div>
+          ) : sendMode === "invoice" ? (
+            <div className="mt-4">
+              <PaymentRoutePreview
+                preview={routePreview}
+                isLoading={previewLoading}
+                error={previewError}
+                compact
+                onDismissError={() => setPreviewError(null)}
+                emptyHint="Paste an invoice to preview the route"
+              />
+            </div>
+          ) : sendMode === "keysend" && previewError ? (
+            <div className="mt-4">
+              <PageErrorBanner
+                message={previewError}
+                onDismiss={() => setPreviewError(null)}
+                className="px-3 py-2.5 text-xs"
+              />
+            </div>
+          ) : null}
+
+          {sendMode === "invoice" &&
+          parsedInvoice &&
+          !parsedInvoice.networkMatch ? (
+            <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+              Fix the network mismatch before sending this invoice.
+            </Text>
+          ) : null}
+
+          {sendMode === "keysend" && sendTargets.length === 0 ? (
+            <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+              No payable channel peers yet. Open a channel with spendable
+              balance, or paste a recipient pubkey if you already have a path.
+            </Text>
+          ) : null}
+
+          <div className="mt-auto pt-4">
+            <Button
+              className="w-full"
+              onClick={() => void handleReviewPayment()}
+              disabled={
+                !running ||
+                (sendMode === "lightning"
+                  ? !cchConfigured ||
+                    !looksLikeBolt11(lightningInvoice) ||
+                    cchQuoteLoading
+                  : !canReviewPayment)
+              }
+            >
+              {sendMode === "lightning"
+                ? cchQuoteLoading
+                  ? "Creating CCH order…"
+                  : "Review Lightning swap"
+                : sendMode === "keysend" && previewLoading
+                  ? "Finding route…"
+                  : "Review payment"}
+            </Button>
           </div>
-        ) : null}
-
-        {sendMode === "lightning" && !cchConfigured ? (
-          <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-            Set a CCH hub RPC URL in Settings → Cross-chain before paying
-            Lightning invoices.
-          </Text>
-        ) : null}
-
-        {sendMode === "lightning" && cchQuoteError ? (
-          <div className="mt-4">
-            <PageErrorBanner
-              message={cchQuoteError}
-              onDismiss={() => setCchQuoteError(null)}
-              className="px-3 py-2.5 text-xs"
-            />
-          </div>
-        ) : null}
-
-        {sendMode === "lightning" && cchOrder && !cchDialogOpen ? (
-          <div className="mt-4 rounded-lg bg-zinc-50 px-3 py-2.5 text-xs dark:bg-zinc-800/50">
-            <p className="font-medium">
-              Hub quote: {cchOrder.amountDisplay} (fee {cchOrder.feeDisplay})
-            </p>
-            <p className="mt-1 text-zinc-500 dark:text-zinc-400">
-              Status {cchOrder.status}
-            </p>
-          </div>
-        ) : null}
-
-        {existingPayment ? (
-          <div
-            className={`mt-4 rounded-lg px-3 py-2.5 text-xs ${
-              existingPayment.status === "Success"
-                ? "bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300"
-                : existingPayment.status === "Failed"
-                  ? "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300"
-                  : "bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-            }`}
-          >
-            <p className="font-medium">{existingPayment.message}</p>
-            <p className="mt-1 font-mono opacity-80">
-              {existingPayment.paymentHash.length > 18
-                ? `${existingPayment.paymentHash.slice(0, 14)}…`
-                : existingPayment.paymentHash}
-            </p>
-          </div>
-        ) : sendMode === "invoice" ? (
-          <div className="mt-4">
-            <PaymentRoutePreview
-              preview={routePreview}
-              isLoading={previewLoading}
-              error={previewError}
-              compact
-              onDismissError={() => setPreviewError(null)}
-              emptyHint="Paste an invoice to preview the route"
-            />
-          </div>
-        ) : sendMode === "keysend" && previewError ? (
-          <div className="mt-4">
-            <PageErrorBanner
-              message={previewError}
-              onDismiss={() => setPreviewError(null)}
-              className="px-3 py-2.5 text-xs"
-            />
-          </div>
-        ) : null}
-
-        {sendMode === "invoice" &&
-        parsedInvoice &&
-        !parsedInvoice.networkMatch ? (
-          <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-            Fix the network mismatch before sending this invoice.
-          </Text>
-        ) : null}
-
-        {sendMode === "keysend" && sendTargets.length === 0 ? (
-          <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
-            No payable channel peers yet. Open a channel and wait until it is
-            ready with spendable (local) balance, or paste a recipient pubkey
-            if you already have a routable path.
-          </Text>
-        ) : null}
-
-        <Button
-          className="mt-4 w-full"
-          onClick={() => void handleReviewPayment()}
-          disabled={
-            !running ||
-            (sendMode === "lightning"
-              ? !cchConfigured ||
-                !looksLikeBolt11(lightningInvoice) ||
-                cchQuoteLoading
-              : !canReviewPayment)
-          }
-        >
-          {sendMode === "lightning"
-            ? cchQuoteLoading
-              ? "Creating CCH order…"
-              : "Review Lightning swap"
-            : sendMode === "keysend" && previewLoading
-              ? "Finding route…"
-              : "Review payment"}
-        </Button>
+        </div>
       </div>
 
       {sendMode !== "lightning" ? (

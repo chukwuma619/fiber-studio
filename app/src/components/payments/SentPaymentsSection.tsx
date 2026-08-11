@@ -82,7 +82,7 @@ export function SentPaymentsSection({
               No payments yet
             </p>
             <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-              Payments appear here after you send one (invoice or keysend).
+              Payments appear here after you send (Fiber, keysend, or Lightning).
             </Text>
           </div>
         ) : (

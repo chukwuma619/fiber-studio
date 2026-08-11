@@ -191,56 +191,27 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   }, [refresh])
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-2xl">
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send CKB and UDT off-chain via invoice, push to a known node
-            (keysend), or swap with Bitcoin Lightning through a CCH hub.
+            Send on the left. Receive and track invoices on the right.
           </Text>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setCreateDialogOpen(true)} disabled={!running}>
-            Create invoice
-          </Button>
-          <Button
-            outline
-            onClick={() => setReceiveBtcOpen(true)}
-            disabled={!running || !cchConfigured}
-            title={
-              cchConfigured
-                ? undefined
-                : "Configure a CCH hub URL in Settings first"
-            }
-          >
-            Receive BTC
-          </Button>
-          <Button
-            outline
-            onClick={() => {
-              document.getElementById("send-payment-panel")?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              })
-            }}
-            disabled={!running}
-          >
-            Send payment
-          </Button>
-          <Button
-            outline
-            onClick={handleRefresh}
-            disabled={!running || isRefreshing}
-            aria-label="Refresh payments"
-          >
-            <RefreshCw
-              className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
-              data-slot="icon"
-            />
-            Refresh
-          </Button>
-        </div>
+        <Button
+          outline
+          onClick={handleRefresh}
+          disabled={!running || isRefreshing}
+          aria-label="Refresh payments"
+          className="shrink-0"
+        >
+          <RefreshCw
+            className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
+            data-slot="icon"
+          />
+          Refresh
+        </Button>
       </div>
 
       {error ? (
@@ -255,26 +226,11 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           {receivedInvoiceCount === 1
             ? "1 invoice has an incoming payment settling."
             : `${receivedInvoiceCount} invoices have incoming payments settling.`}{" "}
-          Highlighted rows in the invoice table below — status updates every few
-          seconds.
+          Highlighted rows update every few seconds.
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <PaymentsInvoicesSection
-          status={status}
-          running={running}
-          available={available}
-          isPaymentsLoading={isPaymentsLoading}
-          network={data?.network ?? null}
-          invoices={invoices}
-          invoiceFilter={invoiceFilter}
-          onInvoiceFilterChange={setInvoiceFilter}
-          onSelectInvoice={setSelectedInvoice}
-          onImport={() => setImportDialogOpen(true)}
-          onCreate={() => setCreateDialogOpen(true)}
-        />
-
+      <div className="grid items-start gap-6 lg:grid-cols-2">
         <SendPaymentPanel
           running={running}
           available={available}
@@ -295,6 +251,22 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           onGetCchOrder={cchGetOrder}
           onPaymentSettled={handleMutationSuccess}
           onClearError={clearActionError}
+        />
+
+        <PaymentsInvoicesSection
+          status={status}
+          running={running}
+          available={available}
+          isPaymentsLoading={isPaymentsLoading}
+          network={data?.network ?? null}
+          invoices={invoices}
+          invoiceFilter={invoiceFilter}
+          onInvoiceFilterChange={setInvoiceFilter}
+          onSelectInvoice={setSelectedInvoice}
+          onImport={() => setImportDialogOpen(true)}
+          onCreate={() => setCreateDialogOpen(true)}
+          cchConfigured={cchConfigured}
+          onReceiveBtc={() => setReceiveBtcOpen(true)}
         />
       </div>
 
