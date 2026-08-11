@@ -24,26 +24,35 @@ pub fn ckb_rpc_url(network: &str) -> &'static str {
     }
 }
 
+/// Indexer search key that matches only cells whose lock script equals `lock_script`.
+fn lock_script_search_key(lock_script: &CkbScript) -> serde_json::Value {
+    serde_json::json!({
+        "script": {
+            "code_hash": lock_script.code_hash,
+            "hash_type": lock_script.hash_type,
+            "args": lock_script.args,
+        },
+        "script_type": "lock",
+        "script_search_mode": "exact"
+    })
+}
+
+fn cells_capacity_request_body(lock_script: &CkbScript) -> serde_json::Value {
+    serde_json::json!({
+        "jsonrpc": "2.0",
+        "method": "get_cells_capacity",
+        "params": [lock_script_search_key(lock_script)],
+        "id": 1
+    })
+}
+
 /// Returns total on-chain capacity (shannons) for cells locked by the wallet script.
 pub async fn fetch_lock_script_capacity(
     rpc_url: &str,
     lock_script: &CkbScript,
 ) -> Result<u128, RpcError> {
     let client = reqwest::Client::new();
-    let search_key = serde_json::json!({
-        "script": {
-            "code_hash": lock_script.code_hash,
-            "hash_type": lock_script.hash_type,
-            "args": lock_script.args,
-        },
-        "script_type": "lock"
-    });
-    let body = serde_json::json!({
-        "jsonrpc": "2.0",
-        "method": "get_cells_capacity",
-        "params": [search_key],
-        "id": 1
-    });
+    let body = cells_capacity_request_body(lock_script);
 
     let response = client.post(rpc_url).json(&body).send().await?;
     let payload: IndexerRpcResponse<CellsCapacityResult> = response.json().await?;
@@ -136,14 +145,7 @@ pub async fn scan_wallet_udt_balances(
     lock_script: &CkbScript,
 ) -> Result<HashMap<String, (CkbScript, u128)>, RpcError> {
     let client = reqwest::Client::new();
-    let search_key = serde_json::json!({
-        "script": {
-            "code_hash": lock_script.code_hash,
-            "hash_type": lock_script.hash_type,
-            "args": lock_script.args,
-        },
-        "script_type": "lock"
-    });
+    let search_key = lock_script_search_key(lock_script);
 
     let mut totals: HashMap<String, (CkbScript, u128)> = HashMap::new();
     let mut cursor: Option<serde_json::Value> = None;
@@ -195,6 +197,15 @@ pub async fn scan_wallet_udt_balances(
 mod tests {
     use super::*;
 
+    fn sample_lock_script() -> CkbScript {
+        CkbScript {
+            code_hash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
+                .to_string(),
+            hash_type: "type".to_string(),
+            args: "0xabcdef0123456789".to_string(),
+        }
+    }
+
     #[test]
     fn ckb_rpc_url_maps_networks() {
         assert_eq!(
@@ -202,6 +213,31 @@ mod tests {
             super::super::config::MAINNET_CKB_RPC_URL
         );
         assert_eq!(ckb_rpc_url("testnet"), TESTNET_CKB_RPC_URL);
+    }
+
+    #[test]
+    fn cells_capacity_request_uses_exact_script_search_mode() {
+        let lock_script = sample_lock_script();
+        let body = cells_capacity_request_body(&lock_script);
+        let search_key = body["params"][0]
+            .as_object()
+            .expect("search key object");
+
+        assert_eq!(body["method"], "get_cells_capacity");
+        assert_eq!(
+            search_key.get("script_search_mode"),
+            Some(&serde_json::json!("exact"))
+        );
+        assert_eq!(search_key["script_type"], "lock");
+        assert_eq!(search_key["script"]["code_hash"], lock_script.code_hash);
+        assert_eq!(search_key["script"]["hash_type"], lock_script.hash_type);
+        assert_eq!(search_key["script"]["args"], lock_script.args);
+    }
+
+    #[test]
+    fn lock_script_search_key_requires_exact_match() {
+        let search_key = lock_script_search_key(&sample_lock_script());
+        assert_eq!(search_key["script_search_mode"], "exact");
     }
 
     #[test]
