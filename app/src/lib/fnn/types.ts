@@ -231,7 +231,6 @@ export type PaymentsPageResponse = {
   available: boolean
   network: string | null
   pubkey: string | null
-  inChannelBalanceCkb: number
   onChainWalletCkb: number | null
   onChainWalletError?: string | null
   lockScript: CkbScript | null

@@ -9,7 +9,7 @@ use tokio::sync::Mutex;
 
 use crate::fnn::amounts;
 use crate::fnn::assets::{self, AssetView};
-use crate::fnn::channel::{sum_local_balances, SHANNONS_PER_CKB};
+use crate::fnn::channel::SHANNONS_PER_CKB;
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
@@ -74,7 +74,6 @@ pub struct PaymentsPageResponse {
     pub available: bool,
     pub network: Option<String>,
     pub pubkey: Option<String>,
-    pub in_channel_balance_ckb: u64,
     pub on_chain_wallet_ckb: Option<u64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_chain_wallet_error: Option<String>,
@@ -237,7 +236,6 @@ fn payments_page_unavailable() -> PaymentsPageResponse {
         available: false,
         network: None,
         pubkey: None,
-        in_channel_balance_ckb: 0,
         on_chain_wallet_ckb: None,
         on_chain_wallet_error: None,
         lock_script: None,
@@ -581,8 +579,6 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
 
     let catalog = assets::build_asset_catalog(&node_info);
     let in_channel_totals = assets::build_channel_totals(&catalog, &channels);
-    let total_local = sum_local_balances(&channels);
-    let in_channel_balance_ckb = (total_local / SHANNONS_PER_CKB) as u64;
 
     let saved_peers = studio_metadata
         .as_ref()
@@ -667,7 +663,6 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         available: true,
         network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
         pubkey: Some(node_info.pubkey),
-        in_channel_balance_ckb,
         on_chain_wallet_ckb,
         on_chain_wallet_error,
         lock_script: Some(node_info.default_funding_lock_script),
