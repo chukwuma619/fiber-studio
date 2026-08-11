@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from "react"
 import { getErrorMessage } from "../../lib/fnn/errors"
+import { formatCkb, parseHexU128 } from "../../lib/fnn/ckbAmount"
 import {
-  formatCkb,
   parseExistingPaymentSession,
-  parseHexU128,
   paymentErrorSuggestsOpenChannels,
   paymentErrorSummary,
   sanitizePaymentError,
 } from "../../lib/fnn/format"
+import {
+  buildSendOptions,
+  formatEffectiveMaxFeeLabel,
+} from "../../lib/fnn/maxFee"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -27,6 +30,7 @@ import {
 } from "../ui/dialog"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
+import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
 type Step = "review" | "inflight" | "success" | "failure"
@@ -67,24 +71,6 @@ function isPendingPaymentStatus(status: string): boolean {
   return status === "Created" || status === "Inflight"
 }
 
-function buildSendOptions(maxFeeCkb: string, timeoutSeconds: string) {
-  const parsedMaxFee = Number(maxFeeCkb.trim())
-  const parsedTimeout = Number(timeoutSeconds.trim())
-
-  return {
-    maxFeeCkb:
-      maxFeeCkb.trim() && Number.isFinite(parsedMaxFee) && parsedMaxFee > 0
-        ? parsedMaxFee
-        : undefined,
-    timeoutSeconds:
-      timeoutSeconds.trim() &&
-      Number.isInteger(parsedTimeout) &&
-      parsedTimeout > 0
-        ? parsedTimeout
-        : undefined,
-  }
-}
-
 export function SendPaymentDialog({
   open,
   onClose,
@@ -107,6 +93,7 @@ export function SendPaymentDialog({
   const [timeoutSeconds, setTimeoutSeconds] = useState(
     String(DEFAULT_TIMEOUT_SECONDS),
   )
+  const [localError, setLocalError] = useState<string | null>(null)
   const [frozenPreview, setFrozenPreview] =
     useState<PreviewSendPaymentResult | null>(null)
   const pollStartedAtRef = useRef<number | null>(null)
@@ -121,6 +108,7 @@ export function SendPaymentDialog({
       setResult(null)
       setMaxFeeCkb("")
       setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
+      setLocalError(null)
       pollStartedAtRef.current = null
       setFrozenPreview(preview)
       return
@@ -131,23 +119,13 @@ export function SendPaymentDialog({
       setResult(null)
       setMaxFeeCkb("")
       setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
+      setLocalError(null)
       pollStartedAtRef.current = null
       setFrozenPreview(null)
     }
   }, [open, preview])
 
   const activePreview = frozenPreview ?? preview
-
-  useEffect(() => {
-    if (!open || step !== "review" || !activePreview?.feeDisplay || maxFeeCkb) {
-      return
-    }
-
-    const suggested = activePreview.feeDisplay.replace(/\s+CKB$/i, "").trim()
-    if (suggested) {
-      setMaxFeeCkb(suggested)
-    }
-  }, [activePreview?.feeDisplay, maxFeeCkb, open, step])
 
   useEffect(() => {
     if (step !== "inflight" || !result?.paymentHash) {
@@ -199,6 +177,7 @@ export function SendPaymentDialog({
   const handleClose = () => {
     setStep("review")
     setResult(null)
+    setLocalError(null)
     pollStartedAtRef.current = null
     onClearError()
     onClose()
@@ -258,9 +237,15 @@ export function SendPaymentDialog({
   }
 
   const handleConfirm = async () => {
+    setLocalError(null)
     onClearError()
     pollStartedAtRef.current = null
-    const sendOptions = buildSendOptions(maxFeeCkb, timeoutSeconds)
+    const sendOptionsResult = buildSendOptions(maxFeeCkb, timeoutSeconds)
+    if (!sendOptionsResult.ok) {
+      setLocalError(sendOptionsResult.error)
+      return
+    }
+    const sendOptions = sendOptionsResult.options
 
     try {
       const paymentResult =
@@ -277,12 +262,17 @@ export function SendPaymentDialog({
   }
 
   const displayAmount = activePreview?.amountDisplay ?? "—"
-  const displayFee = activePreview?.feeDisplay ?? "—"
+  const displayFee =
+    activePreview?.feeShannons != null
+      ? `${formatCkb(activePreview.feeShannons)} CKB`
+      : (activePreview?.feeDisplay ?? "—")
+  const effectiveMaxFeeLabel = formatEffectiveMaxFeeLabel(maxFeeCkb)
   const hopCount = activePreview?.routeHops.length ?? result?.routeHops.length ?? 0
   const displayRoute = hopCount > 0
     ? formatRouteHops(activePreview?.routeHops ?? result?.routeHops ?? [])
     : "—"
   const isKeysend = mode === "keysend"
+  const displayError = localError ?? (step === "review" ? actionError : null)
 
   const rawFailureError = result?.failedError ?? actionError ?? null
   const existingSession = rawFailureError
@@ -361,6 +351,14 @@ export function SendPaymentDialog({
                   {displayFee}
                 </dd>
               </div>
+              <div className="flex items-center justify-between gap-4">
+                <dt className="text-sm text-zinc-500 dark:text-zinc-400">
+                  Effective max fee
+                </dt>
+                <dd className="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
+                  {effectiveMaxFeeLabel}
+                </dd>
+              </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="text-sm text-zinc-500 dark:text-zinc-400">Route</dt>
                 <dd className="max-w-[70%] text-right font-mono text-xs text-zinc-600 dark:text-zinc-400">
@@ -376,13 +374,17 @@ export function SendPaymentDialog({
                   <Input
                     type="text"
                     inputMode="decimal"
-                    placeholder="0.00"
+                    placeholder="Node default"
                     value={maxFeeCkb}
-                    onChange={(event) => setMaxFeeCkb(event.target.value)}
+                    onChange={(event) => {
+                      setMaxFeeCkb(event.target.value)
+                      setLocalError(null)
+                    }}
                     disabled={isActing}
                   />
                   <Description>
-                    Maximum routing fee you are willing to pay
+                    Leave empty for the node default fee cap, or enter a
+                    positive maximum in CKB
                   </Description>
                 </Field>
                 <Field>
@@ -401,8 +403,21 @@ export function SendPaymentDialog({
               </div>
             </FieldGroup>
 
+            {displayError ? (
+              <PageErrorBanner
+                message={displayError}
+                onDismiss={() => {
+                  setLocalError(null)
+                  onClearError()
+                }}
+              />
+            ) : null}
+
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               Off-chain Fiber payments are irreversible once confirmed.
+              {maxFeeCkb.trim() === ""
+                ? " With Max fee empty, FNN applies its own default maximum fee cap (typically around 0.5% of the payment)."
+                : null}
             </div>
           </div>
         ) : step === "inflight" ? (

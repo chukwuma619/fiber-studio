@@ -383,6 +383,17 @@ mod tests {
     }
 
     #[test]
+    fn format_human_amount_keeps_sub_cent_fees_visible() {
+        // Matches the issue example: non-zero fee below 0.01 CKB must not look like 0.
+        assert_eq!(format_human_amount(366_504, 8), "0.00366504");
+        assert_eq!(format_human_amount(1, 8), "0.00000001");
+        assert_eq!(
+            format_amount_display(366_504, &ckb_asset()),
+            "0.00366504 CKB"
+        );
+    }
+
+    #[test]
     fn parse_human_amount_str_handles_decimals() {
         assert_eq!(
             super::parse_human_amount_str("2.25", 8).expect("parse"),
