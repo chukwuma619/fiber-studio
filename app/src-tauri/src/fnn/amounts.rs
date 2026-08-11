@@ -1,5 +1,6 @@
 use crate::fnn::channel::SHANNONS_PER_CKB;
 
+#[cfg(test)]
 const CKB_DECIMALS: u8 = 8;
 
 #[cfg(test)]
@@ -78,6 +79,7 @@ pub fn parse_decimal_amount_str(value: &str, decimals: u8) -> Result<u128, Strin
     Ok(raw)
 }
 
+#[cfg(test)]
 pub fn ckb_to_shannons_str(amount_ckb: &str) -> Result<u128, String> {
     parse_decimal_amount_str(amount_ckb, CKB_DECIMALS)
 }
