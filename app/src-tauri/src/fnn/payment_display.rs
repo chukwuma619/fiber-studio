@@ -1,3 +1,5 @@
+use std::cmp::Ordering;
+
 use serde::Serialize;
 
 use crate::fnn::assets::{self, AssetView};
@@ -103,6 +105,40 @@ pub fn route_hops_from_payment(result: &rpc::SendPaymentResult) -> Vec<String> {
     route_hops_from_routers(&result.routers)
 }
 
+/// Newest-first ordering for payment lists:
+/// `last_updated_at` desc, then `created_at` desc, then `payment_hash` asc.
+pub fn compare_payments_by_recent_activity(
+    left_last_updated_at: u64,
+    left_created_at: u64,
+    left_payment_hash: &str,
+    right_last_updated_at: u64,
+    right_created_at: u64,
+    right_payment_hash: &str,
+) -> Ordering {
+    right_last_updated_at
+        .cmp(&left_last_updated_at)
+        .then_with(|| right_created_at.cmp(&left_created_at))
+        .then_with(|| left_payment_hash.cmp(right_payment_hash))
+}
+
+pub fn sort_payments_by_recent_activity<T, F>(payments: &mut [T], fields: F)
+where
+    F: Fn(&T) -> (u64, u64, &str),
+{
+    payments.sort_by(|left, right| {
+        let (left_updated, left_created, left_hash) = fields(left);
+        let (right_updated, right_created, right_hash) = fields(right);
+        compare_payments_by_recent_activity(
+            left_updated,
+            left_created,
+            left_hash,
+            right_updated,
+            right_created,
+            right_hash,
+        )
+    });
+}
+
 fn amount_shannons_from_routers(routers: &[rpc::SessionRoute]) -> Option<&str> {
     routers.first().and_then(|route| {
         route
@@ -110,4 +146,55 @@ fn amount_shannons_from_routers(routers: &[rpc::SessionRoute]) -> Option<&str> {
             .last()
             .and_then(|node| node.amount.as_deref())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compare_payments_by_recent_activity;
+    use super::sort_payments_by_recent_activity;
+
+    #[test]
+    fn compare_orders_by_last_updated_then_created_then_hash() {
+        assert!(
+            compare_payments_by_recent_activity(200, 100, "0xb", 100, 100, "0xa")
+                .is_lt()
+        );
+        assert!(
+            compare_payments_by_recent_activity(100, 200, "0xb", 100, 100, "0xa")
+                .is_lt()
+        );
+        assert!(
+            compare_payments_by_recent_activity(100, 100, "0xa", 100, 100, "0xb")
+                .is_lt()
+        );
+    }
+
+    #[test]
+    fn sort_payments_puts_recent_activity_first() {
+        let mut payments = vec![
+            (100u64, 90u64, "0xolder"),
+            (50u64, 40u64, "0xoldest"),
+            (200u64, 180u64, "0xnewest"),
+            (200u64, 190u64, "0xalso-newest-later-created"),
+            (200u64, 190u64, "0xalso-newest-earlier-hash"),
+        ];
+
+        sort_payments_by_recent_activity(&mut payments, |payment| {
+            (payment.0, payment.1, payment.2)
+        });
+
+        assert_eq!(
+            payments
+                .iter()
+                .map(|payment| payment.2)
+                .collect::<Vec<_>>(),
+            vec![
+                "0xalso-newest-earlier-hash",
+                "0xalso-newest-later-created",
+                "0xnewest",
+                "0xolder",
+                "0xoldest",
+            ]
+        );
+    }
 }

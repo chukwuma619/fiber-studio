@@ -1,7 +1,10 @@
 import { RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
-import { type InvoiceListFilter } from "../../lib/fnn/format"
+import {
+  sortPaymentsByRecentActivity,
+  type InvoiceListFilter,
+} from "../../lib/fnn/format"
 import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
@@ -80,7 +83,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
 
     setPayments((current) => {
       if (!hasLoadedMorePayments) {
-        return data.payments
+        return sortPaymentsByRecentActivity(data.payments)
       }
 
       const firstPageHashes = new Set(
@@ -90,7 +93,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         (payment) => !firstPageHashes.has(payment.paymentHash),
       )
 
-      return [...data.payments, ...extraPages]
+      return sortPaymentsByRecentActivity([...data.payments, ...extraPages])
     })
 
     if (!hasLoadedMorePayments) {
@@ -163,7 +166,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         const next = result.payments.filter(
           (payment) => !existing.has(payment.paymentHash),
         )
-        return [...current, ...next]
+        return sortPaymentsByRecentActivity([...current, ...next])
       })
       setPaymentsCursor(result.lastCursor)
       setPaymentsHasMore(result.hasMore)
