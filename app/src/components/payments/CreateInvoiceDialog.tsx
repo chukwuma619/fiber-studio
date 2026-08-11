@@ -13,7 +13,7 @@ import { Select } from "../ui/select"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import type { AssetView, CreateInvoicePayload } from "../../lib/fnn/types"
 import { CKB_ASSET_ID, defaultAsset } from "../../lib/fnn/assets"
-import { invoiceCurrencyLabel } from "../../lib/fnn/format"
+import { invoiceCurrencyLabel, validateHumanAmount } from "../../lib/fnn/format"
 import { InvoiceSharePanel } from "./InvoiceSharePanel"
 
 type CreateInvoiceDialogProps = {
@@ -71,14 +71,14 @@ export function CreateInvoiceDialog({
     setLocalError(null)
     onClearError()
 
-    const parsedAmount = Number(amount.trim())
-    const parsedExpiry = Number(expiryHours.trim())
-
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setLocalError("Enter a valid amount greater than zero.")
+    const trimmedAmount = amount.trim()
+    const amountError = validateHumanAmount(trimmedAmount, selectedAsset.decimals)
+    if (amountError) {
+      setLocalError(amountError)
       return
     }
 
+    const parsedExpiry = Number(expiryHours.trim())
     if (!Number.isInteger(parsedExpiry) || parsedExpiry < 1) {
       setLocalError("Expiry must be at least 1 hour.")
       return
@@ -86,7 +86,7 @@ export function CreateInvoiceDialog({
 
     try {
       const result = await onCreateInvoice({
-        amount: parsedAmount,
+        amount: trimmedAmount,
         expiryHours: parsedExpiry,
         description: note.trim() || undefined,
         udtTypeScript: selectedAsset.udtTypeScript ?? undefined,

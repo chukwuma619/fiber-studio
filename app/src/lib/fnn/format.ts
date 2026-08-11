@@ -92,6 +92,35 @@ export function ckbToShannons(ckb: number): bigint {
   return BigInt(ckb) * SHANNONS_PER_CKB
 }
 
+/**
+ * Validate a human-entered decimal amount against an asset's decimal precision.
+ * Trailing zeroes beyond `decimals` are allowed; non-zero excess digits are not.
+ */
+export function validateHumanAmount(
+  amount: string,
+  decimals: number,
+): string | null {
+  const trimmed = amount.trim()
+  if (!trimmed) {
+    return "Enter a valid amount greater than zero."
+  }
+  if (!/^\d+(\.\d+)?$/.test(trimmed)) {
+    return "Enter a valid amount greater than zero."
+  }
+
+  const [wholePart, fracPart = ""] = trimmed.split(".")
+  const significantFrac = fracPart.replace(/0+$/, "")
+  if (significantFrac.length > decimals) {
+    return `Amount supports at most ${decimals} decimal places.`
+  }
+
+  if (/^0*$/.test(wholePart) && /^0*$/.test(fracPart)) {
+    return "Enter a valid amount greater than zero."
+  }
+
+  return null
+}
+
 
 export const CHANNEL_OPEN_FEE_BUFFER_CKB = 10
 

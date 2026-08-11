@@ -223,42 +223,8 @@ pub fn parse_human_amount(value: f64, decimals: u8) -> Result<u128, String> {
     Ok(scaled as u128)
 }
 
-#[cfg(test)]
 pub fn parse_human_amount_str(value: &str, decimals: u8) -> Result<u128, String> {
-    let trimmed = value.trim();
-    if trimmed.is_empty() {
-        return Err("Amount is required.".to_string());
-    }
-
-    if trimmed.contains('.') {
-        let parts: Vec<&str> = trimmed.split('.').collect();
-        if parts.len() != 2 {
-            return Err("Invalid amount.".to_string());
-        }
-        let whole = parts[0].parse::<u128>().map_err(|_| "Invalid amount.".to_string())?;
-        let frac = parts[1];
-        if frac.len() > decimals as usize {
-            return Err(format!("Too many decimal places (max {decimals})."));
-        }
-        let frac_padded = format!("{frac:0<width$}", width = decimals as usize);
-        let frac_value = frac_padded
-            .parse::<u128>()
-            .map_err(|_| "Invalid amount.".to_string())?;
-        let scale = 10u128.pow(decimals as u32);
-        let raw = whole.saturating_mul(scale).saturating_add(frac_value);
-        if raw == 0 {
-            return Err("Amount must be greater than zero.".to_string());
-        }
-        return Ok(raw);
-    }
-
-    let whole = trimmed
-        .parse::<u128>()
-        .map_err(|_| "Invalid amount.".to_string())?;
-    if whole == 0 {
-        return Err("Amount must be greater than zero.".to_string());
-    }
-    Ok(whole.saturating_mul(10u128.pow(decimals as u32)))
+    crate::fnn::amounts::parse_decimal_amount_str(value, decimals)
 }
 
 pub fn invoice_udt_script(invoice: &rpc::CkbInvoice) -> Option<CkbScript> {
@@ -421,6 +387,14 @@ mod tests {
         assert_eq!(
             super::parse_human_amount_str("2.25", 8).expect("parse"),
             225_000_000
+        );
+        assert_eq!(
+            super::parse_human_amount_str("0.01111111000", 8).expect("parse"),
+            1_111_111
+        );
+        assert_eq!(
+            super::parse_human_amount_str("0.011111111", 8).unwrap_err(),
+            "Amount supports at most 8 decimal places."
         );
     }
 
