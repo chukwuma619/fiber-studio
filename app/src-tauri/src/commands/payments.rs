@@ -132,7 +132,8 @@ pub struct PaymentsPaymentItem {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CreateInvoicePayload {
-    pub amount: f64,
+    /// Human-entered decimal amount string (exact parsing; no f64 rounding).
+    pub amount: String,
     pub expiry_hours: u64,
     #[serde(default)]
     pub description: Option<String>,
@@ -702,11 +703,7 @@ pub async fn create_invoice(
         assets::ckb_asset()
     };
 
-    let amount_raw = if asset.udt_type_script.is_some() {
-        assets::parse_human_amount(payload.amount, asset.decimals)?
-    } else {
-        ckb_to_shannons(payload.amount)?
-    };
+    let amount_raw = assets::parse_human_amount_str(&payload.amount, asset.decimals)?;
 
     let expiry_seconds = payload.expiry_hours.saturating_mul(3600);
     let currency = rpc::currency_for_network(&studio_metadata.network);
@@ -1140,5 +1137,14 @@ mod tests {
         assert!(amounts::ckb_to_shannons(0.0).is_err());
         assert!(amounts::ckb_to_shannons(-1.0).is_err());
         assert_eq!(amounts::ckb_to_shannons(1.0).unwrap(), 100_000_000);
+    }
+
+    #[test]
+    fn create_invoice_amount_string_rejects_excess_precision() {
+        let err = amounts::ckb_to_shannons_str(
+            "0.01111111111111111111111111111111111111111",
+        )
+        .unwrap_err();
+        assert_eq!(err, "Amount supports at most 8 decimal places.");
     }
 }

@@ -247,7 +247,8 @@ export type PaymentsPageResponse = {
 }
 
 export type CreateInvoicePayload = {
-  amount: number
+  /** Human-entered decimal amount string; backend parses exactly (no float rounding). */
+  amount: string
   expiryHours: number
   description?: string
   udtTypeScript?: CkbScript | null
