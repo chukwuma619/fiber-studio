@@ -259,9 +259,9 @@ export function OpenChannelDialog({
               ))}
             </Select>
             <Description>
-              On-chain wallet: {assetBalanceDisplay}
+              Available for funding: {assetBalanceDisplay}
               {availableWalletCkb !== null
-                ? ` · CKB reserve buffer: ${availableWalletCkb} CKB`
+                ? ` · Spendable CKB: ${availableWalletCkb}`
                 : null}
             </Description>
           </Field>
