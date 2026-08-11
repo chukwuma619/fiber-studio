@@ -320,6 +320,32 @@ export function sortInvoicesForDisplay<T extends { status: string }>(
   )
 }
 
+export type PaymentActivityFields = {
+  paymentHash: string
+  createdAt: number
+  lastUpdatedAt: number
+}
+
+/** Newest-first: lastUpdatedAt desc, createdAt desc, paymentHash asc. */
+export function comparePaymentsByRecentActivity(
+  left: PaymentActivityFields,
+  right: PaymentActivityFields,
+): number {
+  if (right.lastUpdatedAt !== left.lastUpdatedAt) {
+    return right.lastUpdatedAt - left.lastUpdatedAt
+  }
+  if (right.createdAt !== left.createdAt) {
+    return right.createdAt - left.createdAt
+  }
+  return left.paymentHash.localeCompare(right.paymentHash)
+}
+
+export function sortPaymentsByRecentActivity<T extends PaymentActivityFields>(
+  payments: T[],
+): T[] {
+  return [...payments].sort(comparePaymentsByRecentActivity)
+}
+
 export function formatRouteHopsShort(hops: string[], maxHops = 3): string {
   if (hops.length === 0) return "—"
   const truncated = hops.map((pubkey) =>

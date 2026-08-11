@@ -443,7 +443,7 @@ fn map_wallet_payments(
     stored_sent_payments: &[sent_payments::StoredSentPayment],
     catalog: &[AssetView],
 ) -> Vec<PaymentsPaymentItem> {
-    payments
+    let mut items: Vec<PaymentsPaymentItem> = payments
         .into_iter()
         .map(|payment| {
             let stored = stored_sent_payments
@@ -451,7 +451,15 @@ fn map_wallet_payments(
                 .find(|entry| entry.payment_hash == payment.payment_hash);
             to_payments_payment(payment_display::map_payment_list_item(payment, stored, catalog))
         })
-        .collect()
+        .collect();
+    payment_display::sort_payments_by_recent_activity(&mut items, |payment| {
+        (
+            payment.last_updated_at,
+            payment.created_at,
+            payment.payment_hash.as_str(),
+        )
+    });
+    items
 }
 
 fn payments_page_meta(

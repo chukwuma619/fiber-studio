@@ -216,23 +216,32 @@ pub async fn get_home_dashboard(
         })
         .unwrap_or_default();
 
+    let mut home_payments: Vec<HomePayment> = payments
+        .into_iter()
+        .map(|payment| {
+            let stored = stored_sent_payments
+                .iter()
+                .find(|entry| entry.payment_hash == payment.payment_hash);
+            to_home_payment(payment_display::map_payment_list_item(
+                payment,
+                stored,
+                &catalog,
+            ))
+        })
+        .collect();
+    payment_display::sort_payments_by_recent_activity(&mut home_payments, |payment| {
+        (
+            payment.last_updated_at,
+            payment.created_at,
+            payment.payment_hash.as_str(),
+        )
+    });
+
     Ok(HomeDashboardResponse {
         available: true,
         node_info: Some(to_home_node_info(node_info)),
         channels: home_channels,
-        payments: payments
-            .into_iter()
-            .map(|payment| {
-                let stored = stored_sent_payments
-                    .iter()
-                    .find(|entry| entry.payment_hash == payment.payment_hash);
-                to_home_payment(payment_display::map_payment_list_item(
-                    payment,
-                    stored,
-                    &catalog,
-                ))
-            })
-            .collect(),
+        payments: home_payments,
         incoming_invoices,
         active_channel_count,
         pending_channel_count,
