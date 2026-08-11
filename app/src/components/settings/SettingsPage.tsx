@@ -8,6 +8,7 @@ import { AppUpdatesSection } from "./AppUpdatesSection"
 import { AppearanceSection } from "./AppearanceSection"
 import { BackgroundSection } from "./BackgroundSection"
 import { BackupPathsSection } from "./BackupPathsSection"
+import { CrossChainSettingsSection } from "./CrossChainSettingsSection"
 import { NodeLifecycleSection } from "./NodeLifecycleSection"
 import { NodeSettingsSection } from "./NodeSettingsSection"
 import { SettingsSection } from "./SettingsSection"
@@ -44,6 +45,7 @@ export function SettingsPage() {
     handleOpenDataDirectory,
     handleUpdatePassword,
     handleSwitchNetwork,
+    handleUpdateCchRpcUrl,
   } = useSettingsPage(config)
 
   const nodeStopped =
@@ -87,6 +89,11 @@ export function SettingsPage() {
             nodeStopped={nodeStopped}
             isActing={isActing}
             onSwitchNetwork={handleSwitchNetwork}
+          />
+          <CrossChainSettingsSection
+            settings={settings}
+            isActing={isActing}
+            onSave={handleUpdateCchRpcUrl}
           />
           <WalletSettingsSection
             settings={settings}

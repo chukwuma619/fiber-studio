@@ -8,6 +8,7 @@ import {
 import { relaySendPaymentWarning } from "../../lib/fnn/relay"
 import type {
   AssetView,
+  CchOrderView,
   KeysendPaymentPayload,
   ParseInvoicePreview,
   PreviewSendPaymentResult,
@@ -26,11 +27,22 @@ import { Input } from "../ui/input"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Select } from "../ui/select"
 import { Text } from "../ui/text"
+import { CchSendDialog } from "./CchSendDialog"
 import { InvoiceParsePreview } from "./InvoiceParsePreview"
 import { PaymentRoutePreview } from "./PaymentRoutePreview"
 import { SendPaymentDialog } from "./SendPaymentDialog"
 
 const PREVIEW_DEBOUNCE_MS = 500
+
+function looksLikeBolt11(value: string): boolean {
+  const trimmed = value.trim().toLowerCase()
+  return (
+    trimmed.startsWith("lnbc") ||
+    trimmed.startsWith("lntb") ||
+    trimmed.startsWith("lnbcrt") ||
+    trimmed.startsWith("lnsb")
+  )
+}
 
 type ExistingPaymentNotice = {
   paymentHash: string
@@ -45,6 +57,7 @@ type SendPaymentPanelProps = {
   relayStatus: RelayConnectionStatus
   sendTargets: PaymentsSendTarget[]
   assets: AssetView[]
+  cchConfigured: boolean
   isActing: boolean
   actionError: string | null
   onParseInvoicePreview: (invoice: string) => Promise<ParseInvoicePreview>
@@ -59,6 +72,8 @@ type SendPaymentPanelProps = {
     payload: KeysendPaymentPayload,
   ) => Promise<SendPaymentResult>
   onGetPayment: (paymentHash: string) => Promise<SendPaymentResult>
+  onCchSendBtc: (btcPayReq: string) => Promise<CchOrderView>
+  onGetCchOrder: (paymentHash: string) => Promise<CchOrderView>
   onPaymentSettled: () => void
   onClearError: () => void
 }
@@ -70,6 +85,7 @@ export function SendPaymentPanel({
   relayStatus,
   sendTargets,
   assets,
+  cchConfigured,
   isActing,
   actionError,
   onParseInvoicePreview,
@@ -78,13 +94,17 @@ export function SendPaymentPanel({
   onSendPayment,
   onSendKeysendPayment,
   onGetPayment,
+  onCchSendBtc,
+  onGetCchOrder,
   onPaymentSettled,
   onClearError,
 }: SendPaymentPanelProps) {
   const [sendMode, setSendMode] = useState<SendPaymentMode>("invoice")
   const [sendDialogOpen, setSendDialogOpen] = useState(false)
+  const [cchDialogOpen, setCchDialogOpen] = useState(false)
 
   const [invoice, setInvoice] = useState("")
+  const [lightningInvoice, setLightningInvoice] = useState("")
   const [parsedInvoice, setParsedInvoice] = useState<ParseInvoicePreview | null>(
     null,
   )
@@ -108,6 +128,12 @@ export function SendPaymentPanel({
     useState<ExistingPaymentNotice | null>(null)
   const [reviewSnapshot, setReviewSnapshot] =
     useState<PreviewSendPaymentResult | null>(null)
+
+  const [cchOrder, setCchOrder] = useState<CchOrderView | null>(null)
+  const [cchFiberPreview, setCchFiberPreview] =
+    useState<PreviewSendPaymentResult | null>(null)
+  const [cchQuoteLoading, setCchQuoteLoading] = useState(false)
+  const [cchQuoteError, setCchQuoteError] = useState<string | null>(null)
 
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const relayWarning = available ? relaySendPaymentWarning(relayStatus) : null
@@ -310,18 +336,80 @@ export function SendPaymentPanel({
     routePreview !== null &&
     previewError === null
 
-  const canReviewPayment = canReviewInvoice || canReviewKeysend
+  const canReviewLightning =
+    sendMode === "lightning" &&
+    cchConfigured &&
+    looksLikeBolt11(lightningInvoice) &&
+    !cchQuoteLoading &&
+    cchOrder !== null &&
+    cchQuoteError === null
 
-  const handleReviewPayment = useCallback(() => {
+  const canReviewPayment =
+    canReviewInvoice || canReviewKeysend || canReviewLightning
+
+  const handleReviewPayment = useCallback(async () => {
+    if (sendMode === "lightning") {
+      if (!cchConfigured) {
+        setCchQuoteError("Configure a CCH hub RPC URL in Settings first.")
+        return
+      }
+      if (!looksLikeBolt11(lightningInvoice)) {
+        setCchQuoteError("Paste a Lightning BOLT11 invoice (lnbc… / lntb…).")
+        return
+      }
+
+      onClearError()
+      setCchQuoteLoading(true)
+      setCchQuoteError(null)
+      setCchOrder(null)
+      setCchFiberPreview(null)
+
+      try {
+        const order = await onCchSendBtc(lightningInvoice.trim())
+        setCchOrder(order)
+        try {
+          const preview = await onPreviewSendPayment({
+            invoice: order.incomingInvoice,
+          })
+          setCchFiberPreview(preview)
+        } catch (previewErr) {
+          // Still allow paying; route preview is best-effort.
+          setCchFiberPreview(null)
+          setCchQuoteError(
+            `Order created, but Fiber route preview failed: ${paymentErrorSummary(getErrorMessage(previewErr))}`,
+          )
+        }
+        setCchDialogOpen(true)
+      } catch (error) {
+        setCchQuoteError(paymentErrorSummary(getErrorMessage(error)))
+      } finally {
+        setCchQuoteLoading(false)
+      }
+      return
+    }
+
     if (!canReviewPayment || !routePreview) return
     onClearError()
     setReviewSnapshot(routePreview)
     setSendDialogOpen(true)
-  }, [canReviewPayment, onClearError, routePreview])
+  }, [
+    canReviewPayment,
+    cchConfigured,
+    lightningInvoice,
+    onClearError,
+    onCchSendBtc,
+    onPreviewSendPayment,
+    routePreview,
+    sendMode,
+  ])
 
   const handleCloseSendDialog = useCallback(() => {
     setSendDialogOpen(false)
     setReviewSnapshot(null)
+  }, [])
+
+  const handleCloseCchDialog = useCallback(() => {
+    setCchDialogOpen(false)
   }, [])
 
   return (
@@ -332,7 +420,8 @@ export function SendPaymentPanel({
       >
         <Subheading level={3}>Send payment</Subheading>
         <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay by invoice or push CKB/UDT to a known node pubkey (keysend)
+          Pay a Fiber invoice, push via keysend, or pay Lightning via CCH
+          (cWBTC)
         </Text>
 
         {relayWarning ? (
@@ -364,6 +453,17 @@ export function SendPaymentPanel({
           >
             Keysend
           </button>
+          <button
+            type="button"
+            className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition ${
+              sendMode === "lightning"
+                ? "bg-white text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white"
+                : "text-zinc-600 hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-white"
+            }`}
+            onClick={() => setSendMode("lightning")}
+          >
+            Lightning
+          </button>
         </div>
 
         {sendMode === "invoice" ? (
@@ -381,6 +481,28 @@ export function SendPaymentPanel({
               <Description>
                 Bech32m invoice ({invoiceCurrency} on{" "}
                 {network === "mainnet" ? "mainnet" : "testnet"})
+              </Description>
+            </Field>
+          </FieldGroup>
+        ) : sendMode === "lightning" ? (
+          <FieldGroup className="mt-4">
+            <Field>
+              <Label>Lightning invoice</Label>
+              <Input
+                type="text"
+                placeholder="lnbc… or lntb…"
+                className="font-mono text-xs"
+                value={lightningInvoice}
+                onChange={(event) => {
+                  setLightningInvoice(event.target.value)
+                  setCchOrder(null)
+                  setCchQuoteError(null)
+                }}
+                disabled={!running}
+              />
+              <Description>
+                Pays the Lightning invoice with cWBTC through a Cross-Chain Hub.
+                Requires a configured hub URL and a cWBTC channel path.
               </Description>
             </Field>
           </FieldGroup>
@@ -463,6 +585,34 @@ export function SendPaymentPanel({
           </div>
         ) : null}
 
+        {sendMode === "lightning" && !cchConfigured ? (
+          <Text className="mt-3 text-xs text-amber-700 dark:text-amber-300">
+            Set a CCH hub RPC URL in Settings → Cross-chain before paying
+            Lightning invoices.
+          </Text>
+        ) : null}
+
+        {sendMode === "lightning" && cchQuoteError ? (
+          <div className="mt-4">
+            <PageErrorBanner
+              message={cchQuoteError}
+              onDismiss={() => setCchQuoteError(null)}
+              className="px-3 py-2.5 text-xs"
+            />
+          </div>
+        ) : null}
+
+        {sendMode === "lightning" && cchOrder && !cchDialogOpen ? (
+          <div className="mt-4 rounded-lg bg-zinc-50 px-3 py-2.5 text-xs dark:bg-zinc-800/50">
+            <p className="font-medium">
+              Hub quote: {cchOrder.amountDisplay} (fee {cchOrder.feeDisplay})
+            </p>
+            <p className="mt-1 text-zinc-500 dark:text-zinc-400">
+              Status {cchOrder.status}
+            </p>
+          </div>
+        ) : null}
+
         {existingPayment ? (
           <div
             className={`mt-4 rounded-lg px-3 py-2.5 text-xs ${
@@ -491,7 +641,7 @@ export function SendPaymentPanel({
               emptyHint="Paste an invoice to preview the route"
             />
           </div>
-        ) : previewError ? (
+        ) : sendMode === "keysend" && previewError ? (
           <div className="mt-4">
             <PageErrorBanner
               message={previewError}
@@ -519,38 +669,65 @@ export function SendPaymentPanel({
 
         <Button
           className="mt-4 w-full"
-          onClick={handleReviewPayment}
-          disabled={!running || !canReviewPayment}
+          onClick={() => void handleReviewPayment()}
+          disabled={
+            !running ||
+            (sendMode === "lightning"
+              ? !cchConfigured ||
+                !looksLikeBolt11(lightningInvoice) ||
+                cchQuoteLoading
+              : !canReviewPayment)
+          }
         >
-          {sendMode === "keysend" && previewLoading
-            ? "Finding route…"
-            : "Review payment"}
+          {sendMode === "lightning"
+            ? cchQuoteLoading
+              ? "Creating CCH order…"
+              : "Review Lightning swap"
+            : sendMode === "keysend" && previewLoading
+              ? "Finding route…"
+              : "Review payment"}
         </Button>
       </div>
 
-      <SendPaymentDialog
-        open={sendDialogOpen}
-        onClose={handleCloseSendDialog}
-        mode={sendMode}
-        invoice={invoice.trim()}
-        targetPubkey={targetPubkey.trim()}
-        preview={reviewSnapshot}
+      {sendMode !== "lightning" ? (
+        <SendPaymentDialog
+          open={sendDialogOpen}
+          onClose={handleCloseSendDialog}
+          mode={sendMode === "keysend" ? "keysend" : "invoice"}
+          invoice={invoice.trim()}
+          targetPubkey={targetPubkey.trim()}
+          preview={reviewSnapshot}
+          isActing={isActing}
+          actionError={actionError}
+          onSendPayment={onSendPayment}
+          onSendKeysendPayment={onSendKeysendPayment}
+          onGetPayment={onGetPayment}
+          onPaymentSettled={onPaymentSettled}
+          onClearError={onClearError}
+          keysendPayload={
+            sendMode === "keysend"
+              ? {
+                  targetPubkey: targetPubkey.trim(),
+                  amount: Number(keysendAmount.trim()),
+                  udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
+                }
+              : undefined
+          }
+        />
+      ) : null}
+
+      <CchSendDialog
+        open={cchDialogOpen}
+        onClose={handleCloseCchDialog}
+        order={cchOrder}
+        fiberPreview={cchFiberPreview}
         isActing={isActing}
         actionError={actionError}
         onSendPayment={onSendPayment}
-        onSendKeysendPayment={onSendKeysendPayment}
         onGetPayment={onGetPayment}
+        onGetCchOrder={onGetCchOrder}
         onPaymentSettled={onPaymentSettled}
         onClearError={onClearError}
-        keysendPayload={
-          sendMode === "keysend"
-            ? {
-                targetPubkey: targetPubkey.trim(),
-                amount: Number(keysendAmount.trim()),
-                udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
-              }
-            : undefined
-        }
       />
     </>
   )

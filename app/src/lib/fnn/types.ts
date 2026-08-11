@@ -243,6 +243,7 @@ export type PaymentsPageResponse = {
   assets: AssetView[]
   onChainBalances: AssetBalanceView[]
   inChannelTotals: AssetChannelTotals[]
+  cchRpcUrl?: string | null
 }
 
 export type CreateInvoicePayload = {
@@ -286,7 +287,7 @@ export type KeysendPaymentPayload = {
   udtTypeScript?: CkbScript | null
 }
 
-export type SendPaymentMode = "invoice" | "keysend"
+export type SendPaymentMode = "invoice" | "keysend" | "lightning"
 
 export type PreviewSendPaymentResult = {
   feeShannons: string
@@ -446,6 +447,39 @@ export type NodeSettingsResponse = {
   setupCompletedAt: string | null
   backupPaths: BackupPathEntry[]
   supportedAssets: AssetView[]
+  cchRpcUrl?: string | null
+}
+
+export type UpdateCchRpcUrlPayload = {
+  cchRpcUrl: string
+}
+
+export type CchOrderView = {
+  paymentHash: string
+  status: string
+  amountSats: string
+  amountDisplay: string
+  feeSats: string
+  feeDisplay: string
+  assetSymbol: string
+  wrappedBtcTypeScript: CkbScript
+  incomingInvoice: string
+  incomingInvoiceKind: "Fiber" | "Lightning" | string
+  outgoingPayReq: string
+  timestamp: number
+  expiryDeltaSeconds: number
+  failureReason?: string | null
+  isFinal: boolean
+}
+
+export type CchSendBtcPayload = {
+  btcPayReq: string
+}
+
+export type CchReceiveBtcPayload = {
+  amount: string
+  expiryHours: number
+  description?: string
 }
 
 export type UpdateWalletPasswordPayload = {

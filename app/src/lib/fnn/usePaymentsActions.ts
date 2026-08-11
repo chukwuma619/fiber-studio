@@ -2,6 +2,9 @@ import { useCallback, useState } from "react"
 import { getErrorMessage } from "./errors"
 import {
   cancelInvoice,
+  cchGetOrder,
+  cchReceiveBtc,
+  cchSendBtc,
   createInvoice,
   getPayment,
   importInvoice,
@@ -12,6 +15,8 @@ import {
   sendPayment,
 } from "./invoke"
 import type {
+  CchOrderView,
+  CchReceiveBtcPayload,
   CreateInvoicePayload,
   KeysendPaymentPayload,
   ParseInvoicePayload,
@@ -144,6 +149,41 @@ export function usePaymentsActions(onSuccess?: () => void) {
     [onSuccess],
   )
 
+  const handleCchSendBtc = useCallback(async (btcPayReq: string) => {
+    setIsActing(true)
+    setActionError(null)
+    try {
+      return await cchSendBtc({ btcPayReq })
+    } catch (error) {
+      setActionError(getErrorMessage(error))
+      throw error
+    } finally {
+      setIsActing(false)
+    }
+  }, [])
+
+  const handleCchReceiveBtc = useCallback(
+    async (payload: CchReceiveBtcPayload): Promise<CchOrderView> => {
+      setIsActing(true)
+      setActionError(null)
+      try {
+        const result = await cchReceiveBtc(payload)
+        onSuccess?.()
+        return result
+      } catch (error) {
+        setActionError(getErrorMessage(error))
+        throw error
+      } finally {
+        setIsActing(false)
+      }
+    },
+    [onSuccess],
+  )
+
+  const handleCchGetOrder = useCallback(async (paymentHash: string) => {
+    return await cchGetOrder({ paymentHash })
+  }, [])
+
   const clearActionError = useCallback(() => {
     setActionError(null)
   }, [])
@@ -160,6 +200,9 @@ export function usePaymentsActions(onSuccess?: () => void) {
     cancelInvoice: handleCancelInvoice,
     importInvoice: handleImportInvoice,
     parseInvoicePreview: handleParseInvoicePreview,
+    cchSendBtc: handleCchSendBtc,
+    cchReceiveBtc: handleCchReceiveBtc,
+    cchGetOrder: handleCchGetOrder,
     clearActionError,
   }
 }

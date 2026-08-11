@@ -26,6 +26,7 @@ const EMPTY_RESPONSE: PaymentsPageResponse = {
   assets: [],
   onChainBalances: [],
   inChannelTotals: [],
+  cchRpcUrl: null,
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000

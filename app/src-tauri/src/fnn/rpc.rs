@@ -246,20 +246,19 @@ pub struct ListPaymentsPage {
 
 #[derive(Debug, Deserialize)]
 #[allow(dead_code)]
-struct RpcResponse<T> {
+pub(crate) struct RpcResponse<T> {
     #[serde(default)]
-    jsonrpc: Option<String>,
-    result: Option<T>,
-    error: Option<JsonRpcError>,
+    pub jsonrpc: Option<String>,
+    pub result: Option<T>,
+    pub error: Option<JsonRpcError>,
     #[serde(default)]
-    id: Option<serde_json::Value>,
+    pub id: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Error)]
 pub enum RpcError {
     #[error("Could not reach the Fiber node RPC: {0}")]
     Request(#[from] reqwest::Error),
-    /// JSON-RPC application error from FNN — display the node message only.
     #[error("{0}")]
     Rpc(#[from] JsonRpcError),
     #[error("Fiber node RPC did not become ready within {0} seconds")]

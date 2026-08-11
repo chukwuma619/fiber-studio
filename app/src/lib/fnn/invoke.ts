@@ -39,6 +39,10 @@ import type {
   NodeSettingsResponse,
   UpdateWalletPasswordPayload,
   SwitchNetworkPayload,
+  UpdateCchRpcUrlPayload,
+  CchOrderView,
+  CchSendBtcPayload,
+  CchReceiveBtcPayload,
 } from "./types"
 
 function toCompleteSetupPayload(config: SetupConfig): CompleteSetupPayload {
@@ -263,4 +267,28 @@ export async function migrateLegacyDataDirectory(
   network: string,
 ): Promise<string> {
   return invoke<string>("migrate_legacy_data_directory", { network })
+}
+
+export async function updateCchRpcUrl(
+  payload: UpdateCchRpcUrlPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("update_cch_rpc_url", { payload })
+}
+
+export async function cchSendBtc(
+  payload: CchSendBtcPayload,
+): Promise<CchOrderView> {
+  return invoke<CchOrderView>("cch_send_btc", { payload })
+}
+
+export async function cchReceiveBtc(
+  payload: CchReceiveBtcPayload,
+): Promise<CchOrderView> {
+  return invoke<CchOrderView>("cch_receive_btc", { payload })
+}
+
+export async function cchGetOrder(
+  payload: PaymentHashPayload,
+): Promise<CchOrderView> {
+  return invoke<CchOrderView>("cch_get_order", { payload })
 }

@@ -20,6 +20,7 @@ import { Text } from "../ui/text"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
+import { ReceiveBtcDialog } from "./ReceiveBtcDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
 import { PaymentsInvoicesSection } from "./PaymentsInvoicesSection"
@@ -51,11 +52,15 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
     getPayment,
     cancelInvoice,
     importInvoice,
+    cchSendBtc,
+    cchReceiveBtc,
+    cchGetOrder,
     clearActionError,
   } = usePaymentsActions(handleMutationSuccess)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [receiveBtcOpen, setReceiveBtcOpen] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
   const [selectedInvoice, setSelectedInvoice] = useState<PaymentsInvoiceItem | null>(
     null,
@@ -70,6 +75,9 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const sendTargets = data?.sendTargets ?? []
+  const cchConfigured = Boolean(data?.cchRpcUrl?.trim())
+  const cwbtcAsset =
+    data?.assets.find((asset) => asset.symbol.toUpperCase() === "CWBTC") ?? null
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
 
   useEffect(() => {
@@ -188,12 +196,25 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         <div>
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send CKB and UDT off-chain via invoice, or push CKB to a known node pubkey (keysend).
+            Send CKB and UDT off-chain via invoice, push to a known node
+            (keysend), or swap with Bitcoin Lightning through a CCH hub.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={() => setCreateDialogOpen(true)} disabled={!running}>
             Create invoice
+          </Button>
+          <Button
+            outline
+            onClick={() => setReceiveBtcOpen(true)}
+            disabled={!running || !cchConfigured}
+            title={
+              cchConfigured
+                ? undefined
+                : "Configure a CCH hub URL in Settings first"
+            }
+          >
+            Receive BTC
           </Button>
           <Button
             outline
@@ -261,6 +282,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           relayStatus={data?.relayStatus ?? "not_configured"}
           sendTargets={sendTargets}
           assets={data?.assets ?? []}
+          cchConfigured={cchConfigured}
           isActing={isActing}
           actionError={actionError}
           onParseInvoicePreview={handleParseInvoicePreview}
@@ -269,6 +291,8 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           onSendPayment={sendPayment}
           onSendKeysendPayment={sendKeysendPayment}
           onGetPayment={handleGetPayment}
+          onCchSendBtc={cchSendBtc}
+          onGetCchOrder={cchGetOrder}
           onPaymentSettled={handleMutationSuccess}
           onClearError={clearActionError}
         />
@@ -291,6 +315,19 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         actionError={actionError}
         onCreateInvoice={createInvoice}
         onClearError={clearActionError}
+      />
+
+      <ReceiveBtcDialog
+        open={receiveBtcOpen}
+        onClose={() => setReceiveBtcOpen(false)}
+        cwbtcAsset={cwbtcAsset}
+        cchConfigured={cchConfigured}
+        isActing={isActing}
+        actionError={actionError}
+        onReceiveBtc={cchReceiveBtc}
+        onGetCchOrder={cchGetOrder}
+        onClearError={clearActionError}
+        onSettled={handleMutationSuccess}
       />
 
       <ImportInvoiceDialog
