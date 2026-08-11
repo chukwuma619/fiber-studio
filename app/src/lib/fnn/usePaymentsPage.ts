@@ -14,7 +14,6 @@ const EMPTY_RESPONSE: PaymentsPageResponse = {
   available: false,
   network: null,
   pubkey: null,
-  inChannelBalanceCkb: 0,
   onChainWalletCkb: null,
   onChainWalletError: null,
   lockScript: null,
