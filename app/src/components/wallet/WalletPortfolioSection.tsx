@@ -60,7 +60,9 @@ export function WalletPortfolioSection({
           <TableHead>
             <TableRow>
               <TableHeader>Asset</TableHeader>
-              <TableHeader className="text-right">On-chain</TableHeader>
+              <TableHeader className="text-right">
+                On-chain (spendable)
+              </TableHeader>
               <TableHeader className="text-right">In channels</TableHeader>
             </TableRow>
           </TableHead>
@@ -83,7 +85,9 @@ export function WalletPortfolioSection({
           <TableHead>
             <TableRow>
               <TableHeader>Asset</TableHeader>
-              <TableHeader className="text-right">On-chain</TableHeader>
+              <TableHeader className="text-right">
+                On-chain (spendable)
+              </TableHeader>
               <TableHeader className="text-right">
                 In channels (spendable)
               </TableHeader>

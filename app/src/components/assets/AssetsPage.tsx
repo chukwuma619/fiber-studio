@@ -22,8 +22,9 @@ export function AssetsPage() {
           <Heading level={1}>Assets</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
             CKB and UDT balances in your on-chain wallet and Fiber channels.
-            Channel and payment pickers only offer tokens in your node
-            whitelist.
+            On-chain CKB is spendable funding capacity only (plain cells), not
+            capacity locked in UDT or data cells. Channel and payment pickers
+            only offer tokens in your node whitelist.
           </Text>
           {available && data?.lockScript ? (
             <Text className="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">

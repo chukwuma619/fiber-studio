@@ -330,21 +330,25 @@ pub async fn fetch_wallet_on_chain_snapshot(
     catalog: &[AssetView],
 ) -> Result<WalletOnChainSnapshot, super::rpc::RpcError> {
     let rpc_url = super::ckb_indexer::ckb_rpc_url(network);
-    let ckb_raw =
-        super::ckb_indexer::fetch_lock_script_capacity(rpc_url, lock_script).await?;
+    // One scan: spendable plain-CKB capacity (funding-safe) + UDT amounts.
+    // Do not use raw lock-script get_cells_capacity for CKB — that overstates
+    // available funding by including typed/data cell capacity (issue #8).
     let scanned =
-        super::ckb_indexer::scan_wallet_udt_balances(rpc_url, lock_script).await?;
+        super::ckb_indexer::scan_wallet_cell_balances(rpc_url, lock_script).await?;
 
-    let mut balances = vec![balance_view(&ckb_asset(), ckb_raw)];
+    let mut balances = vec![balance_view(
+        &ckb_asset(),
+        scanned.spendable_ckb_shannons,
+    )];
 
     for asset in catalog {
         if let Some(udt_script) = asset.udt_type_script.as_ref() {
-            let raw = udt_amount_from_scan(&scanned, udt_script);
+            let raw = udt_amount_from_scan(&scanned.udt_balances, udt_script);
             balances.push(balance_view(asset, raw));
         }
     }
 
-    for (_, (script, raw)) in scanned {
+    for (_, (script, raw)) in scanned.udt_balances {
         if raw == 0 {
             continue;
         }
