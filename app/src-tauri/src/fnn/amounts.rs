@@ -154,4 +154,32 @@ mod tests {
         assert!(ckb_to_shannons_str("1.2.3").is_err());
         assert!(ckb_to_shannons_str(".5").is_err());
     }
+
+    #[test]
+    fn optional_ckb_to_shannons_treats_none_as_node_default() {
+        assert_eq!(optional_ckb_to_shannons(None).unwrap(), None);
+    }
+
+    #[test]
+    fn optional_ckb_to_shannons_rejects_zero_instead_of_omitting() {
+        let err = optional_ckb_to_shannons(Some(0.0)).unwrap_err();
+        assert_eq!(err, "Max fee must be greater than zero.");
+        let err = optional_ckb_to_shannons(Some(-1.0)).unwrap_err();
+        assert_eq!(err, "Max fee must be greater than zero.");
+    }
+
+    #[test]
+    fn optional_ckb_to_shannons_accepts_explicit_positive_and_sub_cent() {
+        assert_eq!(
+            optional_ckb_to_shannons(Some(1.25)).unwrap(),
+            Some(125_000_000)
+        );
+        // 0.00000001 CKB = 1 shannon
+        assert_eq!(optional_ckb_to_shannons(Some(0.00000001)).unwrap(), Some(1));
+        // ~0.003665 CKB remains visibly non-zero and convertible
+        assert_eq!(
+            optional_ckb_to_shannons(Some(0.00366504)).unwrap(),
+            Some(366_504)
+        );
+    }
 }

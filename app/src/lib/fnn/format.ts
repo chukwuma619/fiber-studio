@@ -1,26 +1,15 @@
 import { CHANNEL_RESERVE_CKB } from "../public-relays"
 
-const SHANNONS_PER_CKB = 100_000_000n
-
 export { CHANNEL_RESERVE_CKB }
-
-export function parseHexU128(hex: string): bigint {
-  const trimmed = hex.startsWith("0x") ? hex.slice(2) : hex
-  if (!trimmed) return 0n
-  return BigInt(`0x${trimmed}`)
-}
-
-export function formatCkb(shannons: bigint | string): string {
-  const value = typeof shannons === "string" ? parseHexU128(shannons) : shannons
-  const whole = value / SHANNONS_PER_CKB
-  const fraction = value % SHANNONS_PER_CKB
-  const fractionStr = fraction.toString().padStart(8, "0").replace(/0+$/, "")
-  if (!fractionStr) {
-    return whole.toString()
-  }
-  const decimals = fractionStr.slice(0, 2).padEnd(2, "0")
-  return `${whole}.${decimals}`
-}
+export { ckbToShannons, formatCkb, parseHexU128 } from "./ckbAmount"
+export {
+  buildSendOptions,
+  formatEffectiveMaxFeeLabel,
+  parseMaxFeeCkbInput,
+  type BuildSendOptionsResult,
+  type ParsedMaxFeeCkb,
+  type SendPaymentOptions,
+} from "./maxFee"
 
 export function formatRelativeTime(timestampMs: number): string {
   const deltaMs = Date.now() - timestampMs
@@ -86,10 +75,6 @@ export function channelStateBadgeColor(
   if (state !== "ChannelReady") return "amber"
   if (localPercent < 15) return "amber"
   return "green"
-}
-
-export function ckbToShannons(ckb: number): bigint {
-  return BigInt(ckb) * SHANNONS_PER_CKB
 }
 
 /**
