@@ -2,6 +2,7 @@ pub mod amounts;
 pub mod assets;
 pub mod backup;
 pub mod bootnodes;
+pub mod cch;
 pub mod channel;
 pub mod ckb_address;
 pub mod ckb_indexer;

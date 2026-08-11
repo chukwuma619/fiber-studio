@@ -11,6 +11,7 @@ import {
   openConfigFile,
   openDataDirectory,
   switchNetwork,
+  updateCchRpcUrl,
   updateWalletPassword,
 } from "./invoke"
 import { invalidatePageCaches, PAGE_CACHE_KEYS } from "./pageCache"
@@ -142,6 +143,16 @@ export function useSettingsPage(config: SetupConfig | null) {
     [runMutation],
   )
 
+  const handleUpdateCchRpcUrl = useCallback(
+    (cchRpcUrl: string) =>
+      runMutation(() => updateCchRpcUrl({ cchRpcUrl }), {
+        successMessage: cchRpcUrl.trim()
+          ? "CCH hub URL saved."
+          : "CCH hub URL cleared.",
+      }),
+    [runMutation],
+  )
+
   return {
     settings,
     isLoading,
@@ -156,5 +167,6 @@ export function useSettingsPage(config: SetupConfig | null) {
     handleOpenDataDirectory,
     handleUpdatePassword,
     handleSwitchNetwork,
+    handleUpdateCchRpcUrl,
   }
 }

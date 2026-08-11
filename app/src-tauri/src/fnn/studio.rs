@@ -25,6 +25,8 @@ pub struct StudioMetadata {
     pub data_directory: String,
     #[serde(default)]
     pub saved_peers: Vec<SavedPeer>,
+    #[serde(default)]
+    pub cch_rpc_url: String,
 }
 
 impl StudioMetadata {
@@ -35,9 +37,19 @@ impl StudioMetadata {
             network,
             data_directory,
             saved_peers,
+            cch_rpc_url: String::new(),
         };
         metadata.normalize_saved_peers();
         metadata
+    }
+
+    pub fn cch_rpc_url_trimmed(&self) -> Option<&str> {
+        let trimmed = self.cch_rpc_url.trim();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
     }
 
     pub fn normalize_saved_peers(&mut self) {
@@ -171,6 +183,7 @@ mod tests {
                     multiaddr: "/ip4/1.2.3.4/tcp/8228".into(),
                 },
             ],
+            cch_rpc_url: String::new(),
         };
 
         metadata.normalize_saved_peers();

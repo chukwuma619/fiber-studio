@@ -20,6 +20,7 @@ import { Text } from "../ui/text"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
+import { ReceiveBtcDialog } from "./ReceiveBtcDialog"
 import { SendPaymentPanel } from "./SendPaymentPanel"
 import { SentPaymentsSection } from "./SentPaymentsSection"
 import { PaymentsInvoicesSection } from "./PaymentsInvoicesSection"
@@ -51,11 +52,15 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
     getPayment,
     cancelInvoice,
     importInvoice,
+    cchSendBtc,
+    cchReceiveBtc,
+    cchGetOrder,
     clearActionError,
   } = usePaymentsActions(handleMutationSuccess)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
+  const [receiveBtcOpen, setReceiveBtcOpen] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
   const [selectedInvoice, setSelectedInvoice] = useState<PaymentsInvoiceItem | null>(
     null,
@@ -70,6 +75,9 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const available = data?.available ?? false
   const invoices = data?.invoices ?? []
   const sendTargets = data?.sendTargets ?? []
+  const cchConfigured = Boolean(data?.cchRpcUrl?.trim())
+  const cwbtcAsset =
+    data?.assets.find((asset) => asset.symbol.toUpperCase() === "CWBTC") ?? null
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
 
   useEffect(() => {
@@ -183,43 +191,27 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   }, [refresh])
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 max-w-2xl">
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send CKB and UDT off-chain via invoice, or push CKB to a known node pubkey (keysend).
+            Send on the left. Receive and track invoices on the right.
           </Text>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={() => setCreateDialogOpen(true)} disabled={!running}>
-            Create invoice
-          </Button>
-          <Button
-            outline
-            onClick={() => {
-              document.getElementById("send-payment-panel")?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              })
-            }}
-            disabled={!running}
-          >
-            Send payment
-          </Button>
-          <Button
-            outline
-            onClick={handleRefresh}
-            disabled={!running || isRefreshing}
-            aria-label="Refresh payments"
-          >
-            <RefreshCw
-              className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
-              data-slot="icon"
-            />
-            Refresh
-          </Button>
-        </div>
+        <Button
+          outline
+          onClick={handleRefresh}
+          disabled={!running || isRefreshing}
+          aria-label="Refresh payments"
+          className="shrink-0"
+        >
+          <RefreshCw
+            className={`size-4 ${isRefreshing ? "animate-spin" : ""}`}
+            data-slot="icon"
+          />
+          Refresh
+        </Button>
       </div>
 
       {error ? (
@@ -234,12 +226,33 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           {receivedInvoiceCount === 1
             ? "1 invoice has an incoming payment settling."
             : `${receivedInvoiceCount} invoices have incoming payments settling.`}{" "}
-          Highlighted rows in the invoice table below — status updates every few
-          seconds.
+          Highlighted rows update every few seconds.
         </div>
       ) : null}
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid items-start gap-6 lg:grid-cols-2">
+        <SendPaymentPanel
+          running={running}
+          available={available}
+          network={data?.network ?? null}
+          relayStatus={data?.relayStatus ?? "not_configured"}
+          sendTargets={sendTargets}
+          assets={data?.assets ?? []}
+          cchConfigured={cchConfigured}
+          isActing={isActing}
+          actionError={actionError}
+          onParseInvoicePreview={handleParseInvoicePreview}
+          onPreviewSendPayment={previewSendPayment}
+          onPreviewKeysendPayment={previewKeysendPayment}
+          onSendPayment={sendPayment}
+          onSendKeysendPayment={sendKeysendPayment}
+          onGetPayment={handleGetPayment}
+          onCchSendBtc={cchSendBtc}
+          onGetCchOrder={cchGetOrder}
+          onPaymentSettled={handleMutationSuccess}
+          onClearError={clearActionError}
+        />
+
         <PaymentsInvoicesSection
           status={status}
           running={running}
@@ -252,25 +265,8 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           onSelectInvoice={setSelectedInvoice}
           onImport={() => setImportDialogOpen(true)}
           onCreate={() => setCreateDialogOpen(true)}
-        />
-
-        <SendPaymentPanel
-          running={running}
-          available={available}
-          network={data?.network ?? null}
-          relayStatus={data?.relayStatus ?? "not_configured"}
-          sendTargets={sendTargets}
-          assets={data?.assets ?? []}
-          isActing={isActing}
-          actionError={actionError}
-          onParseInvoicePreview={handleParseInvoicePreview}
-          onPreviewSendPayment={previewSendPayment}
-          onPreviewKeysendPayment={previewKeysendPayment}
-          onSendPayment={sendPayment}
-          onSendKeysendPayment={sendKeysendPayment}
-          onGetPayment={handleGetPayment}
-          onPaymentSettled={handleMutationSuccess}
-          onClearError={clearActionError}
+          cchConfigured={cchConfigured}
+          onReceiveBtc={() => setReceiveBtcOpen(true)}
         />
       </div>
 
@@ -291,6 +287,19 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         actionError={actionError}
         onCreateInvoice={createInvoice}
         onClearError={clearActionError}
+      />
+
+      <ReceiveBtcDialog
+        open={receiveBtcOpen}
+        onClose={() => setReceiveBtcOpen(false)}
+        cwbtcAsset={cwbtcAsset}
+        cchConfigured={cchConfigured}
+        isActing={isActing}
+        actionError={actionError}
+        onReceiveBtc={cchReceiveBtc}
+        onGetCchOrder={cchGetOrder}
+        onClearError={clearActionError}
+        onSettled={handleMutationSuccess}
       />
 
       <ImportInvoiceDialog

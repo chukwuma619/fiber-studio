@@ -13,6 +13,7 @@ import { StatusDot } from "../layout/StatusDot"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { Subheading } from "../ui/heading"
+import { Link } from "../ui/link"
 import { TableRowsSkeleton } from "../ui/skeleton"
 import { Text } from "../ui/text"
 import {
@@ -36,6 +37,8 @@ type PaymentsInvoicesSectionProps = {
   onSelectInvoice: (invoice: PaymentsInvoiceItem) => void
   onImport: () => void
   onCreate: () => void
+  cchConfigured: boolean
+  onReceiveBtc: () => void
 }
 
 export function PaymentsInvoicesSection({
@@ -50,6 +53,8 @@ export function PaymentsInvoicesSection({
   onSelectInvoice,
   onImport,
   onCreate,
+  cchConfigured,
+  onReceiveBtc,
 }: PaymentsInvoicesSectionProps) {
   const invoiceCurrency = invoiceCurrencyLabel(network)
   const filteredInvoices = filterInvoices(invoices, invoiceFilter)
@@ -62,22 +67,43 @@ export function PaymentsInvoicesSection({
 
   return (
     <section className="min-w-0 overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-      <div className="flex items-center justify-between border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-        <div>
-          <Subheading level={3}>Receive & invoices</Subheading>
+      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+        <div className="min-w-0">
+          <Subheading level={3}>Receive</Subheading>
           <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            Invoices you create to receive CKB and UDT over Fiber.
+            Fiber invoices for CKB and UDT
+            {cchConfigured ? ", plus BTC via Lightning" : ""}.
           </Text>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button outline className="text-xs" onClick={onImport} disabled={!running}>
             Import
           </Button>
+          {cchConfigured ? (
+            <Button
+              outline
+              className="text-xs"
+              onClick={onReceiveBtc}
+              disabled={!running}
+            >
+              Receive BTC
+            </Button>
+          ) : null}
           <Button className="text-xs" onClick={onCreate} disabled={!running}>
             Create invoice
           </Button>
         </div>
       </div>
+
+      {!cchConfigured && running ? (
+        <div className="border-b border-zinc-200 px-5 py-2.5 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          To receive BTC over Lightning, set a CCH hub in{" "}
+          <Link href="/settings" className="font-medium text-zinc-800 underline-offset-2 hover:underline dark:text-zinc-200">
+            Settings → Cross-chain
+          </Link>
+          .
+        </div>
+      ) : null}
 
       {available && invoices.length > 0 ? (
         <div

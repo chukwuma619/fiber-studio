@@ -87,6 +87,7 @@ pub struct PaymentsPageResponse {
     pub payments_has_more: bool,
     pub send_targets: Vec<PaymentsSendTarget>,
     pub relay_status: String,
+    pub cch_rpc_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -248,6 +249,7 @@ fn payments_page_unavailable() -> PaymentsPageResponse {
         payments_has_more: false,
         send_targets: Vec::new(),
         relay_status: "not_configured".to_string(),
+        cch_rpc_url: None,
     }
 }
 
@@ -675,6 +677,9 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         payments_has_more,
         send_targets,
         relay_status,
+        cch_rpc_url: studio_metadata
+            .as_ref()
+            .and_then(|metadata| metadata.cch_rpc_url_trimmed().map(str::to_string)),
     })
 }
 

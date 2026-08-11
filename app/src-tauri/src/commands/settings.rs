@@ -41,6 +41,7 @@ pub struct NodeSettingsResponse {
     pub setup_completed_at: Option<String>,
     pub backup_paths: Vec<BackupPathEntry>,
     pub supported_assets: Vec<AssetView>,
+    pub cch_rpc_url: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -212,6 +213,9 @@ async fn build_node_settings(
             .map(|metadata| metadata.setup_completed_at.clone()),
         backup_paths: backup_paths(),
         supported_assets,
+        cch_rpc_url: studio_metadata
+            .as_ref()
+            .and_then(|metadata| metadata.cch_rpc_url_trimmed().map(str::to_string)),
     })
 }
 

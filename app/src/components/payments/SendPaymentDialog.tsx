@@ -14,7 +14,6 @@ import {
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
-  SendPaymentMode,
   SendPaymentPayload,
   SendPaymentResult,
 } from "../../lib/fnn/types"
@@ -38,7 +37,7 @@ type Step = "review" | "inflight" | "success" | "failure"
 type SendPaymentDialogProps = {
   open: boolean
   onClose: () => void
-  mode: SendPaymentMode
+  mode: "invoice" | "keysend"
   invoice: string
   targetPubkey: string
   keysendPayload?: KeysendPaymentPayload
