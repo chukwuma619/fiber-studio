@@ -92,7 +92,8 @@ export function GetStartedPage() {
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           This guide walks you through Fiber Studio on testnet: install the app, start
-          your local Fiber node, open a channel, then send or receive CKB or UDTs.
+          your local Fiber node, open a channel, then send or receive CKB or UDTs — and
+          optionally Lightning via a Cross-Chain Hub.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button href="/download">Download Fiber Studio</Button>
@@ -228,27 +229,43 @@ export function GetStartedPage() {
         <GuideStep number="4" title="Send a payment" preview={<GuideSendPreview />}>
           <p className="text-base/7 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
             With a <Ui>Ready</Ui> channel, you can move CKB or UDTs over Fiber from{' '}
-            <Ui>Payments</Ui>.
+            <Ui>Payments</Ui> — or pay a Bitcoin Lightning invoice with cWBTC through a
+            Cross-Chain Hub.
           </p>
           <Actions>
             <li>
-              In the sidebar, open <Ui>Payments</Ui>.
+              In the sidebar, open <Ui>Payments</Ui>. Send is on the left; Receive on the
+              right.
             </li>
             <li>
-              In <Ui>Send payment</Ui>, leave the mode on <Ui>Invoice</Ui> (or switch to{' '}
-              <Ui>Keysend</Ui> to push to a node pubkey).
+              Under <Ui>Send</Ui>, choose <Ui>Fiber</Ui> (invoice), <Ui>Keysend</Ui>, or{' '}
+              <Ui>Lightning</Ui> (BOLT11 via CCH).
             </li>
             <li>
-              For an invoice: paste the invoice string (testnet invoices start with{' '}
-              <Code>fibt</Code>). For keysend: pick a recipient, choose the{' '}
-              <Ui>Asset</Ui>, and enter an amount.
+              Fiber invoice: paste a string starting with <Code>fibt</Code>. Keysend: pick
+              a recipient, asset, and amount. Lightning: set a hub URL in{' '}
+              <Ui>Settings → Cross-chain</Ui> first, then paste <Code>lntb…</Code> /{' '}
+              <Code>lnbc…</Code> (pasting a Lightning invoice into Fiber auto-switches
+              tabs).
             </li>
             <li>
-              Check the route preview (direct or multi-hop, fee), then click{' '}
-              <Ui>Review payment</Ui>.
+              Check the preview or hub quote, then click <Ui>Review payment</Ui> or{' '}
+              <Ui>Review Lightning swap</Ui>.
             </li>
-            <li>Confirm the send in the dialog and wait for success.</li>
+            <li>Confirm in the dialog and wait for success.</li>
           </Actions>
+          <Note>
+            Lightning swaps need cWBTC channel liquidity toward the hub. Testnet cWBTC is
+            available from the{' '}
+            <TextLink
+              href="https://faucet-cwbtc.ckb.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              cWBTC faucet
+            </TextLink>
+            .
+          </Note>
         </GuideStep>
 
         <GuideStep number="5" title="Receive a payment" preview={<GuideReceivePreview />}>
@@ -257,15 +274,16 @@ export function GetStartedPage() {
               Stay on <Ui>Payments</Ui>.
             </li>
             <li>
-              Under <Ui>Receive & invoices</Ui>, click <Ui>Create invoice</Ui>.
+              Under <Ui>Receive</Ui>, click <Ui>Create invoice</Ui> for Fiber (CKB or a
+              UDT), or <Ui>Receive BTC</Ui> if a CCH hub is configured.
             </li>
             <li>
-              Choose the <Ui>Asset</Ui>, enter the amount, optional note, and expiry, then
-              click <Ui>Create invoice</Ui>.
+              For Fiber: choose the <Ui>Asset</Ui>, amount, optional note, and expiry, then
+              create the invoice and share the string.
             </li>
             <li>
-              Copy the invoice string and share it with the payer. Status stays{' '}
-              <Ui>Awaiting payment</Ui> until it is paid.
+              For BTC: enter a cWBTC amount; the hub returns a Lightning invoice for the
+              payer. Status updates as the swap settles.
             </li>
           </Actions>
           <Note>

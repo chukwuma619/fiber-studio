@@ -273,37 +273,42 @@ export function ChannelsCrop() {
 export function PaymentsCrop() {
   return (
     <PreviewCrop>
-      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-        <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
-          Send payment
-        </h3>
-        <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-400">
-          Pay by invoice or push CKB/UDT (keysend)
-        </p>
-        <div className="mt-3 flex gap-2">
-          <span className="text-xs text-zinc-500 dark:text-zinc-400">Invoice</span>
-          <Badge color="zinc">Keysend</Badge>
-        </div>
-        <div className="mt-3 space-y-2">
-          <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
-            <span className="text-zinc-500 dark:text-zinc-400">Asset</span>
-            <span className="font-medium text-zinc-950 dark:text-white">RUSD</span>
-          </div>
-          <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
-            <span className="text-zinc-500 dark:text-zinc-400">Amount</span>
-            <span className="tabular-nums text-zinc-950 dark:text-white">12.5 RUSD</span>
-          </div>
-        </div>
-        <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg bg-zinc-50 p-3 ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
-          <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-zinc-950 dark:text-white">Direct route</p>
-            <Badge color="sky">Off-chain</Badge>
-          </div>
-          <p className="mt-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-            02a7c3…e91b → 03f1a8…c42d
+      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
+            Send
+          </h3>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            Paste a Lightning invoice — paid with cWBTC via your CCH hub.
           </p>
         </div>
-        <Button className="mt-3 w-full text-xs">Review payment</Button>
+        <div className="flex flex-1 flex-col px-4 py-3">
+          <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+            <span className="flex-1 rounded-md px-2 py-1 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Fiber
+            </span>
+            <span className="flex-1 rounded-md px-2 py-1 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Keysend
+            </span>
+            <span className="flex-1 rounded-md bg-white px-2 py-1 text-center text-xs font-medium text-zinc-950 shadow-xs dark:bg-zinc-900 dark:text-white">
+              Lightning
+            </span>
+          </div>
+          <div className="mt-3 space-y-2">
+            <div className="rounded-lg bg-zinc-50 px-3 py-2 font-mono text-[10px] text-zinc-600 ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-white/10">
+              lntb100u1p…
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
+              <span className="text-zinc-500 dark:text-zinc-400">You pay</span>
+              <span className="tabular-nums text-zinc-950 dark:text-white">0.00010000 cWBTC</span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg bg-zinc-50 px-3 py-2 text-xs ring-1 ring-zinc-950/10 dark:bg-zinc-800 dark:ring-white/10">
+              <span className="text-zinc-500 dark:text-zinc-400">Hub fee</span>
+              <span className="tabular-nums text-zinc-950 dark:text-white">1 sat</span>
+            </div>
+          </div>
+          <Button className="mt-auto w-full text-xs">Review Lightning swap</Button>
+        </div>
       </div>
     </PreviewCrop>
   )

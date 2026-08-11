@@ -1,6 +1,6 @@
 # Fiber Studio
 
-Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Nervos CKB](https://nervos.org). Fiber Studio wraps the official [Fiber Network Node (`fnn`)](https://github.com/nervosnetwork/fiber) so you can run channels, send and receive payments, and manage your node without living in a terminal.
+Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Nervos CKB](https://nervos.org). Fiber Studio wraps the official [Fiber Network Node (`fnn`)](https://github.com/nervosnetwork/fiber) so you can run channels, send and receive CKB and UDT payments, pay Bitcoin Lightning invoices via a Cross-Chain Hub (CCH), and manage your node without living in a terminal.
 
 Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/). The marketing site in [`website/`](./website) is [Next.js](https://nextjs.org/).
 
@@ -16,9 +16,9 @@ Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/
 
 ## What Fiber Studio is
 
-Fiber is CKB’s peer-to-peer payment and swap layer — channels, routing, invoices, and fast off-chain value movement. To use it, you run **fnn**, the official Fiber Network Node.
+Fiber is CKB’s peer-to-peer payment and swap layer — channels, routing, invoices, and fast off-chain value movement (including atomic BTC Lightning swaps via [CCH](https://www.fiber.world/docs/res/cross-chain-htlc)). To use it, you run **fnn**, the official Fiber Network Node.
 
-Fiber Studio does not replace `fnn` or fork the protocol. It is the interface for the same official node: install and run `fnn` locally, with guided setup and task-based flows instead of CLI-only workflows. Your CKB key file stays on disk; secrets stay in the OS keychain. It is not a hosted wallet.
+Fiber Studio does not replace `fnn` or fork the protocol. It is the interface for the same official node: install and run `fnn` locally, with guided setup and task-based flows instead of CLI-only workflows. For Lightning, Fiber Studio acts as a **CCH client** — you configure a hub’s JSON-RPC URL; the app does not run LND or the hub itself. Your CKB key file stays on disk; secrets stay in the OS keychain. It is not a hosted wallet.
 
 ## Features
 
@@ -27,10 +27,11 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **Guided setup wizard** — choose testnet (mainnet is shown but not available yet), connect via official relays or enter a custom peer pubkey/multiaddr, pick a data directory, import a CKB key file, and set a wallet password
 - **Node lifecycle** — start and stop `fnn`, view recent logs, export or copy logs, and stop the node when the app exits
 - **Home dashboard** — local balance, channel and peer counts, saved peer connectivity, channel liquidity, and recent activity
-- **Payments** — create and import invoices (with QR codes), receive payment status, send via invoice or keysend with parse/preview, payment history with route details
-- **Channels** — open, list, monitor, and close channels; on-chain wallet balance
+- **Assets** — on-chain and in-channel balances for CKB and whitelisted UDTs (e.g. RUSD, cWBTC on testnet)
+- **Payments** — create and import Fiber invoices (with QR codes); send via Fiber invoice or keysend with parse/preview; **Lightning** tab to pay BOLT11 invoices with cWBTC through a CCH hub; **Receive BTC** for the reverse swap; payment history with route details
+- **Channels** — open, list, monitor, and close CKB or UDT channels; on-chain wallet balance
 - **Network** — connect to public relays and custom peers, view relay and graph status, lightweight gossip graph browser
-- **Settings** — node and wallet configuration, theme, network switch, password updates, open config/data directory, start-node-on-launch / open-at-login, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
+- **Settings** — node and wallet configuration, **Cross-chain** CCH hub RPC URL, theme, network switch, password updates, open config/data directory, start-node-on-launch / open-at-login, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
 - **fnn upgrades** — in-app migration dialog with data backup and breaking-change guidance when the bundled node requires it
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
 - **Signed distribution** — Apple Developer ID + notarization (macOS), Authenticode (Windows), Linux `.AppImage` / `.deb` / `.rpm`
@@ -145,8 +146,8 @@ Start Fiber Studio and ensure the node is up on both laptops.
 
 **5. Pay**
 
-- **Invoice (recommended):** They create an invoice on **Payments → Create invoice** and send you the string (or QR). You pay on **Payments → Send payment** (Invoice tab). Route preview should show **one hop** (direct).
-- **Keysend:** **Payments → Send payment** (Keysend tab) with their pubkey.
+- **Fiber invoice (recommended):** They create an invoice on **Payments → Receive → Create invoice** and send you the string (or QR). You pay on **Payments → Send → Fiber**. Route preview should show **one hop** (direct).
+- **Keysend:** **Payments → Send → Keysend** with their pubkey.
 
 The invoice **payee pubkey** must match the node you opened the channel with. If they send an invoice from a different wallet/node, payment will not route correctly.
 
@@ -232,8 +233,8 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 
 **4. Pay**
 
-1. **Receiver** — **Payments → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
-2. **Sender** — **Payments → Send payment** (Invoice tab) — route preview should show a path **via the hub** (multi-hop).
+1. **Receiver** — **Payments → Receive → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
+2. **Sender** — **Payments → Send → Fiber** — route preview should show a path **via the hub** (multi-hop).
 3. Confirm and send.
 
 ### Multi-hop checklist
@@ -262,21 +263,49 @@ Peer-only connection to the hub is **not** enough for receiving payments.
 
 ## Send a payment (both modes)
 
-### Invoice (recommended)
+On **Payments**, **Send** is on the left (Fiber / Keysend / Lightning) and **Receive** is on the right.
 
-**Receiver:** **Payments → Create invoice** → share Bech32m string or QR.
+### Fiber invoice (recommended for Fiber pays)
 
-**Sender:** **Payments → Send payment** (Invoice tab) → paste invoice → confirm amount and **route preview** → **Review payment** → send.
+**Receiver:** **Payments → Receive → Create invoice** → share Bech32m string or QR.
+
+**Sender:** **Payments → Send → Fiber** → paste invoice → confirm amount and **route preview** → **Review payment** → send.
 
 **Receiver:** invoice status updates to **Received** when settled.
 
+Pasting a Lightning BOLT11 invoice (`lnbc…` / `lntb…`) into the Fiber field switches to the **Lightning** tab automatically.
+
 ### Keysend
 
-**Sender:** **Payments → Send payment** (Keysend tab) → recipient pubkey → amount → route preview → send.
+**Sender:** **Payments → Send → Keysend** → recipient pubkey → asset and amount → route preview → send.
 
 **Receiver:** payment appears in history when settled.
 
 Works for **direct** (channel peer) or **multi-hop** (routable path). Route preview must succeed before sending.
+
+### Lightning via Cross-Chain Hub (CCH)
+
+Fiber Studio can pay and receive Bitcoin Lightning invoices by talking to a **remote CCH hub** (atomic HTLC swap between Lightning BTC and Fiber **cWBTC**). Docs: [CCH RPC](https://www.fiber.world/docs/api-reference/cross-chain/cch), [Cross-Chain HTLC](https://www.fiber.world/docs/res/cross-chain-htlc). Testnet cWBTC: [faucet-cwbtc.ckb.dev](https://faucet-cwbtc.ckb.dev).
+
+**Prerequisites**
+
+1. **Settings → Cross-chain** — set the hub’s HTTP(S) JSON-RPC URL.
+2. **cWBTC** on-chain and in a **Ready** channel with a path toward the hub (open a cWBTC channel via public relays as needed).
+3. Node running on the same network as the hub (testnet ↔ testnet Lightning).
+
+**Pay a Lightning invoice (cWBTC → BTC)**
+
+1. **Payments → Send → Lightning** — paste a BOLT11 invoice.
+2. **Review Lightning swap** — the hub creates a CCH order and returns a Fiber invoice (amount includes hub fee).
+3. Confirm and pay the Fiber leg; the hub settles the Lightning invoice. Order status polls until **Success** or **Failed**.
+
+**Receive BTC as cWBTC (BTC → Fiber)**
+
+1. **Payments → Receive → Receive BTC** — enter a cWBTC amount (and expiry ≥ 6 hours).
+2. Share the Lightning invoice the hub returns with the payer.
+3. When they pay, the hub pays your Fiber invoice; watch status until settled.
+
+Fiber Studio does **not** run LND or embed the CCH service — only the client RPCs (`send_btc`, `receive_btc`, `get_cch_order`) against the hub you configure.
 
 For protocol details beyond the app UI, see the [Fiber documentation](https://www.fiber.world/docs).
 

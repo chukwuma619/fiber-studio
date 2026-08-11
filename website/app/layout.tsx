@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     template: '%s · Fiber Studio',
   },
   description:
-    'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, and your node without the terminal.',
+    'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, Bitcoin Lightning swaps via CCH, and your node without the terminal.',
   openGraph: {
     type: 'website',
     locale: 'en_US',
@@ -29,13 +29,13 @@ export const metadata: Metadata = {
     siteName: 'Fiber Studio',
     title: 'Fiber Studio',
     description:
-      'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, and your node without the terminal.',
+      'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, Bitcoin Lightning swaps via CCH, and your node without the terminal.',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Fiber Studio',
     description:
-      'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, and your node without the terminal.',
+      'Native desktop app for the Fiber Network on Nervos CKB — run channels, CKB and UDT payments, Bitcoin Lightning swaps via CCH, and your node without the terminal.',
   },
 }
 

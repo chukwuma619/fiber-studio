@@ -23,8 +23,9 @@ export function Hero() {
           A desktop app for Fiber Network payments.
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Run the official Fiber node on your computer, send and receive CKB and UDTs, and
-          keep your keys on your device. No command line required. Testnet ready.
+          Run the official Fiber node on your computer, send and receive CKB and UDTs,
+          and pay Bitcoin Lightning invoices with cWBTC via a Cross-Chain Hub. Keys stay
+          on your device. No command line required. Testnet ready.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-3">

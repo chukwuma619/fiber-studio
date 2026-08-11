@@ -1,6 +1,6 @@
 # Fiber Studio website
 
-Next.js marketing site. Product docs and desktop app guides live in the [root README](../README.md).
+Next.js marketing site (product story, FAQ, get-started, download). Desktop app guides and CCH / Lightning details also live in the [root README](../README.md).
 
 ```bash
 cd website

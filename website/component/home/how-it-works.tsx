@@ -29,7 +29,7 @@ const STEPS = [
     step: '03',
     title: 'Send and receive',
     description:
-      'Pay invoices or keysend CKB and UDTs from Payments once your channel is active.',
+      'Pay Fiber invoices, keysend CKB and UDTs, or swap with Bitcoin Lightning via a CCH hub once your channel is active.',
     Preview: PaymentsCrop,
   },
 ] as const
@@ -47,7 +47,8 @@ export function HowItWorks() {
         </h2>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
           Fiber Studio walks you through the real Fiber path: run a node, open a channel
-          for CKB or a whitelisted UDT, then send and receive payments.
+          for CKB or a whitelisted UDT, then send and receive — including Lightning swaps
+          when you configure a Cross-Chain Hub.
         </p>
 
         <ol className="mt-12 grid gap-8 sm:grid-cols-3 sm:gap-6">

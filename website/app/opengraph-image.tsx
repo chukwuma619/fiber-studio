@@ -3,7 +3,7 @@ import { join } from 'node:path'
 
 import { ImageResponse } from 'next/og'
 
-export const alt = 'Fiber Studio — a desktop app for Fiber Network payments'
+export const alt = 'Fiber Studio — Fiber Network payments and Lightning via CCH'
 export const size = {
   width: 1200,
   height: 630,
@@ -114,8 +114,8 @@ export default async function Image() {
               color: '#52525b',
             }}
           >
-            Run the official Fiber node, send and receive CKB and UDTs, and keep your
-            keys on your device.
+            Run the official Fiber node, send and receive CKB and UDTs, and pay
+            Lightning invoices with cWBTC via CCH. Keys stay on your device.
           </div>
         </div>
 

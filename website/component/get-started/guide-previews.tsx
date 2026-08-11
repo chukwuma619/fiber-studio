@@ -258,41 +258,48 @@ export function GuideOpenChannelPreview() {
 export function GuideSendPreview() {
   return (
     <PreviewCrop>
-      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
-        <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
-          Send payment
-        </h3>
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          Pay by invoice or push CKB/UDT to a known node pubkey (keysend)
-        </p>
-        <div className="mt-3 flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
-          <span className="flex-1 rounded-md bg-white px-2 py-1 text-center text-xs font-medium text-zinc-950 shadow-sm dark:bg-zinc-900 dark:text-white">
-            Invoice
-          </span>
-          <span className="flex-1 rounded-md px-2 py-1 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
-            Keysend
-          </span>
-        </div>
-        <div className="mt-3 space-y-1">
-          <p className="text-xs font-medium text-zinc-950 dark:text-white">Invoice string</p>
-          <FakeInput mono>fibt1000000001p…</FakeInput>
-          <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
-            Bech32m invoice (Fibt on testnet) — CKB or UDT
+      <div className="flex h-full flex-col overflow-hidden rounded-lg bg-white shadow-xs ring-1 ring-zinc-950/5 dark:bg-zinc-900 dark:ring-white/10">
+        <div className="border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
+          <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
+            Send
+          </h3>
+          <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+            Paste a Fiber (Fibt) invoice to pay over the network.
           </p>
         </div>
-        <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800/50">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Direct route</p>
-            <div className="flex items-center gap-2">
-              <Badge color="sky">Off-chain (Fiber)</Badge>
-              <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">12.5 RUSD</span>
-            </div>
+        <div className="flex flex-1 flex-col px-4 py-3">
+          <div className="flex gap-1 rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+            <span className="flex-1 rounded-md bg-white px-2 py-1 text-center text-xs font-medium text-zinc-950 shadow-sm dark:bg-zinc-900 dark:text-white">
+              Fiber
+            </span>
+            <span className="flex-1 rounded-md px-2 py-1 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Keysend
+            </span>
+            <span className="flex-1 rounded-md px-2 py-1 text-center text-xs font-medium text-zinc-600 dark:text-zinc-400">
+              Lightning
+            </span>
           </div>
-          <p className="mt-2 font-mono text-[10px] break-all text-zinc-600 dark:text-zinc-400">
-            02a7c3…e91b → {DEMO_PEER}
-          </p>
+          <div className="mt-3 space-y-1">
+            <p className="text-xs font-medium text-zinc-950 dark:text-white">Fiber invoice</p>
+            <FakeInput mono>fibt1000000001p…</FakeInput>
+            <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+              Fibt on testnet. Lightning invoices (ln…) switch tabs automatically.
+            </p>
+          </div>
+          <div className="mt-3 min-h-0 flex-1 overflow-hidden rounded-lg bg-zinc-50 px-3 py-2.5 dark:bg-zinc-800/50">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Direct route</p>
+              <div className="flex items-center gap-2">
+                <Badge color="sky">Off-chain (Fiber)</Badge>
+                <span className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">12.5 RUSD</span>
+              </div>
+            </div>
+            <p className="mt-2 font-mono text-[10px] break-all text-zinc-600 dark:text-zinc-400">
+              02a7c3…e91b → {DEMO_PEER}
+            </p>
+          </div>
+          <Button className="mt-3 w-full text-xs">Review payment</Button>
         </div>
-        <Button className="mt-3 w-full text-xs">Review payment</Button>
       </div>
     </PreviewCrop>
   )

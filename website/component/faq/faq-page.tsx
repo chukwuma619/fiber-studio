@@ -64,8 +64,8 @@ export function FaqPage() {
           FAQ
         </h1>
         <p className="mt-4 max-w-xl text-base/6 text-zinc-600 sm:text-lg/7 dark:text-zinc-400">
-          Short answers about Fiber Studio, local nodes, channels, and first-launch
-          warnings.
+          Short answers about Fiber Studio, local nodes, channels, Lightning / CCH, and
+          first-launch warnings.
         </p>
         <div className="mt-8 flex flex-wrap gap-3">
           <Button href="/download">Download</Button>
@@ -89,7 +89,8 @@ export function FaqPage() {
             </TextLink>{' '}
             payments on Nervos CKB. It runs the official Fiber Network Node (
             <Ui>fnn</Ui>) on your computer and gives you a UI for setup, channels, assets,
-            and payments — without living in a terminal.
+            Fiber payments, and Bitcoin Lightning swaps via a Cross-Chain Hub — without
+            living in a terminal.
           </p>
         </FaqItem>
 
@@ -112,6 +113,50 @@ export function FaqPage() {
             On mainnet, Fiber’s official template currently whitelists <Ui>USDI</Ui> only.
             Public mainnet liquidity for UDT channels is still limited — testnet is where
             multi-UDT flow is practical today.
+          </p>
+        </FaqItem>
+
+        <FaqItem question="Can I pay Bitcoin Lightning invoices?">
+          <p>
+            Yes, as a <Ui>CCH client</Ui>. Fiber’s Cross-Chain Hub bridges Fiber (cWBTC)
+            and Bitcoin Lightning with atomic HTLC swaps. In Fiber Studio:
+          </p>
+          <ul className="list-disc space-y-2 pl-5 marker:text-zinc-400">
+            <li>
+              Set a hub JSON-RPC URL under <Ui>Settings → Cross-chain</Ui>
+            </li>
+            <li>
+              Hold cWBTC in a channel with a path to the hub
+            </li>
+            <li>
+              On <Ui>Payments → Send → Lightning</Ui>, paste a BOLT11 invoice (
+              <Code>lnbc…</Code> / <Code>lntb…</Code>), review the hub quote, and pay the
+              Fiber leg
+            </li>
+            <li>
+              To receive BTC as cWBTC, use <Ui>Receive → Receive BTC</Ui> and share the
+              Lightning invoice the hub returns
+            </li>
+          </ul>
+          <p>
+            Fiber Studio does not run LND or the hub itself — it talks to an operator’s
+            CCH RPC, then uses your local node for the Fiber side. See the{' '}
+            <TextLink
+              href="https://www.fiber.world/docs/res/cross-chain-htlc"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Cross-Chain HTLC guide
+            </TextLink>{' '}
+            and testnet{' '}
+            <TextLink
+              href="https://faucet-cwbtc.ckb.dev"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              cWBTC faucet
+            </TextLink>
+            .
           </p>
         </FaqItem>
 

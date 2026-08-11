@@ -54,7 +54,7 @@ export function AppPreview() {
               <>
                 <Button outline>View assets</Button>
                 <Button>Send payment</Button>
-                <Button outline>Create invoice</Button>
+                <Button outline>Receive BTC</Button>
               </>
             }
           />
