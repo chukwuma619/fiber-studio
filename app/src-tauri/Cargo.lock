@@ -1135,7 +1135,7 @@ dependencies = [
 
 [[package]]
 name = "fiber-studio"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "bech32",
  "chrono",

@@ -4,7 +4,7 @@ Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Ner
 
 Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/). The marketing site in [`website/`](./website) is [Next.js](https://nextjs.org/).
 
-> **Status:** v1.1.0. Ground-up rebuild of the earlier [fiber-desktop](https://github.com/chukwuma619/fiber-desktop) prototype. Website: [getfiberstudio.com](https://www.getfiberstudio.com/).
+> **Status:** v1.1.1. Ground-up rebuild of the earlier [fiber-desktop](https://github.com/chukwuma619/fiber-desktop) prototype. Website: [getfiberstudio.com](https://www.getfiberstudio.com/).
 
 ## Repository layout
 
