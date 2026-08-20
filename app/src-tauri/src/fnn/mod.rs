@@ -26,4 +26,4 @@ pub mod sent_payments;
 pub mod spawn;
 pub mod studio;
 
-pub const FNN_VERSION: &str = "0.9.0-rc7";
+pub const FNN_VERSION: &str = "0.9.0";

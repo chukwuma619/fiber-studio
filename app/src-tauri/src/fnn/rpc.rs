@@ -801,7 +801,11 @@ pub fn is_channel_ready(state: &serde_json::Value) -> bool {
 }
 
 pub fn is_channel_pending(state: &serde_json::Value) -> bool {
-    is_listable_channel(state) && !is_channel_ready(state) && channel_state_label(state) != "ShuttingDown"
+    let label = channel_state_label(state);
+    is_listable_channel(state)
+        && !is_channel_ready(state)
+        && label != "ShuttingDown"
+        && label != "Stale"
 }
 
 /// Whether a channel should appear in Fiber Studio channel lists.
@@ -818,7 +822,7 @@ mod tests {
         "jsonrpc": "2.0",
         "id": 1,
         "result": {
-            "version": "0.9.0-rc4",
+            "version": "0.9.0",
             "commit_hash": "05ccebf 2026-06-18",
             "pubkey": "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71",
             "features": ["GOSSIP_QUERIES_REQUIRED"],
@@ -865,7 +869,7 @@ mod tests {
     fn deserializes_node_info_success_response() {
         let payload: RpcResponse<NodeInfo> = serde_json::from_str(NODE_INFO_SUCCESS).unwrap();
         let info = payload.result.expect("result should be present");
-        assert_eq!(info.version, "0.9.0-rc4");
+        assert_eq!(info.version, "0.9.0");
         assert_eq!(
             info.pubkey,
             "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71"
@@ -1068,6 +1072,7 @@ mod tests {
             "state_flags": "OUR_INIT_SENT"
         });
         let closing = serde_json::json!("ShuttingDown");
+        let stale = serde_json::json!("Stale");
         let closed = serde_json::json!({
             "state_name": "Closed",
             "state_flags": "FUNDING_ABORTED"
@@ -1076,6 +1081,7 @@ mod tests {
         assert!(!super::is_channel_pending(&ready));
         assert!(super::is_channel_pending(&opening));
         assert!(!super::is_channel_pending(&closing));
+        assert!(!super::is_channel_pending(&stale));
         assert!(!super::is_channel_pending(&closed));
     }
 

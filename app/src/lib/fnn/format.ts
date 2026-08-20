@@ -44,6 +44,8 @@ export function channelStateDisplayLabel(state: string): string {
       return "Opening"
     case "ShuttingDown":
       return "Closing"
+    case "Stale":
+      return "Needs sync"
     default:
       return state.replace(/([A-Z])/g, " $1").trim()
   }
@@ -53,7 +55,8 @@ export function isChannelPending(state: string): boolean {
   return (
     state !== "ChannelReady" &&
     state !== "ShuttingDown" &&
-    state !== "Closed"
+    state !== "Closed" &&
+    state !== "Stale"
   )
 }
 
@@ -72,6 +75,7 @@ export function channelStateBadgeColor(
   localPercent: number,
 ): ChannelBadgeColor {
   if (state === "ShuttingDown") return "red"
+  if (state === "Stale") return "amber"
   if (state !== "ChannelReady") return "amber"
   if (localPercent < 15) return "amber"
   return "green"

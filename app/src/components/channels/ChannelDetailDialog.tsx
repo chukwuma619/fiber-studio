@@ -58,6 +58,9 @@ function closeDisabledReason(state: string): string | null {
   if (state === "ShuttingDown") {
     return "This channel is already closing."
   }
+  if (state === "Stale") {
+    return "This channel needs to sync with its peer before it can be closed."
+  }
   if (!canCloseChannel(state)) {
     return "Only active channels can be closed cooperatively."
   }
@@ -73,6 +76,9 @@ function abandonDisabledReason(state: string): string | null {
   }
   if (state === "ShuttingDown") {
     return "This channel is already closing."
+  }
+  if (state === "Stale") {
+    return "This channel needs to sync with its peer before it can be abandoned."
   }
   return "This channel cannot be abandoned."
 }

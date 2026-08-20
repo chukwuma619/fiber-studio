@@ -136,7 +136,7 @@ export function AppPreview() {
                   </span>
                 </DescriptionDetails>
                 <DescriptionTerm>fnn version</DescriptionTerm>
-                <DescriptionDetails>0.9.0-rc7</DescriptionDetails>
+                <DescriptionDetails>0.9.0</DescriptionDetails>
                 <DescriptionTerm>Node pubkey</DescriptionTerm>
                 <DescriptionDetails className="font-mono text-xs text-zinc-600 dark:text-zinc-400">
                   02a7c3…e91b
