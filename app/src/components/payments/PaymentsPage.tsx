@@ -46,6 +46,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
     createInvoice,
     previewSendPayment,
     parseInvoicePreview,
+    getPreflightSnapshot,
     previewKeysendPayment,
     sendPayment,
     sendKeysendPayment,
@@ -242,6 +243,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           isActing={isActing}
           actionError={actionError}
           onParseInvoicePreview={handleParseInvoicePreview}
+          onGetPreflightSnapshot={getPreflightSnapshot}
           onPreviewSendPayment={previewSendPayment}
           onPreviewKeysendPayment={previewKeysendPayment}
           onSendPayment={sendPayment}

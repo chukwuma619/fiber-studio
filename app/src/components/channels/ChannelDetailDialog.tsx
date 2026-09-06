@@ -2,12 +2,20 @@ import { useEffect, useState } from "react"
 import {
   canAbandonChannel,
   canCloseChannel,
+  canCooperativeCloseChannel,
+  canForceCloseChannel,
   channelStateBadgeColor,
   channelStateDisplayLabel,
+  defaultChannelCloseMethod,
   formatCkb,
   fundingTxHashFromOutpoint,
   parseHexU128,
+  type ChannelCloseMethod,
 } from "../../lib/fnn/format"
+import {
+  channelLiquidityHealth,
+  healthBadgeColor,
+} from "../../lib/fnn/liquidityHealth"
 import type {
   AbandonChannelPayload,
   HomeChannel,
@@ -15,6 +23,7 @@ import type {
 } from "../../lib/fnn/types"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
+import { CapacityBar } from "../ui/capacity-bar"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
 import {
@@ -28,8 +37,10 @@ import {
   DialogBody,
   DialogTitle,
 } from "../ui/dialog"
+import { Description, Label } from "../ui/fieldset"
 import { HelpTooltip } from "../ui/help-tooltip"
 import { PageErrorBanner } from "../ui/page-error-banner"
+import { Radio, RadioField, RadioGroup } from "../ui/radio"
 import { Text } from "../ui/text"
 
 type Step = "detail" | "confirm-close" | "confirm-abandon"
@@ -42,6 +53,8 @@ type ChannelDetailDialogProps = {
   actionError: string | null
   onShutdownChannel: (payload: ShutdownChannelPayload) => Promise<void>
   onAbandonChannel: (payload: AbandonChannelPayload) => Promise<void>
+  onRebalance?: () => void
+  rebalanceDisabledReason?: string | null
   onClearError: () => void
 }
 
@@ -54,33 +67,30 @@ function channelCapacityDisplay(channel: HomeChannel): string {
   return `${formatCkb(total)} ${channel.assetSymbol}`
 }
 
-function closeDisabledReason(state: string): string | null {
-  if (state === "ShuttingDown") {
-    return "This channel is already closing."
+function closeDisabledReason(channel: {
+  state: string
+  latestCommitmentTransactionHash?: string | null
+  channelOutpoint?: string | null
+}): string | null {
+  if (channel.state === "ShuttingDown") {
+    return "Cooperative close is already in progress. Force close if the peer is unresponsive."
   }
-  if (state === "Stale") {
+  if (channel.state === "Stale") {
     return "This channel needs to sync with its peer before it can be closed."
   }
-  if (!canCloseChannel(state)) {
-    return "Only active channels can be closed cooperatively."
+  if (
+    channel.state === "AwaitingChannelReady" &&
+    canForceCloseChannel(channel)
+  ) {
+    return "This open never finished after funding. Force close to reclaim on-chain funds if the peer stays offline. Do not abandon — Fiber will reject it once funding is signed."
+  }
+  if (canAbandonChannel(channel)) {
+    return "This channel is still opening. Abandon it instead of closing."
+  }
+  if (!canCloseChannel(channel)) {
+    return "Only ready channels can be closed."
   }
   return null
-}
-
-function abandonDisabledReason(state: string): string | null {
-  if (canAbandonChannel(state)) {
-    return null
-  }
-  if (state === "ChannelReady") {
-    return "Use close channel for active channels."
-  }
-  if (state === "ShuttingDown") {
-    return "This channel is already closing."
-  }
-  if (state === "Stale") {
-    return "This channel needs to sync with its peer before it can be abandoned."
-  }
-  return "This channel cannot be abandoned."
 }
 
 export function ChannelDetailDialog({
@@ -91,15 +101,23 @@ export function ChannelDetailDialog({
   actionError,
   onShutdownChannel,
   onAbandonChannel,
+  onRebalance,
+  rebalanceDisabledReason,
   onClearError,
 }: ChannelDetailDialogProps) {
   const [step, setStep] = useState<Step>("detail")
+  const [closeMethod, setCloseMethod] = useState<ChannelCloseMethod>("cooperative")
 
   useEffect(() => {
     if (open) {
       setStep("detail")
+      setCloseMethod(
+        defaultChannelCloseMethod(
+          channel ?? { state: "ChannelReady" },
+        ),
+      )
     }
-  }, [open, channel?.channelId])
+  }, [open, channel?.channelId, channel?.state])
 
   if (!channel) {
     return null
@@ -114,11 +132,16 @@ export function ChannelDetailDialog({
     channel.state,
     channel.localPercent,
   )
-  const closeReason = closeDisabledReason(channel.state)
-  const abandonReason = abandonDisabledReason(channel.state)
+  const closeReason = closeDisabledReason(channel)
   const isReady = channel.state === "ChannelReady"
-  const showAbandon = canAbandonChannel(channel.state)
+  const showClose = canCloseChannel(channel)
+  const showAbandon = canAbandonChannel(channel)
+  const cooperativeAllowed = canCooperativeCloseChannel(channel.state)
+  const forceAllowed = canForceCloseChannel(channel)
+  const isStuckFundedOpen =
+    channel.state === "AwaitingChannelReady" && forceAllowed
   const channelId = channel.channelId
+  const health = channelLiquidityHealth(channel)
 
   function handleDismiss() {
     setStep("detail")
@@ -128,10 +151,26 @@ export function ChannelDetailDialog({
 
   async function handleConfirmClose() {
     try {
-      await onShutdownChannel({ channelId })
+      await onShutdownChannel({
+        channelId,
+        force: closeMethod === "force",
+      })
       handleDismiss()
     } catch {
       // actionError is set by the hook
+    }
+  }
+
+  function closeConfirmLabel(): string {
+    switch (closeMethod) {
+      case "force":
+        return isActing ? "Force closing…" : "Confirm force close"
+      case "cooperative":
+        return isActing ? "Closing…" : "Confirm close"
+      default: {
+        const unreachable: never = closeMethod
+        return unreachable
+      }
     }
   }
 
@@ -255,28 +294,87 @@ export function ChannelDetailDialog({
                   <DescriptionDetails className="tabular-nums">
                     {remoteBalance}
                   </DescriptionDetails>
+
+                  <DescriptionTerm>
+                    <span className="inline-flex items-center gap-1">
+                      Liquidity health
+                      <HelpTooltip content={`${health.score}/100 toward a 50/50 split. ${health.description}`} />
+                    </span>
+                  </DescriptionTerm>
+                  <DescriptionDetails>
+                    <div className="space-y-2">
+                      <CapacityBar percent={channel.localPercent} />
+                      <Badge color={healthBadgeColor(health.kind)}>
+                        {health.label}
+                        {health.kind !== "pending" ? ` · ${health.score}/100` : ""}
+                      </Badge>
+                      {health.warning ? (
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                          {health.description}
+                        </p>
+                      ) : null}
+                    </div>
+                  </DescriptionDetails>
                 </>
               ) : null}
             </DescriptionList>
 
-            {closeReason && !showAbandon ? (
+            {rebalanceDisabledReason && isReady ? (
+              <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                {rebalanceDisabledReason}
+              </Text>
+            ) : null}
+            {closeReason && showClose ? (
               <Text className="text-xs text-zinc-500 dark:text-zinc-400">
                 {closeReason}
               </Text>
             ) : null}
-            {abandonReason && showAbandon ? (
+            {showAbandon ? (
               <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                Abandon cancels a stuck open before funding completes on-chain.
+                Abandon cancels a stuck open before funding is signed on-chain.
               </Text>
             ) : null}
           </div>
         ) : step === "confirm-close" ? (
           <div className="space-y-4">
             <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-              Closing this channel returns funds to your on-chain wallet.
-              Cooperative close requires the peer to be online.
+              {isStuckFundedOpen
+                ? "This channel funded on-chain but never became ready. Cooperative close cannot run. Force close broadcasts the latest commitment and returns funds after confirmation."
+                : "Closing returns funds to your on-chain wallet. Fiber has two close methods."}
             </Text>
-            <div className="rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+            <RadioGroup
+              value={closeMethod}
+              onChange={(value) => {
+                if (value === "cooperative" || value === "force") {
+                  setCloseMethod(value)
+                }
+              }}
+              disabled={isActing}
+            >
+              <RadioField disabled={!cooperativeAllowed}>
+                <Radio value="cooperative" />
+                <Label>Cooperative close</Label>
+                <Description>
+                  Peer must be online. Both sides sign a joint closing
+                  transaction.
+                </Description>
+              </RadioField>
+              <RadioField disabled={!forceAllowed}>
+                <Radio value="force" color="red" />
+                <Label>Force close</Label>
+                <Description>
+                  Unilateral close if the peer is offline. Broadcasts the
+                  latest commitment; funds may take longer to become spendable.
+                </Description>
+              </RadioField>
+            </RadioGroup>
+            <div
+              className={
+                closeMethod === "force"
+                  ? "rounded-md bg-rose-50 px-3 py-2 text-xs text-rose-800 dark:bg-rose-950/40 dark:text-rose-300"
+                  : "rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300"
+              }
+            >
               <span className="font-mono">{truncatePubkey(channel.pubkey)}</span>
               {" · "}
               {capacity}
@@ -309,6 +407,32 @@ export function ChannelDetailDialog({
       <DialogActions>
         {step === "detail" ? (
           <>
+            {onRebalance ? (
+              <Button
+                outline
+                onClick={() => {
+                  onClearError()
+                  onRebalance()
+                }}
+                disabled={isActing || Boolean(rebalanceDisabledReason)}
+              >
+                Rebalance
+              </Button>
+            ) : null}
+            {showClose ? (
+              <Button
+                outline
+                className="text-red-700 dark:text-red-400"
+                onClick={() => {
+                  onClearError()
+                  setCloseMethod(defaultChannelCloseMethod(channel))
+                  setStep("confirm-close")
+                }}
+                disabled={isActing}
+              >
+                Close channel
+              </Button>
+            ) : null}
             {showAbandon ? (
               <Button
                 plain
@@ -321,19 +445,7 @@ export function ChannelDetailDialog({
               >
                 Abandon channel
               </Button>
-            ) : (
-              <Button
-outline
-              className="text-red-700 dark:text-red-400"
-                onClick={() => {
-                  onClearError()
-                  setStep("confirm-close")
-                }}
-                disabled={isActing || !canCloseChannel(channel.state)}
-              >
-                Close channel
-              </Button>
-            )}
+            ) : null}
             <Button onClick={handleDismiss} disabled={isActing}>
               Done
             </Button>
@@ -346,9 +458,13 @@ outline
             <Button
               color="red"
               onClick={() => void handleConfirmClose()}
-              disabled={isActing}
+              disabled={
+                isActing ||
+                (closeMethod === "cooperative" && !cooperativeAllowed) ||
+                (closeMethod === "force" && !forceAllowed)
+              }
             >
-              {isActing ? "Closing…" : "Confirm close"}
+              {closeConfirmLabel()}
             </Button>
           </>
         ) : (

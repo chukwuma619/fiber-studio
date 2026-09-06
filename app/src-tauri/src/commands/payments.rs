@@ -15,6 +15,7 @@ use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
+use crate::fnn::preflight;
 use crate::fnn::rpc::{self, CkbScript, CkbInvoice, CkbInvoiceStatus, PaymentKind, SendPaymentRequest};
 use crate::fnn::sent_payments;
 use crate::fnn::studio;
@@ -156,6 +157,9 @@ pub struct ParseInvoicePreview {
     pub payment_hash: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub payee_pubkey: Option<String>,
+    pub amount_raw: String,
     pub network_match: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network_warning: Option<String>,
@@ -182,7 +186,8 @@ pub struct SendPaymentPayload {
 #[serde(rename_all = "camelCase")]
 pub struct KeysendPaymentPayload {
     pub target_pubkey: String,
-    pub amount: f64,
+    /// Human decimal string, or a JSON number (legacy). Parsed with the asset decimals.
+    pub amount: serde_json::Value,
     #[serde(default)]
     pub max_fee_ckb: Option<f64>,
     #[serde(default)]
@@ -253,8 +258,17 @@ fn payments_page_unavailable() -> PaymentsPageResponse {
     }
 }
 
-fn ckb_to_shannons(amount_ckb: f64) -> Result<u128, String> {
-    amounts::ckb_to_shannons(amount_ckb)
+fn parse_keysend_amount(amount: &serde_json::Value, decimals: u8) -> Result<u128, String> {
+    match amount {
+        serde_json::Value::String(text) => assets::parse_human_amount_str(text, decimals),
+        serde_json::Value::Number(number) => {
+            let value = number
+                .as_f64()
+                .ok_or_else(|| "Invalid amount.".to_string())?;
+            assets::parse_human_amount(value, decimals)
+        }
+        _ => Err("Amount is required.".to_string()),
+    }
 }
 
 fn resolve_send_limits(
@@ -352,6 +366,11 @@ fn build_parse_invoice_preview(
         asset_symbol: asset.symbol,
         payment_hash: invoice.data.payment_hash.clone(),
         description: extract_invoice_description(&invoice.data.attrs),
+        payee_pubkey: preflight::extract_invoice_payee_pubkey(&invoice.data.attrs),
+        amount_raw: invoice
+            .amount
+            .clone()
+            .unwrap_or_else(|| "0x0".to_string()),
         network_match,
         network_warning,
     }
@@ -368,6 +387,7 @@ fn send_payment_request<'a>(
         dry_run,
         max_fee_amount,
         timeout,
+        allow_self_payment: false,
     }
 }
 
@@ -388,6 +408,7 @@ fn keysend_payment_request<'a>(
         dry_run,
         max_fee_amount,
         timeout,
+        allow_self_payment: false,
     }
 }
 
@@ -825,6 +846,22 @@ pub async fn parse_invoice_preview(
 }
 
 #[tauri::command]
+pub async fn get_preflight_snapshot(
+    state: State<'_, AppState>,
+    payload: preflight::PreflightSnapshotPayload,
+) -> Result<preflight::PreflightSnapshot, String> {
+    let data_directory = require_running_data_dir(&state).await?;
+    let studio_metadata = studio::read_studio_metadata(&data_directory)
+        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+
+    preflight::fetch_preflight_snapshot(
+        studio_metadata.network.as_str(),
+        payload.payee_pubkey.as_deref(),
+    )
+    .await
+}
+
+#[tauri::command]
 pub async fn send_payment(
     state: State<'_, AppState>,
     payload: SendPaymentPayload,
@@ -905,11 +942,7 @@ pub async fn preview_keysend_payment(
         assets::ckb_asset()
     };
 
-    let amount_raw = if asset.udt_type_script.is_some() {
-        assets::parse_human_amount(payload.amount, asset.decimals)?
-    } else {
-        ckb_to_shannons(payload.amount)?
-    };
+    let amount_raw = parse_keysend_amount(&payload.amount, asset.decimals)?;
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
     let fee_asset = assets::ckb_asset();
@@ -961,11 +994,7 @@ pub async fn send_keysend_payment(
         assets::ckb_asset()
     };
 
-    let amount_raw = if asset.udt_type_script.is_some() {
-        assets::parse_human_amount(payload.amount, asset.decimals)?
-    } else {
-        ckb_to_shannons(payload.amount)?
-    };
+    let amount_raw = parse_keysend_amount(&payload.amount, asset.decimals)?;
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
 

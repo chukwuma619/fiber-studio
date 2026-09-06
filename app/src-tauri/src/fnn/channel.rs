@@ -19,6 +19,8 @@ pub struct HomeChannel {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel_outpoint: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_commitment_transaction_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
     pub asset_symbol: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -83,6 +85,7 @@ pub fn to_home_channel(channel: Channel, catalog: &[AssetView]) -> HomeChannel {
         remote_balance: channel.remote_balance,
         local_percent,
         channel_outpoint: channel.channel_outpoint,
+        latest_commitment_transaction_hash: channel.latest_commitment_transaction_hash,
         failure_detail: channel.failure_detail,
         asset_symbol: asset.symbol.clone(),
         funding_udt_type_script: channel.funding_udt_type_script,
@@ -220,6 +223,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: true,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
             },
@@ -234,6 +238,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: false,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
             },
@@ -257,6 +262,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: true,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
             },
@@ -271,6 +277,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: false,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
             },

@@ -30,7 +30,8 @@ export function channelStatusLabel(state: string, localPercent: number): string 
   if (state !== "ChannelReady") {
     return channelStateDisplayLabel(state)
   }
-  if (localPercent < 15) return "Low"
+  if (localPercent < 15) return "Low outbound"
+  if (localPercent > 85) return "Low inbound"
   return "Active"
 }
 
@@ -40,6 +41,8 @@ export function channelStateDisplayLabel(state: string): string {
       return "Ready"
     case "AwaitingTxSignatures":
       return "Awaiting signatures"
+    case "AwaitingChannelReady":
+      return "Awaiting ready"
     case "NegotiatingFunding":
       return "Opening"
     case "ShuttingDown":
@@ -60,12 +63,51 @@ export function isChannelPending(state: string): boolean {
   )
 }
 
-export function canAbandonChannel(state: string): boolean {
-  return isChannelPending(state)
+export type ChannelCloseFacts = {
+  state: string
+  latestCommitmentTransactionHash?: string | null
+  channelOutpoint?: string | null
 }
 
-export function canCloseChannel(state: string): boolean {
+export function canAbandonChannel(channel: ChannelCloseFacts): boolean {
+  if (!isChannelPending(channel.state)) {
+    return false
+  }
+  // Fiber rejects abandon after funding is signed/broadcast. Force-close instead.
+  if (canForceCloseChannel(channel)) {
+    return false
+  }
+  if (channel.state === "AwaitingChannelReady" && channel.channelOutpoint) {
+    return false
+  }
+  return true
+}
+
+/** Ready channels can close cooperatively; Ready, Closing, or funded stuck opens can force-close. */
+export function canCloseChannel(channel: ChannelCloseFacts): boolean {
+  return canCooperativeCloseChannel(channel.state) || canForceCloseChannel(channel)
+}
+
+export function canCooperativeCloseChannel(state: string): boolean {
   return state === "ChannelReady"
+}
+
+export function canForceCloseChannel(channel: ChannelCloseFacts): boolean {
+  if (channel.state === "ChannelReady" || channel.state === "ShuttingDown") {
+    return true
+  }
+  return (
+    channel.state === "AwaitingChannelReady" &&
+    Boolean(channel.latestCommitmentTransactionHash)
+  )
+}
+
+export type ChannelCloseMethod = "cooperative" | "force"
+
+export function defaultChannelCloseMethod(
+  channel: ChannelCloseFacts,
+): ChannelCloseMethod {
+  return canCooperativeCloseChannel(channel.state) ? "cooperative" : "force"
 }
 
 export type ChannelBadgeColor = "green" | "amber" | "red" | "zinc"
@@ -77,7 +119,7 @@ export function channelStateBadgeColor(
   if (state === "ShuttingDown") return "red"
   if (state === "Stale") return "amber"
   if (state !== "ChannelReady") return "amber"
-  if (localPercent < 15) return "amber"
+  if (localPercent < 15 || localPercent > 85) return "amber"
   return "green"
 }
 
@@ -276,6 +318,8 @@ export function paymentKindLabel(kind: string): string {
       return "Invoice"
     case "keysend":
       return "Keysend"
+    case "rebalance":
+      return "Rebalance"
     default:
       return "Payment"
   }
@@ -422,6 +466,9 @@ export function paymentErrorSummary(error: string): string {
       default:
         return `A payment session for this invoice already exists (${existing.status}).`
     }
+  }
+  if (/self payment|allow_self_payment|circular/i.test(cleaned)) {
+    return "Could not complete a circular self-payment. You need at least two ready channels in the same asset and a path through the network."
   }
   if (/no path found/i.test(cleaned)) {
     return "No route found to the invoice payee. Open a channel with them (or via the same hub), ensure peers are connected, and wait for the network graph to sync."

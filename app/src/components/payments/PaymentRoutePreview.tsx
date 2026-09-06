@@ -12,6 +12,8 @@ type PaymentRoutePreviewProps = {
   compact?: boolean
   emptyHint?: string
   onDismissError?: () => void
+  /** Release fnn builds may omit route hops; still show fee when a preview exists. */
+  allowEmptyHops?: boolean
 }
 
 export function PaymentRoutePreview({
@@ -21,6 +23,7 @@ export function PaymentRoutePreview({
   compact = false,
   emptyHint = "Enter payment details to preview the route",
   onDismissError,
+  allowEmptyHops = false,
 }: PaymentRoutePreviewProps) {
   if (isLoading) {
     return (
@@ -46,7 +49,7 @@ export function PaymentRoutePreview({
     )
   }
 
-  if (!preview || preview.routeHops.length === 0) {
+  if (!preview || (preview.routeHops.length === 0 && !allowEmptyHops)) {
     return (
       <div
         className={`rounded-lg bg-zinc-50 dark:bg-zinc-800/50 ${
@@ -81,7 +84,9 @@ export function PaymentRoutePreview({
         </div>
       </div>
       <p className="mt-2 break-all font-mono text-xs text-zinc-600 dark:text-zinc-400">
-        {hops.join(" → ")}
+        {hops.length > 0
+          ? hops.join(" → ")
+          : "Route found. This node build did not return hop details."}
       </p>
       {!compact ? (
         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">

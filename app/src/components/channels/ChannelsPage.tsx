@@ -12,8 +12,10 @@ import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
 } from "../../lib/fnn/pageCache"
+import { rebalanceDisabledReason } from "../../lib/fnn/liquidityHealth"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
+import { useRebalanceChannel } from "../../lib/fnn/useRebalanceChannel"
 import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import type { HomeChannel } from "../../lib/fnn/types"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB, truncatePubkey } from "../../lib/public-relays"
@@ -34,7 +36,9 @@ import {
   TableRow,
 } from "../ui/table"
 import { ChannelDetailDialog } from "./ChannelDetailDialog"
+import { LiquidityHealthIndicator } from "./LiquidityHealthIndicator"
 import { OpenChannelDialog } from "./OpenChannelDialog"
+import { RebalanceChannelDialog } from "./RebalanceChannelDialog"
 
 type ChannelsPageProps = {
   initialChannelId?: string
@@ -72,9 +76,11 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   }, [refresh])
 
   const channelActions = useChannelActions(handleMutationSuccess)
+  const rebalance = useRebalanceChannel(handleMutationSuccess)
 
   const [openDialogOpen, setOpenDialogOpen] = useState(false)
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null)
+  const [rebalanceChannelId, setRebalanceChannelId] = useState<string | null>(null)
 
   const available = data?.available ?? false
   const channels = data?.channels ?? []
@@ -88,6 +94,10 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
   const selectedChannel = useMemo(
     () => channels.find((channel) => channel.channelId === selectedChannelId) ?? null,
     [channels, selectedChannelId],
+  )
+  const rebalanceFocus = useMemo(
+    () => channels.find((channel) => channel.channelId === rebalanceChannelId) ?? null,
+    [channels, rebalanceChannelId],
   )
 
   const openOpenDialog = useCallback(() => {
@@ -211,6 +221,12 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                     <HelpTooltip content="How much you can receive through this channel (the remote balance)." />
                   </span>
                 </TableHeader>
+                <TableHeader>
+                  <span className="inline-flex items-center gap-1">
+                    Health
+                    <HelpTooltip content="How close this channel is to a 50/50 inbound/outbound split. Skewed channels can send or receive, but not both." />
+                  </span>
+                </TableHeader>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -270,6 +286,9 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
                     <TableCell className="text-right">
                       {channelBalanceCell(canReceive, channel)}
                     </TableCell>
+                    <TableCell>
+                      <LiquidityHealthIndicator channel={channel} compact />
+                    </TableCell>
                   </TableRow>
                 )
               })}
@@ -301,7 +320,40 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
         actionError={channelActions.actionError}
         onShutdownChannel={channelActions.handleShutdownChannel}
         onAbandonChannel={channelActions.handleAbandonChannel}
+        onRebalance={
+          selectedChannel
+            ? () => {
+                const channelId = selectedChannel.channelId
+                setSelectedChannelId(null)
+                channelActions.clearActionError()
+                rebalance.clearActionError()
+                setRebalanceChannelId(channelId)
+              }
+            : undefined
+        }
+        rebalanceDisabledReason={
+          selectedChannel
+            ? rebalanceDisabledReason(selectedChannel, channels, running)
+            : null
+        }
         onClearError={channelActions.clearActionError}
+      />
+
+      <RebalanceChannelDialog
+        open={rebalanceFocus !== null}
+        focusChannel={rebalanceFocus}
+        channels={channels}
+        assets={data?.assets ?? []}
+        isActing={rebalance.isActing}
+        actionError={rebalance.actionError}
+        onPreview={rebalance.handlePreview}
+        onRebalance={rebalance.handleRebalance}
+        onGetPayment={(paymentHash) =>
+          rebalance.handleGetPayment({ paymentHash })
+        }
+        onSettled={rebalance.markSettled}
+        onClearError={rebalance.clearActionError}
+        onClose={() => setRebalanceChannelId(null)}
       />
     </div>
   )

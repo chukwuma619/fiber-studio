@@ -52,6 +52,7 @@ export type HomeChannel = {
   remoteBalance: string
   localPercent: number
   channelOutpoint?: string | null
+  latestCommitmentTransactionHash?: string | null
   failureDetail?: string | null
   assetSymbol: string
   fundingUdtTypeScript?: CkbScript | null
@@ -146,10 +147,42 @@ export type OpenChannelResult = {
 
 export type ShutdownChannelPayload = {
   channelId: string
+  force?: boolean
 }
 
 export type AbandonChannelPayload = {
   channelId: string
+}
+
+export type RebalanceStrategy = "explicit_route" | "circular_self_payment"
+
+export type RebalanceChannelPayload = {
+  sourceChannelId: string
+  targetChannelId: string
+  /** Human-entered decimal amount string; backend parses exactly (no float rounding). */
+  amount: string
+  dryRun?: boolean
+  /** Human-entered max fee in the payment asset. */
+  maxFee?: string
+  maxFeeCkb?: number
+  timeoutSeconds?: number
+  /** Prefer the strategy chosen during preview so confirm uses the same path. */
+  strategy?: RebalanceStrategy | string
+}
+
+export type RebalanceChannelResult = {
+  paymentHash: string
+  status: string
+  fee: string
+  feeDisplay: string
+  amountDisplay: string
+  assetSymbol: string
+  routeHops: string[]
+  strategy: RebalanceStrategy | string
+  failedError?: string | null
+  maxAmountDisplay: string
+  sourcePeer: string
+  targetPeer: string
 }
 
 export type HomePayment = {
@@ -264,6 +297,8 @@ export type ParseInvoicePreview = {
   assetSymbol: string
   paymentHash: string
   description?: string | null
+  payeePubkey?: string | null
+  amountRaw: string
   networkMatch: boolean
   networkWarning?: string | null
 }
@@ -281,7 +316,8 @@ export type SendPaymentPayload = {
 
 export type KeysendPaymentPayload = {
   targetPubkey: string
-  amount: number
+  /** Human decimal string; backend parses exactly (no float rounding). */
+  amount: string
   maxFeeCkb?: number
   timeoutSeconds?: number
   udtTypeScript?: CkbScript | null
@@ -295,6 +331,31 @@ export type PreviewSendPaymentResult = {
   amountDisplay: string
   assetSymbol: string
   routeHops: string[]
+}
+
+export type PreflightSnapshotPayload = {
+  payeePubkey?: string
+}
+
+export type PreflightPayeeGraph = {
+  inGraph: boolean
+  neighborCount: number
+  neighborPubkeys: string[]
+  sharesOfficialRelay: boolean
+  isOfficialRelay: boolean
+  lookupComplete: boolean
+}
+
+export type PreflightSnapshot = {
+  ownPubkey: string | null
+  channels: HomeChannel[]
+  connectedPeerPubkeys: string[]
+  graphNodeCount: number
+  graphReady: boolean
+  officialRelayPubkeys: string[]
+  localOfficialRelayConnected: boolean
+  localOfficialRelayChannelReady: boolean
+  payee: PreflightPayeeGraph | null
 }
 
 export type SendPaymentResult = {

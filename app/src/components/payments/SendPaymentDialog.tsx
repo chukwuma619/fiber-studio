@@ -11,6 +11,7 @@ import {
   buildSendOptions,
   formatEffectiveMaxFeeLabel,
 } from "../../lib/fnn/maxFee"
+import type { PreflightReport } from "../../lib/fnn/preflight"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -31,6 +32,7 @@ import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
+import { PaymentDiagnosticCard } from "./PaymentDiagnosticCard"
 
 type Step = "review" | "inflight" | "success" | "failure"
 
@@ -42,6 +44,7 @@ type SendPaymentDialogProps = {
   targetPubkey: string
   keysendPayload?: KeysendPaymentPayload
   preview: PreviewSendPaymentResult | null
+  diagnostic: PreflightReport | null
   isActing: boolean
   actionError: string | null
   onSendPayment: (payload: SendPaymentPayload) => Promise<SendPaymentResult>
@@ -78,6 +81,7 @@ export function SendPaymentDialog({
   targetPubkey,
   keysendPayload,
   preview,
+  diagnostic,
   isActing,
   actionError,
   onSendPayment,
@@ -319,6 +323,9 @@ export function SendPaymentDialog({
       <DialogBody>
         {step === "review" ? (
           <div className="space-y-4">
+            {diagnostic ? (
+              <PaymentDiagnosticCard report={diagnostic} compact />
+            ) : null}
 
             <dl className="space-y-4">
               <div className="flex items-center justify-between gap-4">

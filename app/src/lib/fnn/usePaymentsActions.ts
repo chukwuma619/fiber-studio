@@ -8,6 +8,7 @@ import {
   createInvoice,
   getPayment,
   importInvoice,
+  getPreflightSnapshot,
   parseInvoicePreview,
   previewKeysendPayment,
   previewSendPayment,
@@ -22,6 +23,8 @@ import type {
   ParseInvoicePayload,
   ParseInvoicePreview,
   PaymentHashPayload,
+  PreflightSnapshot,
+  PreflightSnapshotPayload,
   PreviewSendPaymentResult,
   SendPaymentPayload,
   SendPaymentResult,
@@ -103,6 +106,13 @@ export function usePaymentsActions(onSuccess?: () => void) {
     async (payload: ParseInvoicePayload): Promise<ParseInvoicePreview> => {
       // Parse failures stay local to the send panel — do not set actionError.
       return await parseInvoicePreview(payload)
+    },
+    [],
+  )
+
+  const handleGetPreflightSnapshot = useCallback(
+    async (payload: PreflightSnapshotPayload = {}): Promise<PreflightSnapshot> => {
+      return await getPreflightSnapshot(payload)
     },
     [],
   )
@@ -200,6 +210,7 @@ export function usePaymentsActions(onSuccess?: () => void) {
     cancelInvoice: handleCancelInvoice,
     importInvoice: handleImportInvoice,
     parseInvoicePreview: handleParseInvoicePreview,
+    getPreflightSnapshot: handleGetPreflightSnapshot,
     cchSendBtc: handleCchSendBtc,
     cchReceiveBtc: handleCchReceiveBtc,
     cchGetOrder: handleCchGetOrder,

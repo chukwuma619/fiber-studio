@@ -11,6 +11,8 @@ import type {
   CchOrderView,
   KeysendPaymentPayload,
   ParseInvoicePreview,
+  PreflightSnapshot,
+  PreflightSnapshotPayload,
   PreviewSendPaymentResult,
   RelayConnectionStatus,
   SendPaymentMode,
@@ -19,6 +21,13 @@ import type {
   PaymentsSendTarget,
 } from "../../lib/fnn/types"
 import { CKB_ASSET_ID, defaultAsset, findAssetById } from "../../lib/fnn/assets"
+import {
+  classifyPreflight,
+  EMPTY_PREFLIGHT_SNAPSHOT,
+  parseAmountRaw,
+  parseDecimalToRaw,
+  type PreflightReport,
+} from "../../lib/fnn/preflight"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
@@ -30,7 +39,7 @@ import { Select } from "../ui/select"
 import { Text } from "../ui/text"
 import { CchSendDialog } from "./CchSendDialog"
 import { InvoiceParsePreview } from "./InvoiceParsePreview"
-import { PaymentRoutePreview } from "./PaymentRoutePreview"
+import { PaymentDiagnosticCard } from "./PaymentDiagnosticCard"
 import { SendPaymentDialog } from "./SendPaymentDialog"
 
 const PREVIEW_DEBOUNCE_MS = 500
@@ -62,6 +71,9 @@ type SendPaymentPanelProps = {
   isActing: boolean
   actionError: string | null
   onParseInvoicePreview: (invoice: string) => Promise<ParseInvoicePreview>
+  onGetPreflightSnapshot: (
+    payload?: PreflightSnapshotPayload,
+  ) => Promise<PreflightSnapshot>
   onPreviewSendPayment: (
     payload: SendPaymentPayload,
   ) => Promise<PreviewSendPaymentResult>
@@ -90,6 +102,7 @@ export function SendPaymentPanel({
   isActing,
   actionError,
   onParseInvoicePreview,
+  onGetPreflightSnapshot,
   onPreviewSendPayment,
   onPreviewKeysendPayment,
   onSendPayment,
@@ -120,15 +133,50 @@ export function SendPaymentPanel({
   const keysendAsset =
     findAssetById(catalog, keysendAssetId) ?? defaultAsset(catalog)
 
+  const inspectRoute = useCallback(
+    async (args: {
+      payeePubkey: string | null
+      amountRaw: bigint | null
+      assetSymbol: string
+      preview: PreviewSendPaymentResult | null
+      pathFindError: string | null
+    }) => {
+      let snapshot = EMPTY_PREFLIGHT_SNAPSHOT
+      let snapshotError: string | null = null
+      try {
+        snapshot = await onGetPreflightSnapshot({
+          payeePubkey: args.payeePubkey ?? undefined,
+        })
+      } catch (error) {
+        snapshotError = getErrorMessage(error)
+      }
+
+      return classifyPreflight({
+        ownPubkey: snapshot.ownPubkey,
+        payeePubkey: args.payeePubkey,
+        amountRaw: args.amountRaw,
+        assetSymbol: args.assetSymbol,
+        routePreview: args.preview,
+        pathFindError: args.pathFindError,
+        snapshot,
+        snapshotError,
+      })
+    },
+    [onGetPreflightSnapshot],
+  )
+
   const [routePreview, setRoutePreview] = useState<PreviewSendPaymentResult | null>(
     null,
   )
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewError, setPreviewError] = useState<string | null>(null)
+  const [diagnostic, setDiagnostic] = useState<PreflightReport | null>(null)
   const [existingPayment, setExistingPayment] =
     useState<ExistingPaymentNotice | null>(null)
   const [reviewSnapshot, setReviewSnapshot] =
     useState<PreviewSendPaymentResult | null>(null)
+  const [reviewDiagnostic, setReviewDiagnostic] =
+    useState<PreflightReport | null>(null)
 
   const [cchOrder, setCchOrder] = useState<CchOrderView | null>(null)
   const [cchFiberPreview, setCchFiberPreview] =
@@ -157,6 +205,7 @@ export function SendPaymentPanel({
       setParseError(null)
       setRoutePreview(null)
       setPreviewError(null)
+      setDiagnostic(null)
       setExistingPayment(null)
       setCchOrder(null)
       setCchQuoteError(null)
@@ -201,9 +250,12 @@ export function SendPaymentPanel({
       setRoutePreview(null)
       setPreviewError(null)
       setPreviewLoading(false)
+      setDiagnostic(null)
       setExistingPayment(null)
       return
     }
+
+    setDiagnostic(null)
 
     let cancelled = false
 
@@ -213,6 +265,7 @@ export function SendPaymentPanel({
         setPreviewLoading(true)
         setParseError(null)
         setPreviewError(null)
+        setDiagnostic(null)
         setExistingPayment(null)
         setRoutePreview(null)
 
@@ -222,8 +275,10 @@ export function SendPaymentPanel({
           setParsedInvoice(preview)
           setParseLoading(false)
 
+          let route: PreviewSendPaymentResult | null = null
+          let routeError: string | null = null
           try {
-            const route = await onPreviewSendPayment({ invoice: trimmed })
+            route = await onPreviewSendPayment({ invoice: trimmed })
             if (cancelled) return
             setRoutePreview(route)
             setPreviewError(null)
@@ -240,11 +295,23 @@ export function SendPaymentPanel({
                 message: paymentErrorSummary(message),
               })
               setPreviewError(null)
-            } else {
-              setExistingPayment(null)
-              setPreviewError(paymentErrorSummary(message))
+              setDiagnostic(null)
+              return
             }
+            routeError = message
+            setExistingPayment(null)
+            setPreviewError(paymentErrorSummary(message))
           }
+
+          const report = await inspectRoute({
+            payeePubkey: preview.payeePubkey ?? null,
+            amountRaw: parseAmountRaw(preview.amountRaw),
+            assetSymbol: preview.assetSymbol,
+            preview: route,
+            pathFindError: routeError,
+          })
+          if (cancelled) return
+          setDiagnostic(report)
         } catch (parseErr) {
           if (cancelled) return
           const message = getErrorMessage(parseErr)
@@ -252,6 +319,7 @@ export function SendPaymentPanel({
           setParseError(paymentErrorSummary(message))
           setRoutePreview(null)
           setPreviewError(null)
+          setDiagnostic(null)
           setExistingPayment(null)
         } finally {
           if (cancelled) return
@@ -268,6 +336,7 @@ export function SendPaymentPanel({
   }, [
     available,
     invoice,
+    inspectRoute,
     onParseInvoicePreview,
     onPreviewSendPayment,
     running,
@@ -291,42 +360,64 @@ export function SendPaymentPanel({
       setRoutePreview(null)
       setPreviewError(null)
       setPreviewLoading(false)
+      setDiagnostic(null)
       return
     }
 
     const pubkey = targetPubkey.trim()
-    const parsedAmount = Number(keysendAmount.trim())
-    if (!pubkey || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    const amountRaw = parseDecimalToRaw(
+      keysendAmount.trim(),
+      keysendAsset.decimals,
+    )
+    if (!pubkey || amountRaw == null || amountRaw <= 0n) {
       setRoutePreview(null)
       setPreviewError(null)
       setPreviewLoading(false)
+      setDiagnostic(null)
       return
     }
 
     let cancelled = false
     setPreviewLoading(true)
     setPreviewError(null)
+    setDiagnostic(null)
 
     const timeout = window.setTimeout(() => {
-      void onPreviewKeysendPayment({
-        targetPubkey: pubkey,
-        amount: parsedAmount,
-        udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
-      })
-        .then((preview) => {
+      void (async () => {
+        let preview: PreviewSendPaymentResult | null = null
+        let routeError: string | null = null
+        try {
+          try {
+            preview = await onPreviewKeysendPayment({
+              targetPubkey: pubkey,
+              amount: keysendAmount.trim(),
+              udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
+            })
+            if (cancelled) return
+            setRoutePreview(preview)
+            setPreviewError(null)
+          } catch (err) {
+            if (cancelled) return
+            routeError = getErrorMessage(err)
+            setRoutePreview(null)
+            setPreviewError(paymentErrorSummary(routeError))
+          }
+
+          const report = await inspectRoute({
+            payeePubkey: pubkey,
+            amountRaw,
+            assetSymbol: keysendAsset.symbol,
+            preview,
+            pathFindError: routeError,
+          })
           if (cancelled) return
-          setRoutePreview(preview)
-          setPreviewError(null)
-        })
-        .catch((err) => {
-          if (cancelled) return
-          setRoutePreview(null)
-          setPreviewError(paymentErrorSummary(getErrorMessage(err)))
-        })
-        .finally(() => {
-          if (cancelled) return
-          setPreviewLoading(false)
-        })
+          setDiagnostic(report)
+        } finally {
+          if (!cancelled) {
+            setPreviewLoading(false)
+          }
+        }
+      })()
     }, PREVIEW_DEBOUNCE_MS)
 
     return () => {
@@ -335,7 +426,10 @@ export function SendPaymentPanel({
     }
   }, [
     available,
+    inspectRoute,
     keysendAmount,
+    keysendAsset.decimals,
+    keysendAsset.symbol,
     keysendAsset.udtTypeScript,
     onPreviewKeysendPayment,
     running,
@@ -359,7 +453,8 @@ export function SendPaymentPanel({
   const canReviewKeysend =
     sendMode === "keysend" &&
     targetPubkey.trim().length > 0 &&
-    Number(keysendAmount.trim()) > 0 &&
+    (parseDecimalToRaw(keysendAmount.trim(), keysendAsset.decimals) ?? 0n) >
+      0n &&
     !previewLoading &&
     routePreview !== null &&
     previewError === null
@@ -419,10 +514,12 @@ export function SendPaymentPanel({
     if (!canReviewPayment || !routePreview) return
     onClearError()
     setReviewSnapshot(routePreview)
+    setReviewDiagnostic(diagnostic)
     setSendDialogOpen(true)
   }, [
     canReviewPayment,
     cchConfigured,
+    diagnostic,
     lightningInvoice,
     onClearError,
     onCchSendBtc,
@@ -434,6 +531,7 @@ export function SendPaymentPanel({
   const handleCloseSendDialog = useCallback(() => {
     setSendDialogOpen(false)
     setReviewSnapshot(null)
+    setReviewDiagnostic(null)
   }, [])
 
   const handleCloseCchDialog = useCallback(() => {
@@ -659,23 +757,17 @@ export function SendPaymentPanel({
                   : existingPayment.paymentHash}
               </p>
             </div>
-          ) : sendMode === "invoice" ? (
+          ) : sendMode === "invoice" || sendMode === "keysend" ? (
             <div className="mt-4">
-              <PaymentRoutePreview
-                preview={routePreview}
+              <PaymentDiagnosticCard
+                report={diagnostic}
                 isLoading={previewLoading}
-                error={previewError}
                 compact
-                onDismissError={() => setPreviewError(null)}
-                emptyHint="Paste an invoice to preview the route"
-              />
-            </div>
-          ) : sendMode === "keysend" && previewError ? (
-            <div className="mt-4">
-              <PageErrorBanner
-                message={previewError}
-                onDismiss={() => setPreviewError(null)}
-                className="px-3 py-2.5 text-xs"
+                emptyHint={
+                  sendMode === "invoice"
+                    ? "Paste an invoice to inspect the route"
+                    : "Enter a recipient and amount to inspect the route"
+                }
               />
             </div>
           ) : null}
@@ -728,6 +820,7 @@ export function SendPaymentPanel({
           invoice={invoice.trim()}
           targetPubkey={targetPubkey.trim()}
           preview={reviewSnapshot}
+          diagnostic={reviewDiagnostic}
           isActing={isActing}
           actionError={actionError}
           onSendPayment={onSendPayment}
@@ -739,7 +832,7 @@ export function SendPaymentPanel({
             sendMode === "keysend"
               ? {
                   targetPubkey: targetPubkey.trim(),
-                  amount: Number(keysendAmount.trim()),
+                  amount: keysendAmount.trim(),
                   udtTypeScript: keysendAsset.udtTypeScript ?? undefined,
                 }
               : undefined

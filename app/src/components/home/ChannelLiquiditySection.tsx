@@ -15,6 +15,7 @@ import {
   channelStateDisplayLabel,
   channelStatusLabel,
 } from "../../lib/fnn/format"
+import { channelLiquidityHealth } from "../../lib/fnn/liquidityHealth"
 import { channelCapacityDisplay } from "../../lib/fnn/assets"
 import type { HomeChannel, NodeStatusState } from "../../lib/fnn/types"
 import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
@@ -93,6 +94,7 @@ export function ChannelLiquiditySection({
           </TableHead>
           <TableBody>
             {channels.map((channel, index) => {
+              const health = channelLiquidityHealth(channel)
               const statusLabel =
                 channel.state === "ChannelReady"
                   ? channelStatusLabel(channel.state, channel.localPercent)
@@ -121,7 +123,14 @@ export function ChannelLiquiditySection({
                     )}
                   </TableCell>
                   <TableCell>
-                    <CapacityBar percent={channel.localPercent} />
+                    <div className="space-y-1">
+                      <CapacityBar percent={channel.localPercent} />
+                      {health.warning ? (
+                        <p className="text-xs text-amber-700 dark:text-amber-300">
+                          {health.label}
+                        </p>
+                      ) : null}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge color={badgeColor}>{statusLabel}</Badge>

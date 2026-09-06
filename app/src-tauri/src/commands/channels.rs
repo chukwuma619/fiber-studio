@@ -65,6 +65,8 @@ pub struct OpenChannelResult {
 #[serde(rename_all = "camelCase")]
 pub struct ShutdownChannelPayload {
     pub channel_id: String,
+    #[serde(default)]
+    pub force: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -431,11 +433,16 @@ pub async fn shutdown_channel(
     }
     drop(manager);
 
-    let node_info = rpc::fetch_node_info()
-        .await
-        .map_err(|error| error.to_string())?;
+    let close_script = if payload.force {
+        None
+    } else {
+        let node_info = rpc::fetch_node_info()
+            .await
+            .map_err(|error| error.to_string())?;
+        Some(node_info.default_funding_lock_script)
+    };
 
-    rpc::shutdown_channel(channel_id, &node_info.default_funding_lock_script)
+    rpc::shutdown_channel(channel_id, close_script.as_ref(), payload.force)
         .await
         .map_err(|error| error.to_string())
 }

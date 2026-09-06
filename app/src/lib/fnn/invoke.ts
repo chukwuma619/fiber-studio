@@ -18,6 +18,8 @@ import type {
   NodeStatusResponse,
   OpenChannelPayload,
   OpenChannelResult,
+  RebalanceChannelPayload,
+  RebalanceChannelResult,
   KeysendPaymentPayload,
   LoadMorePaymentsPayload,
   LoadMorePaymentsResult,
@@ -25,6 +27,8 @@ import type {
   ParseInvoicePreview,
   PeerConnectResult,
   PreviewSendPaymentResult,
+  PreflightSnapshot,
+  PreflightSnapshotPayload,
   SendPaymentPayload,
   SendPaymentResult,
   PaymentHashPayload,
@@ -129,6 +133,20 @@ export async function abandonChannel(
   return invoke<void>("abandon_channel", { payload })
 }
 
+export async function rebalanceChannel(
+  payload: RebalanceChannelPayload,
+): Promise<RebalanceChannelResult> {
+  return invoke<RebalanceChannelResult>("rebalance_channel", { payload })
+}
+
+export async function previewRebalanceChannel(
+  payload: RebalanceChannelPayload,
+): Promise<RebalanceChannelResult> {
+  return invoke<RebalanceChannelResult>("rebalance_channel", {
+    payload: { ...payload, dryRun: true },
+  })
+}
+
 export async function getPaymentsPage(): Promise<PaymentsPageResponse> {
   return invoke<PaymentsPageResponse>("get_payments_page")
 }
@@ -143,6 +161,12 @@ export async function parseInvoicePreview(
   payload: ParseInvoicePayload,
 ): Promise<ParseInvoicePreview> {
   return invoke<ParseInvoicePreview>("parse_invoice_preview", { payload })
+}
+
+export async function getPreflightSnapshot(
+  payload: PreflightSnapshotPayload = {},
+): Promise<PreflightSnapshot> {
+  return invoke<PreflightSnapshot>("get_preflight_snapshot", { payload })
 }
 
 export async function previewSendPayment(

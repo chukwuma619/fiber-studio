@@ -69,6 +69,16 @@ export function InvoiceParsePreview({
             </dd>
           </div>
         ) : null}
+        {preview.payeePubkey ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-zinc-500 dark:text-zinc-400">Payee</dt>
+            <dd className="font-mono text-zinc-600 dark:text-zinc-400">
+              {preview.payeePubkey.length > 14
+                ? `${preview.payeePubkey.slice(0, 6)}…${preview.payeePubkey.slice(-4)}`
+                : preview.payeePubkey}
+            </dd>
+          </div>
+        ) : null}
         <div className="flex justify-between gap-3">
           <dt className="text-zinc-500 dark:text-zinc-400">Payment hash</dt>
           <dd className="font-mono text-zinc-600 dark:text-zinc-400">

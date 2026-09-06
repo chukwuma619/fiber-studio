@@ -136,6 +136,8 @@ pub struct Channel {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub channel_outpoint: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_commitment_transaction_hash: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure_detail: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub funding_udt_type_script: Option<CkbScript>,
@@ -457,6 +459,21 @@ pub struct SendPaymentRequest<'a> {
     pub dry_run: bool,
     pub max_fee_amount: Option<u128>,
     pub timeout: Option<u64>,
+    /// When true, fnn may pay this node through a circular route (channel rebalance).
+    pub allow_self_payment: bool,
+}
+
+/// A required hop for FNN `build_router` (`HopRequire`).
+#[derive(Debug, Clone, Serialize)]
+pub struct HopRequire {
+    pub pubkey: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub channel_outpoint: Option<String>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct BuildRouterResult {
+    pub router_hops: Vec<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
@@ -572,7 +589,60 @@ pub async fn send_payment(request: SendPaymentRequest<'_>) -> Result<SendPayment
         params["timeout"] = serde_json::Value::String(format!("0x{timeout:x}"));
     }
 
+    if request.allow_self_payment {
+        params["allow_self_payment"] = serde_json::Value::Bool(true);
+    }
+
     call_rpc("send_payment", serde_json::json!([params])).await
+}
+
+/// Builds an explicit payment router via FNN `build_router`.
+///
+/// `hops_info` does not include the source node. For a circular rebalance the
+/// last hop should be this node's pubkey (optionally pinned to the inbound channel).
+pub async fn build_router(
+    amount: u128,
+    hops_info: &[HopRequire],
+    udt_type_script: Option<&CkbScript>,
+) -> Result<Vec<serde_json::Value>, RpcError> {
+    let mut params = serde_json::json!({
+        "amount": format!("0x{amount:x}"),
+        "hops_info": hops_info,
+    });
+
+    if let Some(script) = udt_type_script {
+        params["udt_type_script"] = serde_json::json!({
+            "code_hash": script.code_hash,
+            "hash_type": script.hash_type,
+            "args": script.args,
+        });
+    }
+
+    let result: BuildRouterResult = call_rpc("build_router", serde_json::json!([params])).await?;
+    Ok(result.router_hops)
+}
+
+/// Sends or previews a payment along an explicit router via FNN `send_payment_with_router`.
+pub async fn send_payment_with_router(
+    router: &[serde_json::Value],
+    udt_type_script: Option<&CkbScript>,
+    dry_run: bool,
+) -> Result<SendPaymentResult, RpcError> {
+    let mut params = serde_json::json!({
+        "router": router,
+        "keysend": true,
+        "dry_run": dry_run,
+    });
+
+    if let Some(script) = udt_type_script {
+        params["udt_type_script"] = serde_json::json!({
+            "code_hash": script.code_hash,
+            "hash_type": script.hash_type,
+            "args": script.args,
+        });
+    }
+
+    call_rpc("send_payment_with_router", serde_json::json!([params])).await
 }
 
 /// Retrieves a payment by hash via FNN `get_payment`.
@@ -624,17 +694,23 @@ pub async fn open_channel(
     Ok(result.channel_id)
 }
 
-/// Cooperatively shuts down a channel.
+/// Shuts down a channel. `force` broadcasts the latest commitment unilaterally.
 pub async fn shutdown_channel(
     channel_id: &str,
-    close_script: &CkbScript,
+    close_script: Option<&CkbScript>,
+    force: bool,
 ) -> Result<(), RpcError> {
-    let params = serde_json::json!([{
+    let mut params = serde_json::json!({
         "channel_id": channel_id,
-        "close_script": close_script,
-        "fee_rate": "0x3fc",
-        "force": false,
-    }]);
+        "force": force,
+    });
+    if !force {
+        if let Some(script) = close_script {
+            params["close_script"] = serde_json::json!(script);
+        }
+        params["fee_rate"] = serde_json::json!("0x3fc");
+    }
+    let params = serde_json::json!([params]);
 
     let client = reqwest::Client::new();
     let body = serde_json::json!({
@@ -1098,6 +1174,7 @@ mod tests {
             received_tlc_balance: String::new(),
             enabled: true,
             channel_outpoint: None,
+            latest_commitment_transaction_hash: None,
             failure_detail: None,
             funding_udt_type_script: None,
         }];
@@ -1113,6 +1190,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: false,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
             },
@@ -1130,6 +1208,7 @@ mod tests {
                 received_tlc_balance: String::new(),
                 enabled: false,
                 channel_outpoint: None,
+                latest_commitment_transaction_hash: None,
                 failure_detail: Some("Peer did not respond".into()),
                 funding_udt_type_script: None,
             },
