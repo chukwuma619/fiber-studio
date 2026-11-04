@@ -51,7 +51,7 @@ export function HomeCrop() {
               </span>
             </DescriptionDetails>
             <DescriptionTerm>fnn version</DescriptionTerm>
-            <DescriptionDetails>0.9.0</DescriptionDetails>
+            <DescriptionDetails>0.9.1</DescriptionDetails>
             <DescriptionTerm>RPC</DescriptionTerm>
             <DescriptionDetails className="font-mono text-xs">127.0.0.1:8227</DescriptionDetails>
           </DescriptionList>
