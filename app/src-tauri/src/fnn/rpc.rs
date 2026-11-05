@@ -331,19 +331,29 @@ pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
     Ok(fetch_graph_nodes_page(0x100, None).await?.items)
 }
 
+/// `"0x"` marks the last graph page. fnn rejects it as a cursor.
 fn cursor_to_string(cursor: Option<serde_json::Value>) -> Option<String> {
-    cursor.and_then(|value| match value {
-        serde_json::Value::String(text) if !text.trim().is_empty() => Some(text),
-        serde_json::Value::Null => None,
+    let text = match cursor? {
+        serde_json::Value::String(text) => text,
+        serde_json::Value::Null => return None,
         other => {
             let text = other.to_string();
-            if text.is_empty() || text == "null" {
-                None
-            } else {
-                Some(text)
+            if text == "null" {
+                return None;
             }
+            text
         }
-    })
+    };
+    let trimmed = text.trim();
+    let payload = trimmed
+        .strip_prefix("0x")
+        .or_else(|| trimmed.strip_prefix("0X"))
+        .unwrap_or(trimmed);
+    if payload.is_empty() {
+        None
+    } else {
+        Some(trimmed.to_string())
+    }
 }
 
 pub async fn fetch_graph_nodes_page(
@@ -1061,6 +1071,18 @@ mod tests {
             "last_cursor": null
         }
     }"#;
+
+    #[test]
+    fn empty_hex_graph_cursor_is_not_reused() {
+        assert_eq!(cursor_to_string(Some(serde_json::json!("0x"))), None);
+        assert_eq!(cursor_to_string(Some(serde_json::json!("0X"))), None);
+        assert_eq!(cursor_to_string(Some(serde_json::json!(""))), None);
+        assert_eq!(cursor_to_string(None), None);
+        assert_eq!(
+            cursor_to_string(Some(serde_json::json!("0xab"))),
+            Some("0xab".into())
+        );
+    }
 
     #[test]
     fn deserializes_list_channels_success_response() {

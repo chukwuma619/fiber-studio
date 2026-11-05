@@ -11,9 +11,9 @@ import type {
   CreateInvoicePayload,
   CreateInvoiceResult,
   DisconnectPeerPayload,
-  GetNetworkGraphPayload,
+  GetChannelNeighborhoodPayload,
   HomeDashboardResponse,
-  NetworkGraphResponse,
+  NeighborhoodResponse,
   NetworkPageResponse,
   NodeStatusResponse,
   OpenChannelPayload,
@@ -251,10 +251,10 @@ export async function disconnectPeer(
   return invoke<void>("disconnect_peer", { payload })
 }
 
-export async function getNetworkGraph(
-  payload: GetNetworkGraphPayload,
-): Promise<NetworkGraphResponse> {
-  return invoke<NetworkGraphResponse>("get_network_graph", { payload })
+export async function getChannelNeighborhood(
+  payload: GetChannelNeighborhoodPayload,
+): Promise<NeighborhoodResponse> {
+  return invoke<NeighborhoodResponse>("get_channel_neighborhood", { payload })
 }
 
 export async function getNodeSettings(

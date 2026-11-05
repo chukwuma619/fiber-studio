@@ -451,35 +451,51 @@ export type DisconnectPeerPayload = {
   pubkey: string
 }
 
-export type NetworkGraphKind = "nodes" | "channels"
-
-export type GetNetworkGraphPayload = {
-  kind: NetworkGraphKind
-  limit?: number
-  after?: string
+export type GetChannelNeighborhoodPayload = {
+  expandPubkey?: string
+  refresh?: boolean
 }
 
-export type NetworkGraphNodeEntry = {
+export type NeighborhoodChannelRow = {
+  assetSymbol: string
+  localBalanceDisplay: string
+  remoteBalanceDisplay: string
+  isPublic: boolean
+}
+
+export type NeighborhoodPublicLink = {
   pubkey: string
   nodeName: string | null
-  addressCount: number
-  primaryAddress: string | null
-}
-
-export type NetworkGraphChannelEntry = {
-  channelOutpoint: string
-  node1: string
-  node2: string
-  capacityDisplay: string
+  label: string
   assetSymbol: string
+  channelCount: number
+  capacityDisplay: string
 }
 
-export type NetworkGraphResponse = {
-  kind: NetworkGraphKind
-  nodes: NetworkGraphNodeEntry[]
-  channels: NetworkGraphChannelEntry[]
-  lastCursor: string | null
-  hasMore: boolean
+export type NeighborhoodPeer = {
+  pubkey: string
+  nodeName: string | null
+  label: string
+  hasPublicChannel: boolean
+  channels: NeighborhoodChannelRow[]
+  publicLinks: NeighborhoodPublicLink[]
+  hiddenPublicLinkCount: number
+}
+
+export type NeighborhoodExpandedNode = {
+  pubkey: string
+  nodeName: string | null
+  label: string
+  publicLinks: NeighborhoodPublicLink[]
+  hiddenPublicLinkCount: number
+}
+
+export type NeighborhoodResponse = {
+  selfPubkey: string
+  selfLabel: string
+  peers: NeighborhoodPeer[]
+  expanded: NeighborhoodExpandedNode | null
+  graphPartial: boolean
 }
 
 export type BackupPathEntry = {

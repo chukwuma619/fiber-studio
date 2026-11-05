@@ -30,7 +30,7 @@ Fiber Studio does not replace `fnn` or fork the protocol. It is the interface fo
 - **Assets** — on-chain and in-channel balances for CKB and whitelisted UDTs (e.g. RUSD, cWBTC on testnet)
 - **Payments** — create and import Fiber invoices (with QR codes); send via Fiber invoice or keysend with parse/preview; **Lightning** tab to pay BOLT11 invoices with cWBTC through a CCH hub; **Receive BTC** for the reverse swap; payment history with route details
 - **Channels** — open, list, monitor, and close CKB or UDT channels; on-chain wallet balance
-- **Network** — connect to public relays and custom peers, view relay and graph status, lightweight gossip graph browser
+- **Network** — connect to public relays and custom peers, view relay and graph status, and see your channel neighborhood
 - **Settings** — node and wallet configuration, **Cross-chain** CCH hub RPC URL, theme, network switch, password updates, open config/data directory, start-node-on-launch / open-at-login, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
 - **fnn upgrades** — in-app migration dialog with data backup and breaking-change guidance when the bundled node requires it
 - **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback

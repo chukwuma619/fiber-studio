@@ -1,12 +1,12 @@
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
-use crate::fnn::assets;
 use crate::fnn::bootnodes;
 use crate::fnn::channel::{
     self, has_active_or_pending_channel_to_peer, min_funding_ckb_for_open,
 };
 use crate::fnn::manager::NodeRuntimeStatus;
+use crate::fnn::neighborhood::{self, NeighborhoodResponse};
 use crate::fnn::peer_connect::{self, RelayConnectStatus};
 use crate::fnn::relays;
 use crate::fnn::rpc::{self, Channel, PeerInfo};
@@ -115,45 +115,6 @@ pub struct ConnectSavedPeerPayload {
 #[serde(rename_all = "camelCase")]
 pub struct DisconnectPeerPayload {
     pub pubkey: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetNetworkGraphPayload {
-    pub kind: String,
-    #[serde(default)]
-    pub limit: Option<u32>,
-    #[serde(default)]
-    pub after: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkGraphNodeEntry {
-    pub pubkey: String,
-    pub node_name: Option<String>,
-    pub address_count: u32,
-    pub primary_address: Option<String>,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkGraphChannelEntry {
-    pub channel_outpoint: String,
-    pub node1: String,
-    pub node2: String,
-    pub capacity_display: String,
-    pub asset_symbol: String,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct NetworkGraphResponse {
-    pub kind: String,
-    pub nodes: Vec<NetworkGraphNodeEntry>,
-    pub channels: Vec<NetworkGraphChannelEntry>,
-    pub last_cursor: Option<String>,
-    pub has_more: bool,
 }
 
 fn network_page_unavailable() -> NetworkPageResponse {
@@ -619,83 +580,34 @@ pub async fn disconnect_peer(
         .map_err(|error| error.to_string())
 }
 
-const DEFAULT_GRAPH_PAGE_LIMIT: u32 = 25;
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetChannelNeighborhoodPayload {
+    #[serde(default)]
+    pub expand_pubkey: Option<String>,
+    #[serde(default)]
+    pub refresh: bool,
+}
 
 #[tauri::command]
-pub async fn get_network_graph(
+pub async fn get_channel_neighborhood(
     state: State<'_, AppState>,
-    payload: GetNetworkGraphPayload,
-) -> Result<NetworkGraphResponse, String> {
+    payload: GetChannelNeighborhoodPayload,
+) -> Result<NeighborhoodResponse, String> {
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node to browse the network graph.".to_string());
+        return Err(
+            "Node is not running. Start your node to view your channel neighborhood.".to_string(),
+        );
     }
     drop(manager);
 
-    let limit = payload.limit.unwrap_or(DEFAULT_GRAPH_PAGE_LIMIT).clamp(1, 100);
-    let after = payload.after.as_deref();
-
-    match payload.kind.as_str() {
-        "nodes" => {
-            let page = rpc::fetch_graph_nodes_page(limit, after)
-                .await
-                .map_err(|error| error.to_string())?;
-            let has_more = page.last_cursor.is_some();
-            Ok(NetworkGraphResponse {
-                kind: "nodes".to_string(),
-                nodes: page
-                    .items
-                    .into_iter()
-                    .map(|node| NetworkGraphNodeEntry {
-                        primary_address: node.addresses.first().cloned(),
-                        address_count: node.addresses.len() as u32,
-                        pubkey: node.pubkey,
-                        node_name: node.node_name,
-                    })
-                    .collect(),
-                channels: Vec::new(),
-                last_cursor: page.last_cursor,
-                has_more,
-            })
-        }
-        "channels" => {
-            let node_info = rpc::fetch_node_info()
-                .await
-                .map_err(|error| error.to_string())?;
-            let catalog = assets::build_asset_catalog(&node_info);
-            let page = rpc::fetch_graph_channels_page(limit, after)
-                .await
-                .map_err(|error| error.to_string())?;
-            let has_more = page.last_cursor.is_some();
-            Ok(NetworkGraphResponse {
-                kind: "channels".to_string(),
-                nodes: Vec::new(),
-                channels: page
-                    .items
-                    .into_iter()
-                    .map(|channel| {
-                        let capacity_raw =
-                            rpc::parse_hex_u128(&channel.capacity).unwrap_or(0);
-                        let funding_udt = channel.udt_type_script.as_ref();
-                        let asset =
-                            assets::asset_for_channel_funding(&catalog, funding_udt);
-                        NetworkGraphChannelEntry {
-                            channel_outpoint: channel.channel_outpoint,
-                            node1: channel.node1,
-                            node2: channel.node2,
-                            capacity_display: assets::format_amount_display(
-                                capacity_raw,
-                                &asset,
-                            ),
-                            asset_symbol: asset.symbol,
-                        }
-                    })
-                    .collect(),
-                last_cursor: page.last_cursor,
-                has_more,
-            })
-        }
-        other => Err(format!("Unknown graph kind: {other}. Use \"nodes\" or \"channels\".")),
-    }
+    neighborhood::load_channel_neighborhood(
+        &state.graph_index,
+        payload.expand_pubkey.as_deref(),
+        payload.refresh,
+    )
+    .await
+    .map_err(|error| error.to_string())
 }

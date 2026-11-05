@@ -20,7 +20,7 @@ import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { Text } from "../ui/text"
 import { ConnectPeerDialog } from "./ConnectPeerDialog"
-import { GraphBrowserSection } from "./GraphBrowserSection"
+import { NeighborhoodSection } from "./NeighborhoodSection"
 import { PeersSection } from "./PeersSection"
 import { PageErrorBanner } from "../ui/page-error-banner"
 
@@ -33,6 +33,7 @@ export function NetworkPage() {
   const [disconnectingPubkey, setDisconnectingPubkey] = useState<string | null>(null)
   const [connectingPubkey, setConnectingPubkey] = useState<string | null>(null)
   const [removingPubkey, setRemovingPubkey] = useState<string | null>(null)
+  const [neighborhoodReload, setNeighborhoodReload] = useState(0)
 
   const available = data?.available ?? false
   const network = (data?.network ?? config?.network ?? "testnet") as FiberNetwork
@@ -104,7 +105,7 @@ export function NetworkPage() {
         <div>
           <Heading level={1}>Network</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Peers, relays, and gossip graph for your node.
+            Peers, relays, and the channels around your node.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -113,7 +114,10 @@ export function NetworkPage() {
           </Button>
           <Button
             outline
-            onClick={() => void refresh()}
+            onClick={() => {
+              setNeighborhoodReload((value) => value + 1)
+              void refresh()
+            }}
             disabled={!running || isRefreshing}
           >
             <RefreshCw
@@ -183,7 +187,11 @@ export function NetworkPage() {
             onRemoveSavedPeer={(pubkey) => void handleRemoveSavedPeer(pubkey)}
           />
 
-          <GraphBrowserSection running={running} graphReady={graphReady} />
+          <NeighborhoodSection
+            running={running}
+            graphReady={graphReady}
+            reloadToken={neighborhoodReload}
+          />
         </>
       )}
 

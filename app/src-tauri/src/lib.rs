@@ -57,7 +57,7 @@ pub fn run() {
             commands::network::remove_saved_peer,
             commands::network::connect_saved_peer,
             commands::network::disconnect_peer,
-            commands::network::get_network_graph,
+            commands::network::get_channel_neighborhood,
             commands::payments::get_payments_page,
             commands::payments::create_invoice,
             commands::payments::preview_send_payment,
