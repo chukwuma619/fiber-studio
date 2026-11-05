@@ -1,6 +1,6 @@
 # Fiber Studio app
 
-Tauri desktop app for Fiber Studio. **Full docs live in the [root README](../README.md)** — features, Fiber payments, Lightning via CCH, downloads, development, CI, and release steps.
+Tauri desktop app for Fiber Studio. Setup, downloads, and releases are in the [root README](../README.md). Using the app is covered on [getfiberstudio.com/get-started](https://www.getfiberstudio.com/get-started).
 
 ```bash
 cd app

@@ -2,505 +2,113 @@
 
 Native desktop app for the [Fiber Network](https://www.fiber.world/docs) on [Nervos CKB](https://nervos.org). Fiber Studio wraps the official [Fiber Network Node (`fnn`)](https://github.com/nervosnetwork/fiber) so you can run channels, send and receive CKB and UDT payments, pay Bitcoin Lightning invoices via a Cross-Chain Hub (CCH), and manage your node without living in a terminal.
 
-Built with [Tauri 2](https://v2.tauri.app/start/), [React 19](https://react.dev/), [Vite](https://vite.dev/), [TanStack Router](https://tanstack.com/router), and [Tailwind CSS 4](https://tailwindcss.com/). The marketing site in [`website/`](./website) is [Next.js](https://nextjs.org/).
+It does not replace `fnn` or fork the protocol. `fnn` runs on your machine; CKB keys stay on disk and secrets stay in the OS keychain. For Lightning, the app is a CCH client — you set a hub JSON-RPC URL; it does not run LND or the hub. It is not a hosted wallet.
 
-> **Status:** v1.1.1. Ground-up rebuild of the earlier [fiber-desktop](https://github.com/chukwuma619/fiber-desktop) prototype. Website: [getfiberstudio.com](https://www.getfiberstudio.com/).
+Site: [getfiberstudio.com](https://www.getfiberstudio.com/).
 
-## Repository layout
+## Repository
 
 | Path | What |
 |------|------|
-| [`app/`](./app) | Tauri desktop app (UI + Rust shell + bundled `fnn`) |
+| [`app/`](./app) | Tauri desktop app (UI, Rust shell, bundled `fnn`) |
 | [`website/`](./website) | Next.js marketing site |
-| [`.github/workflows/`](./.github/workflows) | CI build + release publish |
-
-## What Fiber Studio is
-
-Fiber is CKB’s peer-to-peer payment and swap layer — channels, routing, invoices, and fast off-chain value movement (including atomic BTC Lightning swaps via [CCH](https://www.fiber.world/docs/res/cross-chain-htlc)). To use it, you run **fnn**, the official Fiber Network Node.
-
-Fiber Studio does not replace `fnn` or fork the protocol. It is the interface for the same official node: install and run `fnn` locally, with guided setup and task-based flows instead of CLI-only workflows. For Lightning, Fiber Studio acts as a **CCH client** — you configure a hub’s JSON-RPC URL; the app does not run LND or the hub itself. Your CKB key file stays on disk; secrets stay in the OS keychain. It is not a hosted wallet.
+| [`.github/workflows/`](./.github/workflows) | CI build and release publish |
 
 ## Features
 
-### Implemented
-
-- **Guided setup wizard** — choose testnet (mainnet is shown but not available yet), connect via official relays or enter a custom peer pubkey/multiaddr, pick a data directory, import a CKB key file, and set a wallet password
-- **Node lifecycle** — start and stop `fnn`, view recent logs, export or copy logs, and stop the node when the app exits
-- **Home dashboard** — local balance, channel and peer counts, saved peer connectivity, channel liquidity, and recent activity
-- **Assets** — on-chain and in-channel balances for CKB and whitelisted UDTs (e.g. RUSD, cWBTC on testnet)
-- **Payments** — create and import Fiber invoices (with QR codes); send via Fiber invoice or keysend with parse/preview; **Lightning** tab to pay BOLT11 invoices with cWBTC through a CCH hub; **Receive BTC** for the reverse swap; payment history with route details
-- **Channels** — open, list, monitor, and close CKB or UDT channels; on-chain wallet balance
-- **Network** — connect to public relays and custom peers, view relay and graph status, and see your channel neighborhood
-- **Settings** — node and wallet configuration, **Cross-chain** CCH hub RPC URL, theme, network switch, password updates, open config/data directory, start-node-on-launch / open-at-login, in-app updates (legacy `~/fiber-studio` data is auto-migrated on first launch)
-- **fnn upgrades** — in-app migration dialog with data backup and breaking-change guidance when the bundled node requires it
-- **In-app updates** — signed auto-updates; check on launch, manual check in Settings, install with progress feedback
-- **Signed distribution** — Apple Developer ID + notarization (macOS), Authenticode (Windows), Linux `.AppImage` / `.deb` / `.rpm`
-- **Local-first security** — `fnn` runs on your machine; keys and passwords stay on your device (OS keychain for secrets)
-
-## How two users can transact
-
-Fiber Studio is a **desktop app** (macOS, Windows, Linux) that runs on your **laptop or PC**. Each person installs their own copy, runs their own [Fiber Network Node (`fnn`)](https://github.com/nervosnetwork/fiber) in the background, and uses the UI to manage channels and payments. There is no central account or hosted wallet — CKB moves off-chain between **your node** and **their node** over the Fiber network.
-
-Today the setup wizard supports **testnet** only (mainnet is not available there yet). Both users must use the same Fiber network (e.g. both on testnet).
-
-### What you need to understand first
-
-**1. Peer connection is not payment**
-
-Your node must **connect** to another node (P2P link on **Network**) and **open a channel** with them (**Channels**, state **ChannelReady**) before CKB can flow. Connecting as a peer alone does not let you pay or receive.
-
-| | Peer connection | Channel (`ChannelReady`) |
-|--|-----------------|--------------------------|
-| What it is | P2P link for gossip and discovery | Off-chain CKB lane between two nodes |
-| Enough to pay? | **No** | **Yes** (directly or as a hop in a route) |
-| In Fiber Studio | **Network → Peers** | **Channels** |
-
-Bootnodes under **Discovery & other connections** help you find the network; you cannot open payment channels with them.
-
-**2. How you reach the other laptop depends on where you are**
-
-Your Fiber node listens on port **8228** on your machine (see `fiber.listening_addr` in the bundled config templates under `app/src-tauri/resources/fnn-config/`). Official testnet relays in `app/shared/relays.json` use port **8119** instead — use each peer’s own multiaddr as given. To **connect** to someone, your node needs a **dialable address** for theirs — not just a pubkey.
-
-| Situation | Typical approach | Direct channel between you? |
-|-----------|------------------|----------------------------|
-| **Same Wi‑Fi / LAN** (e.g. two laptops in one room) | Share **pubkey** + **LAN multiaddr** (`/ip4/192.168.x.x/tcp/8228/p2p/…`) | **Yes** — easiest way to pay each other directly |
-| **Different cities / countries** (home internet, no port forwarding) | **Multi-hop** via a shared **public hub** (Option B) | Indirect — you each channel with the same hub |
-| **Different locations, but one side has port forwarding** | Share **pubkey** + **public multiaddr** (public IP, port 8228 forwarded) | **Yes** — direct channel over the internet |
-
-The **Settings** page shows your **node pubkey** under **CKB wallet** (copy button next to it). It does **not** show a multiaddr. For LAN or port-forwarded setups, you must share the multiaddr separately (chat, email, etc.).
-
-**3. Two ways to pay**
-
-| Mode | Route | When to use |
-|------|--------|-------------|
-| **Direct** | Your laptop ⟷ Their laptop (one channel) | Same LAN, or you can reach each other on the internet (multiaddr) |
-| **Multi-hop** | You → public hub → them (two channels) | Far apart on home Wi‑Fi, no port forwarding — **most common for remote friends** |
-
-Payments use the public internet (or your LAN). You do **not** need to be on the same Wi‑Fi for multi-hop. You **do** need a reachable address or a shared hub for the mode you choose.
-
-For protocol details, see the [Fiber documentation](https://www.fiber.world/docs).
-
----
-
-### Before you start (both modes)
-
-1. **Install** Fiber Studio from [GitHub Releases](#download) on each laptop.
-2. **Complete setup** on each machine:
-   - **Network** — **Testnet**
-   - **Public network** — pick at least one saved peer (official relay, community hub, or custom pubkey/multiaddr). The node connects after setup on **Network**. Which peer you pick depends on Option A or B below.
-   - **Wallet key** — import a CKB key file ([ckb-cli](https://github.com/nervosnetwork/ckb-cli) can export one)
-   - **Wallet password** — stored in the OS keychain
-   - **Review & start** — start the node and **keep it running** while sending or receiving
-3. **Fund on-chain** (first channel open):
-   - Send testnet CKB to your **On-chain wallet** on **Channels**
-   - Minimum **1,000 CKB** per channel open, plus reserve and on-chain fees
-4. **Share details** out of band before connecting to each other:
-   - **Pubkey** (always) — **Settings → CKB wallet → Node pubkey**, 66-character hex (`02…` or `03…`)
-   - **Multiaddr** (for direct connect) — see Option A; format `/ip4/HOST/tcp/8228/p2p/Qm…`
-
----
-
-## Option A — Direct payment (channel with each other)
-
-One **direct channel** between you and the other person. Payments are a single hop — no hub in the middle.
-
-```text
-Your laptop ══════ channel ══════ Their laptop
-```
-
-Use this when you can **connect** to each other: same LAN, or over the internet with a public multiaddr.
-
-### A1 — Same Wi‑Fi / LAN (two laptops nearby)
-
-This is the straightforward case for **direct** payment: both nodes are on the same local network, so you dial each other’s **LAN IP** — no router port forwarding required.
-
-**1. Both users — keep nodes running**
-
-Start Fiber Studio and ensure the node is up on both laptops.
-
-**2. Share pubkey + LAN address**
-
-- **Pubkey:** **Settings → CKB wallet** → copy **Node pubkey**.
-- **LAN multiaddr:** On the laptop that will be dialed first, find its local IP (e.g. macOS **System Settings → Network**, Windows `ipconfig`, Linux `ip addr`). Build:
-
-  ```text
-  /ip4/192.168.x.x/tcp/8228/p2p/QmPEER_ID
-  ```
-
-  - Port is **8228** (default Fiber P2P port).
-  - The `/p2p/Qm…` part is your node’s libp2p peer id. After your node connects to bootnodes, check **Network** (connected peer addresses) or your node log (`fiber-studio-fnn.log` in your data directory) for a `/p2p/Qm…` suffix.
-
-  Pubkey-only connect (`connect_peer` with just a pubkey) only works if your node already knows their address from **gossip**. Fresh home nodes usually do not — **use the LAN multiaddr**.
-
-**3. Connect (both users)**
-
-1. **Network → Add saved peer** — paste their **pubkey** and **LAN multiaddr**, then **Add & connect**.
-2. If the peer is already saved but not connected, click **Connect** until they show as **Connected**.
-3. Optionally repeat from the other laptop so both sides are connected.
-
-**4. Open a channel**
-
-1. **Channels → Open channel** — select the other person’s pubkey.
-2. Capacity at least **1,000 CKB** (plus fees).
-3. Wait until **ChannelReady** on **both** laptops.
-
-**5. Pay**
-
-- **Fiber invoice (recommended):** They create an invoice on **Payments → Receive → Create invoice** and send you the string (or QR). You pay on **Payments → Send → Fiber**. Route preview should show **one hop** (direct).
-- **Keysend:** **Payments → Send → Keysend** with their pubkey.
-
-The invoice **payee pubkey** must match the node you opened the channel with. If they send an invoice from a different wallet/node, payment will not route correctly.
-
-### A2 — Far apart (direct over the internet)
-
-Direct payment is still possible across cities or continents if **at least one** laptop is reachable from the public internet.
-
-**1. Reachable side — port forwarding**
-
-On the laptop that will accept inbound connections:
-
-1. Forward router port **8228** → that machine’s LAN IP.
-2. Edit `config.yml` in your Fiber Studio data directory (see template in `app/src-tauri/resources/fnn-config/testnet.yml`):
-   - Under `fiber.announced_addrs`, add your **public** IP, e.g. `/ip4/YOUR_PUBLIC_IP/tcp/8228`
-3. Restart the node.
-4. Share **pubkey** + full multiaddr `/ip4/YOUR_PUBLIC_IP/tcp/8228/p2p/Qm…` with the other person.
-
-**2. Other side — connect, channel, pay**
-
-Same as LAN steps 3–5: **Network** (pubkey + multiaddr) → **ChannelReady** → pay invoice or keysend.
-
-If neither side can port-forward, use **Option B** instead — do not expect pubkey-only connect to work across home networks.
-
-### Direct payment — troubleshooting
-
-`PathFind error: no path found` on route preview — check in order:
-
-| Problem | What to do |
-|---------|------------|
-| Peer not **connected** | Missing or wrong multiaddr; on LAN use `192.168.x.x`, not public IP; both nodes must be running |
-| Connected but no channel | **Channels → Open channel** → wait for **ChannelReady** on both sides |
-| Wrong invoice | Invoice payee pubkey ≠ peer you channeled with — ask for a new invoice from the correct node |
-| No liquidity | Sender needs enough **In channels** balance for amount + fees |
-
-### Direct payment checklist
-
-| Step | You | Them |
-|------|-----|------|
-| Fiber Studio installed, node running | ✓ | ✓ |
-| Pubkey shared | ✓ | ✓ |
-| Multiaddr shared (LAN or public) | ✓ | ✓ |
-| **Connected** peer on **Network → Peers** | ✓ | ✓ |
-| **ChannelReady** with each other | ✓ | ✓ |
-| In-channel balance (sender) | ✓ | — |
-| Invoice created & shared | — | ✓ |
-| Invoice paid | ✓ | — |
-
----
-
-## Option B — Multi-hop payment (shared public hub)
-
-**Use this when you are far apart on normal home internet** and neither side has set up port forwarding. You do **not** need the same Wi‑Fi. Each laptop connects to the **same public Fiber node** (a “hub”), opens a channel with it, and payments route through that hub.
-
-```text
-Your laptop ──channel──► Hub (public peer) ──channel──► Their laptop
-```
-
-### Steps
-
-**1. Pick a hub (agree out of band)**
-
-Both users must use the **same** hub pubkey, for example:
-
-- **Official testnet relays** — **Use public node1** / **Use public node2** in setup or on **Network** (`app/shared/relays.json`). Their multiaddrs use port **8119**, not 8228.
-- **Community hub** — any public testnet node with a known IP that **both** of you can connect to (e.g. from **Network** after joining via bootnodes).
-
-Official relays may not accept connections from every network. If node1/node2 never show as connected, pick a community hub that works for both of you and use its pubkey + multiaddr (with that hub’s actual port).
-
-**2. Connect to the hub (both laptops)**
-
-1. **Network → Add saved peer** — hub **pubkey** + **multiaddr** from `app/shared/relays.json` or your hub operator, then **Add & connect** (or **Connect** if already saved).
-2. Wait until the hub appears as **Connected** in the **Peers** list.
-3. Give gossip a minute after node start; **Network** shows gossip node counts — values above 0 help pathfinding.
-
-**3. Open a channel with the hub (both laptops)**
-
-1. **Channels → Open channel** — select the **hub** pubkey (not each other).
-2. Wait until **ChannelReady** on both machines.
-3. **Sender** — fund your side (local/outbound balance).
-4. **Receiver** — must also have a **ChannelReady** hub channel so the hub can forward inbound CKB to you.
-
-Peer-only connection to the hub is **not** enough for receiving payments.
-
-**4. Pay**
-
-1. **Receiver** — **Payments → Receive → Create invoice** (from their own node; payee pubkey on the invoice must be theirs).
-2. **Sender** — **Payments → Send → Fiber** — route preview should show a path **via the hub** (multi-hop).
-3. Confirm and send.
-
-### Multi-hop checklist
-
-| Step | Sender | Receiver |
-|------|--------|----------|
-| Node running | ✓ | ✓ |
-| Connected to **same hub** | ✓ | ✓ |
-| **ChannelReady** with **same hub** | ✓ | ✓ |
-| In-channel balance (sender) | ✓ | — |
-| Graph synced (gossip nodes &gt; 0 on **Network**) | ✓ | ✓ |
-| Invoice created & shared | — | ✓ |
-| Invoice paid | ✓ | — |
-
-### Multi-hop troubleshooting
-
-`PathFind error: no path found` does not always mean the receiver is offline:
-
-- **Empty graph** — wait after start; ensure bootnodes/hub are connected.
-- **Receiver has no hub channel** — peer connect only is insufficient.
-- **Different hubs** — you used hub A, they used hub B; no route between them.
-- **Liquidity** — not enough outbound on your hub channel or on hub → receiver.
-- **Receiver offline** — possible; rule out the above first.
-
----
-
-## Send a payment (both modes)
-
-On **Payments**, **Send** is on the left (Fiber / Keysend / Lightning) and **Receive** is on the right.
-
-### Fiber invoice (recommended for Fiber pays)
-
-**Receiver:** **Payments → Receive → Create invoice** → share Bech32m string or QR.
-
-**Sender:** **Payments → Send → Fiber** → paste invoice → confirm amount and **route preview** → **Review payment** → send.
-
-**Receiver:** invoice status updates to **Received** when settled.
-
-Pasting a Lightning BOLT11 invoice (`lnbc…` / `lntb…`) into the Fiber field switches to the **Lightning** tab automatically.
-
-### Keysend
-
-**Sender:** **Payments → Send → Keysend** → recipient pubkey → asset and amount → route preview → send.
-
-**Receiver:** payment appears in history when settled.
-
-Works for **direct** (channel peer) or **multi-hop** (routable path). Route preview must succeed before sending.
-
-### Lightning via Cross-Chain Hub (CCH)
-
-Fiber Studio can pay and receive Bitcoin Lightning invoices by talking to a **remote CCH hub** (atomic HTLC swap between Lightning BTC and Fiber **cWBTC**). Docs: [CCH RPC](https://www.fiber.world/docs/api-reference/cross-chain/cch), [Cross-Chain HTLC](https://www.fiber.world/docs/res/cross-chain-htlc). Testnet cWBTC: [faucet-cwbtc.ckb.dev](https://faucet-cwbtc.ckb.dev).
-
-**Prerequisites**
-
-1. **Settings → Cross-chain** — set the hub’s HTTP(S) JSON-RPC URL.
-2. **cWBTC** on-chain and in a **Ready** channel with a path toward the hub (open a cWBTC channel via public relays as needed).
-3. Node running on the same network as the hub (testnet ↔ testnet Lightning).
-
-**Pay a Lightning invoice (cWBTC → BTC)**
-
-1. **Payments → Send → Lightning** — paste a BOLT11 invoice.
-2. **Review Lightning swap** — the hub creates a CCH order and returns a Fiber invoice (amount includes hub fee).
-3. Confirm and pay the Fiber leg; the hub settles the Lightning invoice. Order status polls until **Success** or **Failed**.
-
-**Receive BTC as cWBTC (BTC → Fiber)**
-
-1. **Payments → Receive → Receive BTC** — enter a cWBTC amount (and expiry ≥ 6 hours).
-2. Share the Lightning invoice the hub returns with the payer.
-3. When they pay, the hub pays your Fiber invoice; watch status until settled.
-
-Fiber Studio does **not** run LND or embed the CCH service — only the client RPCs (`send_btc`, `receive_btc`, `get_cch_order`) against the hub you configure.
-
-For protocol details beyond the app UI, see the [Fiber documentation](https://www.fiber.world/docs).
+- Guided setup (testnet; mainnet is shown but not available yet), node start/stop, and logs
+- Home dashboard, CKB and UDT balances, channels, peers, and channel neighborhood
+- Fiber invoices and keysend, plus Lightning pay and receive through a CCH hub
+- Settings, in-app updates, and `fnn` migration when the bundled node requires it
+- Signed installers: Apple Developer ID (macOS), Authenticode (Windows), Linux AppImage / deb / rpm
+
+Using the app (channels, direct vs multi-hop payments, Lightning): [Get started](https://www.getfiberstudio.com/get-started) and [FAQ](https://www.getfiberstudio.com/faq). Protocol: [Fiber docs](https://www.fiber.world/docs).
 
 ## Download
 
-Release builds are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Each release ships all platform bundle formats. macOS publish builds are Developer ID–signed and notarized when Apple secrets are configured; Windows publish builds are Authenticode-signed with Certum SimplySign when Certum secrets are configured.
+Installers are on [GitHub Releases](https://github.com/chukwuma619/fiber-studio/releases). Download only the file for your platform. `latest.json` and `*.app.tar.gz` are for in-app updates.
 
-| OS | Download this file | Install |
-|----|-------------------|---------|
-| **macOS (Apple Silicon, M1/M2/M3)** | `Fiber Studio_*_aarch64.dmg` | Open the DMG, drag Fiber Studio to Applications. |
-| **macOS (Intel)** | `Fiber Studio_*_x64.dmg` | Open the DMG, drag Fiber Studio to Applications. |
-| **Windows** | `Fiber Studio_*_x64-setup.exe` (NSIS) or `Fiber Studio_*_x64_en-US.msi` | Run the setup wizard. |
-| **Linux x64** | `Fiber Studio_*_amd64.AppImage`, `fiber-studio_*_amd64.deb`, or `fiber-studio-*-1.x86_64.rpm` | AppImage: `chmod +x "Fiber Studio_"*"_amd64.AppImage"` then run. Debian/Ubuntu: `sudo apt install ./fiber-studio_*_amd64.deb`. Fedora/RHEL: `sudo dnf install ./fiber-studio-*-1.x86_64.rpm`. |
-| **Linux ARM64** | `Fiber Studio_*_aarch64.AppImage`, `fiber-studio_*_arm64.deb`, or `fiber-studio-*-1.aarch64.rpm` | Same as Linux x64, using the `aarch64` / `arm64` filenames. |
+| OS | File |
+|----|------|
+| macOS (Apple Silicon) | `Fiber Studio_*_aarch64.dmg` |
+| macOS (Intel) | `Fiber Studio_*_x64.dmg` |
+| Windows | `Fiber Studio_*_x64-setup.exe` or `Fiber Studio_*_x64_en-US.msi` |
+| Linux x64 | `.AppImage`, `.deb`, or `.rpm` (`amd64` / `x86_64`) |
+| Linux ARM64 | `.AppImage`, `.deb`, or `.rpm` (`aarch64` / `arm64`) |
 
-Download only the installer for your platform (`.dmg`, `-setup.exe`, `.msi`, `.AppImage`, `.deb`, or `.rpm`). Ignore `latest.json` and files like `*.app.tar.gz` — those are for in-app updates, not manual install.
+macOS: open the DMG and drag Fiber Studio to Applications. If Gatekeeper blocks an unnotarized build, use **System Settings → Privacy & Security → Open Anyway** (or right-click the app → **Open**). Do not choose Move to Bin.
 
-### macOS: “Apple could not verify…” on first launch
+Windows SmartScreen may warn for a new publisher even on a signed build: **More info → Run anyway**.
 
-If a release was built **without** Apple notarization secrets, Gatekeeper may block the first launch and show **“Fiber Studio” Not Opened** with only **Done** and **Move to Bin**. Notarized releases should open normally after install.
+Linux AppImage: `chmod +x` the file, then run it. Debian/Ubuntu: `sudo apt install ./fiber-studio_*_amd64.deb`. Fedora/RHEL: `sudo dnf install ./fiber-studio-*-1.x86_64.rpm`. Use the `arm64` / `aarch64` names on ARM.
 
-**Do not click Move to Bin.**
-
-1. Open the `.dmg` and drag **Fiber Studio** to **Applications** as usual.
-2. Try opening the app once (double-click). Gatekeeper will block it — that is expected for unsigned/unnotarized builds.
-3. Open **System Settings → Privacy & Security**.
-4. Scroll down. You should see a message about Fiber Studio being blocked, with **Open Anyway**.
-5. Click **Open Anyway**, then confirm **Open**.
-
-**Alternative (sometimes works on first launch):** In Finder, **right-click** Fiber Studio → **Open** → **Open** in the dialog.
-
-After the first successful launch, macOS remembers your choice and you can open the app normally.
-
-Windows SmartScreen may still warn for new publishers even when Authenticode-signed — choose **More info → Run anyway** until reputation builds.
-
-In-app updates use a separate Tauri signing key (not Apple/Windows code signing). After install, use **Settings → Updates** or wait for the launch prompt.
-
-## Prerequisites (development)
-
-Install [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your OS:
-
-- System dependencies for your platform
-- [Rust](https://www.rust-lang.org/tools/install)
-- [Bun](https://bun.sh/) (or Node.js **20.19+** / **22.12+**)
-- On Windows, use **Git Bash** for the commands below
+After install, updates are in **Settings → Updates**.
 
 ## Development
 
-### Desktop app (`app/`)
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/), [Rust](https://www.rust-lang.org/tools/install), and [Bun](https://bun.sh/) (or Node.js 20.19+ / 22.12+). On Windows, use Git Bash for the commands below.
+
+### Desktop app
 
 ```bash
 git clone https://github.com/chukwuma619/fiber-studio.git
 cd fiber-studio/app
 bun install
-bun run fetch-fnn    # download bundled fnn sidecar for your platform (required once)
+bun run fetch-fnn    # bundled fnn sidecar (currently v0.9.1); required once
 bun run tauri dev
 ```
 
-Fiber Studio bundles the official [fnn](https://github.com/nervosnetwork/fiber) binary (currently **v0.9.1**) as a Tauri sidecar. The `fetch-fnn` script downloads it from GitHub Releases into `app/src-tauri/binaries/` (gitignored). Run it before `tauri dev` or `tauri build`.
+`fetch-fnn` downloads official `fnn` into `app/src-tauri/binaries/` (gitignored). Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
 
-Supported sidecar targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
-
-#### App scripts (run from `app/`)
+From `app/`:
 
 ```bash
-bun run dev              # frontend only (Vite)
-bun run build            # production frontend build
-bun run fetch-fnn        # download fnn sidecar for current platform
-bun run fetch-fnn -- --all                    # all supported platforms
-bun run fetch-fnn -- --triple aarch64-apple-darwin  # one platform (CI)
-bun run version:bump patch   # bump patch | minor | major | x.y.z
-bun run tauri dev        # run the desktop app in development
-bun run tauri build      # production installers → src-tauri/target/release/bundle/
-bun run generate-icons   # regenerate app icons from app-icon.svg
+bun run dev            # Vite only
+bun run build          # production frontend
+bun run fetch-fnn -- --all
+bun run version:bump patch   # patch | minor | major | x.y.z
+bun run tauri build    # installers → src-tauri/target/release/bundle/
+bun run generate-icons
 ```
 
-### Website (`website/`)
+### Website
 
 ```bash
 cd fiber-studio/website
 bun install
-bun run dev
+bun run dev            # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Deploy on [Vercel](https://vercel.com) with **Root Directory** set to `website`.
+Also: `bun run build`, `bun run start`, `bun run lint`. Deploy on Vercel with root directory `website`.
 
-| Script | Description |
-|--------|-------------|
-| `bun run dev` | Dev server |
-| `bun run build` | Production build |
-| `bun run start` | Serve production build |
-| `bun run lint` | ESLint |
+### Releases
 
-### Publishing a desktop release
+Push a `v*` tag (or run the publish workflow manually). That builds macOS (arm64 + x64), Linux (x64 + arm64), and Windows, then publishes the GitHub Release, updater artifacts, and `latest.json`. Tags must not be GitHub prereleases, or update checks cannot find `latest.json`.
 
 ```bash
 cd app
-# Bump version (updates package.json + Cargo.toml; Tauri reads package.json)
-bun run version:bump patch   # or minor | major | 0.2.0
-git commit -am "chore: release v0.1.0"
+bun run version:bump patch
+git commit -am "chore: release vX.Y.Z"
 git push origin main
-git tag v0.1.0
-git push origin v0.1.0
+git tag vX.Y.Z
+git push origin vX.Y.Z
 ```
 
-For local release builds, export the signing key before `tauri build` (`.env` files are not read by Tauri):
+Publish needs the repository secret `TAURI_SIGNING_PRIVATE_KEY` (updater signing, separate from OS code signing). macOS publish also needs `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_ID`, `APPLE_PASSWORD`, and `APPLE_TEAM_ID`. Windows publish needs `CERTUM_EMAIL` and `CERTUM_OTP` (SimplySign TOTP seed, not the rotating code). Workflow permissions must allow read and write for releases.
 
-```bash
-cd app
-export TAURI_SIGNING_PRIVATE_KEY="$(cat src-tauri/.updater/fiber-studio.key)"
-bun run fetch-fnn
-bun run tauri build
-```
+Pushes and pull requests to `main` run the build workflow (frontend, website, and a Tauri smoke build). That workflow does not publish a release.
 
-macOS **publish** builds are signed with Developer ID and notarized when Apple secrets are set (see below). Windows **publish** builds are Authenticode-signed with Certum SimplySign when Certum secrets are set (see below). macOS **smoke** builds on `main` stay [ad-hoc signed](https://v2.tauri.app/distribute/sign/macos/#ad-hoc-signing); Windows smoke builds stay unsigned.
+## Related
 
-In-app updates use a separate Tauri updater key (`TAURI_SIGNING_PRIVATE_KEY`). The updater reads `latest.json` from GitHub Releases, so release tags must not be marked as GitHub prereleases — otherwise `releases/latest/download/latest.json` 404s and update checks fail.
-
-#### macOS Apple signing secrets (publish)
-
-Export your **Developer ID Application** certificate from Keychain Access (**My Certificates** → expand → right-click the private key → **Export…**) as a `.p12`, then:
-
-```bash
-openssl base64 -A -in /path/to/certificate.p12 -out certificate-base64.txt
-```
-
-Add these GitHub repository secrets:
-
-| Secret | Value |
-|--------|--------|
-| `APPLE_CERTIFICATE` | Contents of `certificate-base64.txt` |
-| `APPLE_CERTIFICATE_PASSWORD` | Password you set when exporting the `.p12` |
-| `APPLE_ID` | Your Apple ID email |
-| `APPLE_PASSWORD` | [App-specific password](https://appleid.apple.com) (not your Apple ID password) |
-| `APPLE_TEAM_ID` | 10-character Team ID from [Membership](https://developer.apple.com/account) |
-
-#### Windows Certum signing secrets (publish)
-
-Certum **Open Source Code Signing in the cloud** keeps the private key in SimplySign (not exportable as a `.pfx`). Publish installs [`ssign-pkcs11`](https://github.com/Le-Syl21/ssign) and [osslsigncode](https://github.com/mtrojnar/osslsigncode) (via MSYS2 + libp11) on the Windows job. Tauri’s `signCommand` (`app/scripts/ssign-tauri.ps1`) Authenticode-signs each PE (sidecar, app `.exe`, NSIS `-setup.exe`) through that PKCS#11 module over SimplySign HTTPS.
-
-Why PKCS#11 (not the `ssign` CLI) in CI: Tauri calls `signCommand` once per file. The CLI logs into Certum on every process, and Certum rejects reused TOTPs / rapid re-logins. `ssign-pkcs11` **caches the OAuth session** so only the first file needs a fresh OTP — the same approach ssign documents for multi-file signing with osslsigncode. MSI is not produced on publish.
-
-Add these GitHub repository secrets:
-
-| Secret | Value |
-|--------|--------|
-| `CERTUM_EMAIL` | Your SimplySign login email |
-| `CERTUM_OTP` | The **TOTP seed** (base32) or full `otpauth://…` URI from the SimplySign activation QR — **not** the rotating 6-digit code. Treat this like a private key. |
-
-If you only have the mobile app and no seed saved, re-issue the SimplySign QR from Certum and capture the secret (for example by scanning into a password manager that shows the `otpauth://` URI), then store that seed as `CERTUM_OTP`.
-
-Config used on publish: `app/src-tauri/tauri.windows-signing.conf.json`. For one-off local signing of several files, prefer a single `ssign a.exe b.exe` batch instead.
-
-## Project structure
-
-```
-fiber-studio/
-├── app/                 # Tauri desktop app (run bun/tauri commands here)
-│   ├── src/             # React UI (routes, components, lib)
-│   │   ├── routes/      # TanStack Router file-based routes
-│   │   ├── components/  # UI, setup wizard, home dashboard, layout, settings
-│   │   └── lib/
-│   │       ├── fnn/     # fnn client helpers, dashboard, node control
-│   │       ├── setup/   # setup wizard state and storage
-│   │       └── updates/ # in-app updater provider and preferences
-│   ├── src-tauri/       # Tauri shell (Rust)
-│   │   ├── src/
-│   │   │   ├── commands/  # Tauri invoke handlers (setup, node, dashboard)
-│   │   │   └── fnn/       # fnn process manager, config, keychain, logs
-│   │   ├── resources/   # fnn config templates (mainnet, testnet)
-│   │   ├── binaries/    # fnn sidecar (gitignored; populated by fetch-fnn)
-│   │   └── .updater/    # updater signing private key (gitignored)
-│   ├── shared/          # Shared data (e.g. relay definitions)
-│   ├── scripts/         # fetch-fnn, version-bump, and other build helpers
-│   └── public/          # Static assets
-├── website/             # Next.js marketing site
-└── .github/workflows/   # CI (app frontend, website, Tauri; publish for app)
-```
-
-## CI
-
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| **build** (`.github/workflows/build.yml`) | Push / PR to `main` | App frontend build, website build, cross-platform Tauri smoke test (no release) |
-| **publish** (`.github/workflows/publish.yml`) | Tag push `v*`, or manual **workflow_dispatch** | Builds all bundle formats on macOS (arm64 + x64), Linux (x64 + arm64), and Windows; publishes GitHub Release, signed updater artifacts, and `latest.json` |
-
-Repository secret **`TAURI_SIGNING_PRIVATE_KEY`** is required for publish and CI Tauri builds. macOS publish also needs the Apple secrets listed above; Windows publish needs the Certum secrets. GitHub Actions workflow permissions must allow **read and write** for releases.
-
-## Related projects
-
-- [nervosnetwork/fiber](https://github.com/nervosnetwork/fiber) — Fiber Network Node (`fnn`) and protocol implementation
+- [nervosnetwork/fiber](https://github.com/nervosnetwork/fiber) — Fiber Network Node and protocol
 - [chukwuma619/fiber-desktop](https://github.com/chukwuma619/fiber-desktop) — prototype this repo replaces
-- [Fiber documentation](https://www.fiber.world/docs) — protocol and node guides
-- [ckb-cli](https://github.com/nervosnetwork/ckb-cli) — CKB command-line tool (export keys, manage accounts)
+- [Fiber documentation](https://www.fiber.world/docs)
+- [ckb-cli](https://github.com/nervosnetwork/ckb-cli) — export CKB keys
 
 ## Contributing
 
-Fiber Studio is under active development. Issues and PRs are welcome once contribution guidelines are published. For context on the v1 direction, see the [Fiber Desktop v1 proposal](https://talk.nervos.org/t/dis-fiber-desktop-v1-ground-up-rebuild-and-launch-fnn-desktop-app/10317) on Nervos Talk.
+Issues and pull requests are welcome. Direction for v1 is in the [Fiber Desktop v1 proposal](https://talk.nervos.org/t/dis-fiber-desktop-v1-ground-up-rebuild-and-launch-fnn-desktop-app/10317) on Nervos Talk.
+
+## License
+
+[MIT](./LICENSE)
