@@ -11,7 +11,6 @@ import {
 } from "../../lib/setup/network"
 import type { NetworkChoice } from "../../lib/setup/types"
 import type { SwitchNetworkPayload } from "../../lib/fnn/types"
-import { getRelay } from "../../lib/public-relays"
 import { formatNetworkLabel } from "../../lib/fnn/useNodeControl"
 import { Button } from "../ui/button"
 import { Checkbox, CheckboxField } from "../ui/checkbox"
@@ -102,13 +101,11 @@ export function ChangeNetworkDialog({
       }
     }
 
-    const node1 = getRelay(network, "node1")
-
     try {
       await onSave({
         network,
-        customPublicNodePubkey: node1.pubkey,
-        customPublicNodeMultiaddr: node1.multiaddr ?? "",
+        customPublicNodePubkey: "",
+        customPublicNodeMultiaddr: "",
         copyKeyFromCurrent: needsKeySetup && copyKeyFromCurrent,
         importedPrivateKey:
           needsKeySetup && !copyKeyFromCurrent

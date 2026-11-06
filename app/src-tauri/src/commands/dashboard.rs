@@ -8,6 +8,7 @@ use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
+use crate::fnn::relays;
 use crate::fnn::rpc::{self, parse_hex_u128, Channel, NodeInfo};
 use crate::fnn::sent_payments;
 use crate::fnn::studio;
@@ -32,6 +33,7 @@ pub struct HomeDashboardResponse {
     pub saved_peer_pubkeys: Vec<String>,
     pub network: Option<String>,
     pub relay_status: String,
+    pub needs_relay_channel: bool,
     pub assets: Vec<AssetView>,
     pub channel_totals: Vec<AssetChannelTotals>,
     pub on_chain_balances: Vec<AssetBalanceView>,
@@ -121,6 +123,7 @@ pub async fn get_home_dashboard(
             saved_peer_pubkeys: Vec::new(),
             network: None,
             relay_status: "not_configured".to_string(),
+            needs_relay_channel: false,
             assets: Vec::new(),
             channel_totals: Vec::new(),
             on_chain_balances: Vec::new(),
@@ -129,6 +132,7 @@ pub async fn get_home_dashboard(
 
     let data_directory = manager.data_directory().cloned();
     let manager_relay_status = manager.relay_state().status;
+    let peer_autoconnect_settled = manager.peer_autoconnect_settled();
     drop(manager);
 
     let studio_metadata = data_directory
@@ -191,19 +195,42 @@ pub async fn get_home_dashboard(
     .map(to_home_incoming)
     .collect();
 
+    let saved_peers = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.saved_peers.as_slice())
+        .unwrap_or(&[]);
+    let open_channel_pubkeys: Vec<String> = channels
+        .iter()
+        .filter(|channel| {
+            rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
+        })
+        .map(|channel| channel.pubkey.clone())
+        .collect();
+    let relay_pubkeys: Vec<String> = network_str
+        .map(relays::relays_for_network)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|relay| relay.pubkey)
+        .collect();
+    let needs_relay_channel = peer_connect::needs_relay_channel(
+        peer_autoconnect_settled,
+        &relay_pubkeys,
+        &peers,
+        &open_channel_pubkeys,
+    );
+
     let active_channel_count = channel::count_active_channels(&channels);
     let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
     let total_remote_balance = channel::sum_remote_balances(&channels);
     let home_channels = select_home_channels(channels, &catalog);
 
-    let saved_peers = studio_metadata
-        .as_ref()
-        .map(|metadata| metadata.saved_peers.as_slice())
-        .unwrap_or(&[]);
-
-    let relay_status =
-        peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
+    let relay_status = peer_connect::relay_status_for_peers(
+        network_str,
+        &peers,
+        saved_peers,
+        &manager_relay_status,
+    );
 
     let saved_peer_pubkeys: Vec<String> = studio_metadata
         .as_ref()
@@ -252,6 +279,7 @@ pub async fn get_home_dashboard(
             .as_ref()
             .map(|metadata| metadata.network.clone()),
         relay_status,
+        needs_relay_channel,
         assets,
         channel_totals,
         on_chain_balances,

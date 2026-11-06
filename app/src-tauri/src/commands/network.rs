@@ -34,6 +34,7 @@ pub struct NetworkSavedPeerEntry {
     pub connected: bool,
     pub channel_count: u32,
     pub has_active_or_pending_channel: bool,
+    pub is_official_relay: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -162,6 +163,7 @@ fn build_saved_peer_entry(
     saved_peer: &SavedPeer,
     peers: &[PeerInfo],
     channels: &[Channel],
+    network: &str,
 ) -> NetworkSavedPeerEntry {
     let connected = peer_is_connected(peers, &saved_peer.pubkey);
     let channel_count = count_channels_to_peer(channels, &saved_peer.pubkey);
@@ -178,7 +180,18 @@ fn build_saved_peer_entry(
         connected,
         channel_count,
         has_active_or_pending_channel,
+        is_official_relay: relays::is_official_relay_pubkey(network, &saved_peer.pubkey),
     }
+}
+
+async fn pause_peer_autoconnect(state: &State<'_, AppState>, pubkey: &str) {
+    let mut manager = state.fnn.lock().await;
+    manager.pause_peer_autoconnect(pubkey);
+}
+
+async fn resume_peer_autoconnect(state: &State<'_, AppState>, pubkey: &str) {
+    let mut manager = state.fnn.lock().await;
+    manager.resume_peer_autoconnect(pubkey);
 }
 
 #[tauri::command]
@@ -223,7 +236,8 @@ pub async fn get_network_page(
         .map(|metadata| metadata.saved_peers.as_slice())
         .unwrap_or(&[]);
 
-    let relay_status = peer_connect::relay_status_for_saved_peers(
+    let relay_status = peer_connect::relay_status_for_peers(
+        Some(network),
         &peers,
         saved_peers,
         &manager_relay_status,
@@ -231,7 +245,7 @@ pub async fn get_network_page(
 
     let saved_peer_entries: Vec<NetworkSavedPeerEntry> = saved_peers
         .iter()
-        .map(|peer| build_saved_peer_entry(peer, &peers, &channels))
+        .map(|peer| build_saved_peer_entry(peer, &peers, &channels, network))
         .collect();
 
     let saved_peer_connected_count = saved_peer_entries
@@ -379,6 +393,8 @@ async fn upsert_and_connect_saved_peer(
     studio::write_studio_metadata(&data_directory, &studio_metadata)
         .map_err(|error| format!("Failed to write studio metadata: {error}"))?;
 
+    resume_peer_autoconnect(state, pubkey).await;
+
     let saved_multiaddr = studio_metadata
         .find_saved_peer(pubkey)
         .map(|peer| peer.multiaddr.as_str())
@@ -460,6 +476,8 @@ pub async fn connect_saved_peer(
         return Err("Peer is not in your saved peer list.".to_string());
     }
 
+    resume_peer_autoconnect(&state, pubkey).await;
+
     let saved_multiaddr = studio_metadata
         .find_saved_peer(pubkey)
         .map(|peer| peer.multiaddr.as_str())
@@ -513,6 +531,13 @@ pub async fn remove_saved_peer(
     let mut studio_metadata = studio::read_studio_metadata(&data_directory)
         .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
 
+    if relays::is_official_relay_pubkey(&studio_metadata.network, pubkey) {
+        return Err(
+            "Official Fiber relays stay auto-connected and cannot be removed from your saved peers."
+                .to_string(),
+        );
+    }
+
     if studio_metadata.saved_peers.len() <= 1 {
         return Err("At least one saved peer is required.".to_string());
     }
@@ -527,6 +552,8 @@ pub async fn remove_saved_peer(
 
     studio::write_studio_metadata(&data_directory, &studio_metadata)
         .map_err(|error| format!("Failed to write studio metadata: {error}"))?;
+
+    pause_peer_autoconnect(&state, pubkey).await;
 
     rpc::disconnect_peer(pubkey)
         .await
@@ -569,15 +596,12 @@ pub async fn disconnect_peer(
         );
     }
 
-    if studio_metadata.has_saved_peer(pubkey) {
-        return Err(
-            "Saved peers must be removed from your saved list instead of disconnected.".to_string(),
-        );
-    }
-
     rpc::disconnect_peer(pubkey)
         .await
-        .map_err(|error| error.to_string())
+        .map_err(|error| error.to_string())?;
+
+    pause_peer_autoconnect(&state, pubkey).await;
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]

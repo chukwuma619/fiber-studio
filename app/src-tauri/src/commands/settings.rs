@@ -119,7 +119,7 @@ async fn build_node_settings(
         .or_else(|| manager.data_directory().cloned())
         .filter(|path| !path.as_os_str().is_empty());
     let node_status = manager.status();
-    let relay_status = manager.relay_state().status.clone();
+    let manager_relay_status = manager.relay_state().status.clone();
     drop(manager);
 
     let studio_metadata = data_dir
@@ -135,10 +135,22 @@ async fn build_node_settings(
         .map(|metadata| metadata.network.clone())
         .or_else(|| parsed_config.as_ref().and_then(|config| config.chain.clone()));
 
-    let (node_pub_key, live_version, funding_script, supported_assets) = if matches!(
+    let saved_peers = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.saved_peers.as_slice())
+        .unwrap_or(&[]);
+
+    let (node_pub_key, live_version, funding_script, supported_assets, relay_status) = if matches!(
         node_status,
         NodeRuntimeStatus::Running { .. }
     ) {
+        let peers = rpc::fetch_list_peers().await.unwrap_or_default();
+        let computed_relay_status = crate::fnn::peer_connect::relay_status_for_peers(
+            network.as_deref(),
+            &peers,
+            saved_peers,
+            &manager_relay_status,
+        );
         match rpc::fetch_node_info().await {
             Ok(info) => {
                 let catalog = assets::build_asset_catalog(&info);
@@ -147,12 +159,13 @@ async fn build_node_settings(
                     Some(info.version),
                     Some(info.default_funding_lock_script),
                     catalog,
+                    computed_relay_status,
                 )
             }
-            Err(_) => (None, None, None, Vec::new()),
+            Err(_) => (None, None, None, Vec::new(), computed_relay_status),
         }
     } else {
-        (None, None, None, Vec::new())
+        (None, None, None, Vec::new(), manager_relay_status)
     };
 
     let ckb_wallet_address = network
@@ -377,23 +390,13 @@ pub async fn switch_network(
             );
         };
 
-        let pubkey = if payload.custom_public_node_pubkey.trim().is_empty() {
-            relays::relays_for_network(&payload.network)
-                .into_iter()
-                .find(|relay| relay.id == "node1")
-                .map(|relay| relay.pubkey)
-                .unwrap_or_default()
-        } else {
-            payload.custom_public_node_pubkey.trim().to_string()
-        };
-
         let provision_request = ProvisionRequest {
             network: payload.network.clone(),
             data_directory: new_data_dir.display().to_string(),
             key_file_mode,
             key_file_path: "ckb/key".into(),
             imported_private_key,
-            custom_public_node_pubkey: pubkey,
+            custom_public_node_pubkey: payload.custom_public_node_pubkey.trim().to_string(),
             custom_public_node_multiaddr: payload.custom_public_node_multiaddr.trim().to_string(),
         };
 

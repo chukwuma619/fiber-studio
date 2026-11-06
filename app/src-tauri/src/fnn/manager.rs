@@ -15,10 +15,13 @@ use super::backup;
 use super::log_store;
 use super::logs::normalize_log_line;
 use super::migration::{self, MigrationDetails};
+use super::peer_connect::{DialKind, DialTarget, PeerDial};
 use super::rpc::{self, NodeInfo, RpcError};
 use super::spawn;
 
 pub const MAX_LOG_LINES: usize = 500;
+const AUTOCONNECT_RETRY_AFTER_FAILURE: Duration = Duration::from_secs(30);
+const AUTOCONNECT_RECHECK_AFTER_SUCCESS: Duration = Duration::from_secs(60);
 
 #[derive(Debug, Clone, Serialize, PartialEq, Eq, Default)]
 #[serde(rename_all = "camelCase")]
@@ -65,6 +68,14 @@ pub struct FnnManager {
     status: NodeRuntimeStatus,
     data_directory: Option<PathBuf>,
     relay_state: RelayConnectionState,
+    /// A background autoconnect loop is running for the current node session.
+    peer_autoconnect_running: bool,
+    /// The first autoconnect pass of this node session has finished.
+    peer_autoconnect_settled: bool,
+    /// Bumped whenever the node session ends; stale loops compare and exit.
+    peer_autoconnect_generation: u64,
+    /// Normalized pubkeys the user disconnected; skipped until reconnected or node restart.
+    peer_autoconnect_paused: Vec<String>,
     logs: Arc<Mutex<VecDeque<String>>>,
     log_file_offset: Arc<Mutex<u64>>,
     log_tail_cancel: Option<Arc<AtomicBool>>,
@@ -77,12 +88,37 @@ impl Default for FnnManager {
             status: NodeRuntimeStatus::Stopped,
             data_directory: None,
             relay_state: RelayConnectionState::default(),
+            peer_autoconnect_running: false,
+            peer_autoconnect_settled: false,
+            peer_autoconnect_generation: 0,
+            peer_autoconnect_paused: Vec::new(),
             logs: Arc::new(Mutex::new(VecDeque::new())),
             log_file_offset: Arc::new(Mutex::new(0)),
             log_tail_cancel: None,
             child: None,
         }
     }
+}
+
+/// Runs for the whole node session: dials missing relays / saved peers, then
+/// rechecks on a timer. Exits as soon as the session (generation) changes.
+pub(crate) fn launch_peer_autoconnect(app: &AppHandle, data_directory: PathBuf, generation: u64) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move {
+        loop {
+            let Some(all_connected) =
+                run_autoconnect_pass(&app, &data_directory, generation).await
+            else {
+                return;
+            };
+            tokio::time::sleep(if all_connected {
+                AUTOCONNECT_RECHECK_AFTER_SUCCESS
+            } else {
+                AUTOCONNECT_RETRY_AFTER_FAILURE
+            })
+            .await;
+        }
+    });
 }
 
 impl FnnManager {
@@ -96,6 +132,96 @@ impl FnnManager {
 
     pub fn relay_state(&self) -> RelayConnectionState {
         self.relay_state.clone()
+    }
+
+    /// Claims the autoconnect loop for this node session if none is running.
+    /// Returns the data directory and the generation the loop must keep matching.
+    pub fn take_peer_autoconnect(&mut self) -> Option<(PathBuf, u64)> {
+        if self.peer_autoconnect_running {
+            return None;
+        }
+        if !matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+            return None;
+        }
+        let directory = self.data_directory.clone()?;
+        self.peer_autoconnect_running = true;
+        self.peer_autoconnect_generation = self.peer_autoconnect_generation.wrapping_add(1);
+        Some((directory, self.peer_autoconnect_generation))
+    }
+
+    fn is_autoconnect_current(&self, generation: u64, data_directory: &std::path::Path) -> bool {
+        self.peer_autoconnect_generation == generation
+            && same_running_directory(self, data_directory)
+    }
+
+    /// Stop auto-dialing a peer the user disconnected on purpose.
+    pub fn pause_peer_autoconnect(&mut self, pubkey: &str) {
+        let normalized = super::peer_connect::normalize_pubkey(pubkey);
+        if !normalized.is_empty() && !self.peer_autoconnect_paused.contains(&normalized) {
+            self.peer_autoconnect_paused.push(normalized);
+        }
+    }
+
+    /// Resume auto-dialing a peer after the user connects or saves it again.
+    pub fn resume_peer_autoconnect(&mut self, pubkey: &str) {
+        let normalized = super::peer_connect::normalize_pubkey(pubkey);
+        self.peer_autoconnect_paused.retain(|paused| paused != &normalized);
+    }
+
+    fn mark_peers_connecting(&mut self, targets: &[DialTarget]) {
+        self.relay_state.status = "connecting".to_string();
+        let relay_count = targets
+            .iter()
+            .filter(|target| target.kind == DialKind::Relay)
+            .count();
+        let saved_count = targets.len() - relay_count;
+        let mut parts = Vec::new();
+        if relay_count > 0 {
+            let noun = if relay_count == 1 { "relay" } else { "relays" };
+            parts.push(format!("{relay_count} official {noun}"));
+        }
+        if saved_count > 0 {
+            let noun = if saved_count == 1 { "peer" } else { "peers" };
+            parts.push(format!("{saved_count} saved {noun}"));
+        }
+        self.append_log(&format!("Connecting to {}…", parts.join(" and ")));
+    }
+
+    fn log_peer_dial(&mut self, dial: &PeerDial) {
+        let short = short_pubkey(&dial.pubkey);
+        let label = match dial.kind {
+            DialKind::Relay => "Official relay",
+            DialKind::SavedPeer => "Saved peer",
+        };
+        if dial.status.is_up() {
+            self.append_log(&format!("{label} {short} connected"));
+        } else {
+            self.append_log(&format!("{label} {short} did not connect"));
+        }
+    }
+
+    /// True after the first relay / saved-peer pass for this running session has finished.
+    pub fn peer_autoconnect_settled(&self) -> bool {
+        self.peer_autoconnect_settled
+    }
+
+    fn finish_autoconnect_pass(&mut self, all_connected: bool) {
+        self.peer_autoconnect_settled = true;
+        if all_connected {
+            if self.relay_state.status == "connecting" || self.relay_state.status == "failed" {
+                self.relay_state.status.clear();
+            }
+        } else if self.relay_state.status == "connecting" {
+            self.relay_state.status = "failed".to_string();
+        }
+    }
+
+    fn reset_peer_autoconnect(&mut self) {
+        self.peer_autoconnect_running = false;
+        self.peer_autoconnect_settled = false;
+        self.peer_autoconnect_generation = self.peer_autoconnect_generation.wrapping_add(1);
+        self.peer_autoconnect_paused.clear();
+        self.relay_state = RelayConnectionState::default();
     }
 
     pub fn recent_logs(&self, limit: usize) -> Vec<String> {
@@ -142,7 +268,7 @@ impl FnnManager {
                 .map_err(|error| ManagerError::Stop(error.to_string()))?;
         }
         self.status = NodeRuntimeStatus::Stopped;
-        self.relay_state = RelayConnectionState::default();
+        self.reset_peer_autoconnect();
         Ok(())
     }
 
@@ -159,7 +285,7 @@ impl FnnManager {
         }
 
         self.status = NodeRuntimeStatus::Stopped;
-        self.relay_state = RelayConnectionState::default();
+        self.reset_peer_autoconnect();
         Ok(())
     }
     pub async fn sync_health(&mut self, data_directory: Option<PathBuf>) {
@@ -201,6 +327,7 @@ impl FnnManager {
             }
             Err(_) if matches!(self.status, NodeRuntimeStatus::Running { .. }) => {
                 self.status = NodeRuntimeStatus::Stopped;
+                self.reset_peer_autoconnect();
             }
             Err(_) => {}
         }
@@ -221,6 +348,7 @@ impl FnnManager {
                 message: format!("fnn exited with code {exit_code}"),
             },
         };
+        self.reset_peer_autoconnect();
     }
 
     pub async fn start(
@@ -240,7 +368,9 @@ impl FnnManager {
             self.data_directory = Some(data_directory.clone());
             self.restore_logs_from_disk();
             self.start_log_tail();
-            return rpc::fetch_node_info().await.map_err(ManagerError::Rpc);
+            let node_info = rpc::fetch_node_info().await.map_err(ManagerError::Rpc)?;
+            self.queue_peer_autoconnect(app);
+            return Ok(node_info);
         }
 
         self.stop_log_tail();
@@ -296,8 +426,16 @@ impl FnnManager {
             version: node_info.version.clone(),
             pubkey: node_info.pubkey.clone(),
         };
+        self.queue_peer_autoconnect(app);
 
         Ok(node_info)
+    }
+
+    fn queue_peer_autoconnect(&mut self, app: &AppHandle) {
+        let Some((directory, generation)) = self.take_peer_autoconnect() else {
+            return;
+        };
+        launch_peer_autoconnect(app, directory, generation);
     }
 
     async fn wait_for_ready(&mut self) -> Result<NodeInfo, ManagerError> {
@@ -459,6 +597,78 @@ impl FnnManager {
     pub fn set_error(&mut self, message: String) {
         self.status = NodeRuntimeStatus::Error { message };
     }
+}
+
+/// One autoconnect pass. Returns `None` when the node session changed and the loop must stop,
+/// otherwise whether every target is connected.
+async fn run_autoconnect_pass(
+    app: &AppHandle,
+    data_directory: &std::path::Path,
+    generation: u64,
+) -> Option<bool> {
+    let paused = {
+        let state = app.try_state::<AppState>()?;
+        let manager = state.fnn.lock().await;
+        if !manager.is_autoconnect_current(generation, data_directory) {
+            return None;
+        }
+        manager.peer_autoconnect_paused.clone()
+    };
+
+    let targets = super::peer_connect::startup_peers_to_dial(data_directory, &paused).await;
+
+    let targets = {
+        let state = app.try_state::<AppState>()?;
+        let mut manager = state.fnn.lock().await;
+        if !manager.is_autoconnect_current(generation, data_directory) {
+            return None;
+        }
+        match targets {
+            Ok(targets) if targets.is_empty() => {
+                manager.finish_autoconnect_pass(true);
+                return Some(true);
+            }
+            Ok(targets) => {
+                manager.mark_peers_connecting(&targets);
+                targets
+            }
+            Err(error) => {
+                manager.append_log(&format!("Could not check peers to auto-connect: {error}"));
+                manager.finish_autoconnect_pass(false);
+                return Some(false);
+            }
+        }
+    };
+
+    let expected = targets.len();
+    let dials = super::peer_connect::dial_startup_peers(data_directory, targets).await;
+    let all_connected = dials.len() == expected && dials.iter().all(|dial| dial.status.is_up());
+
+    let state = app.try_state::<AppState>()?;
+    let mut manager = state.fnn.lock().await;
+    if !manager.is_autoconnect_current(generation, data_directory) {
+        return None;
+    }
+    for dial in &dials {
+        manager.log_peer_dial(dial);
+    }
+    manager.finish_autoconnect_pass(all_connected);
+    Some(all_connected)
+}
+
+fn same_running_directory(manager: &FnnManager, data_directory: &std::path::Path) -> bool {
+    manager
+        .data_directory()
+        .is_some_and(|path| path == data_directory)
+        && matches!(manager.status(), NodeRuntimeStatus::Running { .. })
+}
+
+fn short_pubkey(pubkey: &str) -> String {
+    let pubkey = pubkey.trim();
+    if pubkey.len() <= 16 {
+        return pubkey.to_string();
+    }
+    format!("{}…{}", &pubkey[..8], &pubkey[pubkey.len() - 4..])
 }
 
 fn push_log_line(buffer: &mut VecDeque<String>, line: String) {

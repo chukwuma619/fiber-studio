@@ -26,7 +26,7 @@ pub struct NodeStatusResponse {
 
 #[tauri::command]
 pub async fn get_node_status(
-    _app: tauri::AppHandle,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
     data_directory: Option<String>,
 ) -> Result<NodeStatusResponse, String> {
@@ -35,14 +35,22 @@ pub async fn get_node_status(
         .filter(|path| !path.trim().is_empty())
         .map(PathBuf::from);
     manager.sync_health(data_dir).await;
+    let peer_autoconnect = manager.take_peer_autoconnect();
 
-    Ok(NodeStatusResponse {
+    let response = NodeStatusResponse {
         status: manager.status(),
         data_directory: manager
             .data_directory()
             .map(|path| path.display().to_string()),
         recent_logs: manager.recent_logs(20),
-    })
+    };
+    drop(manager);
+
+    if let Some((directory, generation)) = peer_autoconnect {
+        crate::fnn::manager::launch_peer_autoconnect(&app, directory, generation);
+    }
+
+    Ok(response)
 }
 
 #[tauri::command]

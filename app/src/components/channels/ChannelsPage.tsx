@@ -1,5 +1,6 @@
 import { RefreshCw } from "lucide-react"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import {
   channelStateBadgeColor,
@@ -42,6 +43,7 @@ import { RebalanceChannelDialog } from "./RebalanceChannelDialog"
 
 type ChannelsPageProps = {
   initialChannelId?: string
+  initialAction?: "open"
 }
 
 
@@ -66,7 +68,8 @@ function channelBalanceCell(display: string, channel: HomeChannel) {
   return <span className="tabular-nums">{display}</span>
 }
 
-export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
+export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPageProps) {
+  const navigate = useNavigate()
   const { running, status } = useNodeControlContext()
   const { data, isLoading, isRefreshing, error, refresh } = useChannelsPage(running)
 
@@ -112,6 +115,18 @@ export function ChannelsPage({ initialChannelId }: ChannelsPageProps) {
     },
     [channelActions],
   )
+
+  const openedFromSearch = useRef(false)
+  useEffect(() => {
+    if (openedFromSearch.current || initialAction !== "open" || !available) return
+    openedFromSearch.current = true
+    openOpenDialog()
+    void navigate({
+      to: "/channels",
+      search: { channel: initialChannelId },
+      replace: true,
+    })
+  }, [available, initialAction, initialChannelId, navigate, openOpenDialog])
 
   useEffect(() => {
     if (!initialChannelId || !available) return

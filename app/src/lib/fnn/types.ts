@@ -113,6 +113,7 @@ export type SavedPeerEntry = {
   connected: boolean
   channelCount: number
   hasActiveOrPendingChannel: boolean
+  isOfficialRelay?: boolean
 }
 
 export type ChannelsPageResponse = {
@@ -225,6 +226,7 @@ export type HomeDashboardResponse = {
   savedPeerPubkeys: string[]
   network: string | null
   relayStatus: RelayConnectionStatus
+  needsRelayChannel: boolean
   assets: AssetView[]
   channelTotals: AssetChannelTotals[]
   onChainBalances: AssetBalanceView[]

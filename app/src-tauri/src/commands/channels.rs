@@ -9,6 +9,7 @@ use crate::fnn::channel::{
 };
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
+use crate::fnn::relays;
 use crate::fnn::rpc::{self, CkbScript};
 use crate::fnn::studio;
 use crate::state::AppState;
@@ -240,16 +241,55 @@ pub async fn get_channels_page(
         .map(|metadata| metadata.saved_peers.as_slice())
         .unwrap_or(&[]);
 
-    let relay_status = peer_connect::relay_status_for_saved_peers(
+    let network_str = studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.network.as_str());
+
+    let relay_status = peer_connect::relay_status_for_peers(
+        network_str,
         &peers,
         saved_peers,
         &manager_relay_status,
     );
 
-    let saved_peer_entries: Vec<ChannelsSavedPeerEntry> = saved_peers
-        .iter()
-        .map(|peer| build_channels_saved_peer_entry(peer, &peers, &channels))
-        .collect();
+    let mut saved_peer_entries: Vec<ChannelsSavedPeerEntry> = Vec::new();
+    if let Some(network) = network_str {
+        for relay in relays::relays_for_network(network) {
+            if relay.pubkey.trim().is_empty() {
+                continue;
+            }
+            let saved_multiaddr = saved_peers
+                .iter()
+                .find(|saved| peer_connect::pubkeys_equal(&saved.pubkey, &relay.pubkey))
+                .map(|saved| saved.multiaddr.trim().to_string())
+                .unwrap_or_default();
+            let multiaddr = relay
+                .multiaddr
+                .as_deref()
+                .map(str::trim)
+                .filter(|addr| !addr.is_empty())
+                .map(str::to_string)
+                .unwrap_or(saved_multiaddr);
+            let relay_as_saved = studio::SavedPeer {
+                pubkey: relay.pubkey,
+                multiaddr,
+            };
+            saved_peer_entries.push(build_channels_saved_peer_entry(
+                &relay_as_saved,
+                &peers,
+                &channels,
+            ));
+        }
+    }
+    for peer in saved_peers {
+        if saved_peer_entries
+            .iter()
+            .any(|entry| peer_connect::pubkeys_equal(&entry.pubkey, &peer.pubkey))
+        {
+            continue;
+        }
+        saved_peer_entries.push(build_channels_saved_peer_entry(peer, &peers, &channels));
+    }
 
     let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
@@ -316,8 +356,9 @@ pub async fn open_channel(
         return Err("Peer pubkey is required.".to_string());
     }
 
-    if !studio_metadata.has_saved_peer(pubkey) {
-        return Err("Channel opens are limited to saved peers.".to_string());
+    let is_official_relay = relays::is_official_relay_pubkey(&studio_metadata.network, pubkey);
+    if !studio_metadata.has_saved_peer(pubkey) && !is_official_relay {
+        return Err("Channel opens are limited to official relays and saved peers.".to_string());
     }
 
     let node_info = rpc::fetch_node_info()
@@ -355,10 +396,16 @@ pub async fn open_channel(
 
     let saved_multiaddr = studio_metadata
         .find_saved_peer(pubkey)
-        .map(|peer| peer.multiaddr.as_str())
-        .unwrap_or("");
+        .map(|peer| peer.multiaddr.trim())
+        .filter(|addr| !addr.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            relays::find_relay_by_pubkey(&studio_metadata.network, pubkey)
+                .and_then(|relay| relay.multiaddr)
+        })
+        .unwrap_or_default();
 
-    let connect_status = peer_connect::ensure_peer_connected(pubkey, saved_multiaddr)
+    let connect_status = peer_connect::ensure_peer_connected(pubkey, &saved_multiaddr)
         .await
         .map_err(|error| error.to_string())?;
 

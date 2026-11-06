@@ -7,6 +7,7 @@ use std::os::unix::fs::PermissionsExt;
 use thiserror::Error;
 
 use super::config;
+use super::relays;
 use super::studio::{write_studio_metadata, SavedPeer, StudioMetadata};
 
 #[derive(Debug, Error)]
@@ -95,10 +96,22 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
     let config_yaml = config::build_config_yaml(&request.network)?;
     fs::write(data_dir.join("config.yml"), config_yaml)?;
 
-    let saved_peers = vec![SavedPeer {
-        pubkey: request.custom_public_node_pubkey.clone(),
-        multiaddr: request.custom_public_node_multiaddr.clone(),
-    }];
+    let mut saved_peers: Vec<SavedPeer> = relays::relays_for_network(&request.network)
+        .into_iter()
+        .map(|relay| SavedPeer {
+            pubkey: relay.pubkey,
+            multiaddr: relay.multiaddr.unwrap_or_default(),
+        })
+        .collect();
+    let custom_pubkey = request.custom_public_node_pubkey.trim();
+    if !custom_pubkey.is_empty()
+        && !relays::is_official_relay_pubkey(&request.network, custom_pubkey)
+    {
+        saved_peers.push(SavedPeer {
+            pubkey: custom_pubkey.to_string(),
+            multiaddr: request.custom_public_node_multiaddr.clone(),
+        });
+    }
     let metadata = StudioMetadata::new(
         request.network.clone(),
         request.data_directory.clone(),

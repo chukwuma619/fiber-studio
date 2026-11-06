@@ -608,8 +608,12 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         .map(|metadata| metadata.saved_peers.as_slice())
         .unwrap_or(&[]);
 
-    let relay_status =
-        peer_connect::relay_status_for_saved_peers(&peers, saved_peers, &manager_relay_status);
+    let relay_status = peer_connect::relay_status_for_peers(
+        studio_metadata.as_ref().map(|metadata| metadata.network.as_str()),
+        &peers,
+        saved_peers,
+        &manager_relay_status,
+    );
 
     let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {

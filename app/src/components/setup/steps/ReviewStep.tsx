@@ -5,8 +5,7 @@ import {
 } from "../../../lib/data-directory"
 import { parseSetupStartError } from "../../../lib/setup/errors"
 import type { SetupConfig } from "../../../lib/setup/types"
-import { truncatePubkey } from "../../../lib/public-relays"
-import { CopyButton } from "../../ui/copy-button"
+import { PUBLIC_RELAYS } from "../../../lib/public-relays"
 import {
   DescriptionDetails,
   DescriptionList,
@@ -28,7 +27,11 @@ export function ReviewStep({
   config: SetupConfig
   startError?: string | null
 }) {
-  const peerPubkey = config.customPublicNodePubkey.trim()
+  const relays = PUBLIC_RELAYS[config.network]
+  const relaySummary =
+    relays.length > 0
+      ? `Auto-connect to ${relays.map((relay) => relay.label).join(" & ")}`
+      : "Auto-connect to official relays"
   const walletKeyPath = joinDataPath(
     getDataDirectoryDisplayForNetwork(config.network),
     "ckb",
@@ -41,22 +44,8 @@ export function ReviewStep({
       value: config.network === "mainnet" ? "Mainnet" : "Testnet",
     },
     {
-      label: "Peer",
-      value: peerPubkey ? (
-        <span className="flex min-w-0 items-center gap-1">
-          <span className="truncate" title={peerPubkey}>
-            {truncatePubkey(peerPubkey)}
-          </span>
-          <CopyButton
-            value={peerPubkey}
-            label="Copy peer pubkey"
-            className="shrink-0"
-          />
-        </span>
-      ) : (
-        "Not set"
-      ),
-      mono: Boolean(peerPubkey),
+      label: "Public relays",
+      value: relaySummary,
     },
     { label: "Data directory", value: config.dataDirectory, mono: true },
     {

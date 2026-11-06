@@ -1,5 +1,6 @@
-import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
+import { RelayChannelPrompt } from "../channels/RelayChannelPrompt"
+import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
@@ -76,6 +77,8 @@ export function HomePage() {
           onRetry={() => void refresh()}
         />
       ) : null}
+
+      <RelayChannelPrompt dashboard={dashboard} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard

@@ -10,7 +10,6 @@ import { getErrorMessage } from "../../lib/fnn/errors"
 import { completeSetupAndStart } from "../../lib/fnn/invoke"
 import { FNN_VERSION } from "../../lib/fnn/types"
 import { stepEnter } from "../../lib/motion"
-import { getRelay } from "../../lib/public-relays"
 import { completeSetup } from "../../lib/setup/storage"
 import {
   createDefaultSetupConfig,
@@ -28,11 +27,6 @@ const WelcomeStep = lazy(() =>
 )
 const NetworkStep = lazy(() =>
   import("./steps/NetworkStep").then((module) => ({ default: module.NetworkStep })),
-)
-const PublicNetworkStep = lazy(() =>
-  import("./steps/PublicNetworkStep").then((module) => ({
-    default: module.PublicNetworkStep,
-  })),
 )
 const KeyFileStep = lazy(() =>
   import("./steps/KeyFileStep").then((module) => ({ default: module.KeyFileStep })),
@@ -55,20 +49,13 @@ function StepSkeleton() {
   )
 }
 
-function applyNetworkChange(
-  config: SetupConfig,
-  network: NetworkChoice,
-): Partial<SetupConfig> {
-  const patch: Partial<SetupConfig> = {
+function applyNetworkChange(network: NetworkChoice): Partial<SetupConfig> {
+  return {
     network,
     dataDirectory: getDataDirectoryDisplayForNetwork(network),
+    customPublicNodePubkey: "",
+    customPublicNodeMultiaddr: "",
   }
-  if (config.publicConnectionMode === "official-relays") {
-    const node1 = getRelay(network, "node1")
-    patch.customPublicNodePubkey = node1.pubkey
-    patch.customPublicNodeMultiaddr = node1.multiaddr ?? ""
-  }
-  return patch
 }
 
 function renderStepContent(
@@ -85,15 +72,7 @@ function renderStepContent(
       return (
         <NetworkStep
           network={config.network}
-          onChange={(network) => updateConfig(applyNetworkChange(config, network))}
-        />
-      )
-    case "public-network":
-      return (
-        <PublicNetworkStep
-          config={config}
-          onChange={(patch) => updateConfig(patch)}
-          error={displayedStepError}
+          onChange={(network) => updateConfig(applyNetworkChange(network))}
         />
       )
     case "key-file":

@@ -23,6 +23,7 @@ const EMPTY_RESPONSE: HomeDashboardResponse = {
   savedPeerPubkeys: [],
   network: null,
   relayStatus: "not_configured",
+  needsRelayChannel: false,
   assets: [],
   channelTotals: [],
   onChainBalances: [],
@@ -47,6 +48,7 @@ function hasActiveHomeActivity(dashboard: HomeDashboardResponse | null): boolean
   if (!dashboard) return false
   return (
     dashboard.pendingChannelCount > 0 ||
+    dashboard.relayStatus === "connecting" ||
     hasPendingPayments(dashboard.payments) ||
     hasIncomingInvoices(dashboard.incomingInvoices)
   )

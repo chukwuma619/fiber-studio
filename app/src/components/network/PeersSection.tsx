@@ -52,7 +52,7 @@ function buildPeerRows(
       channelCount: peer.channelCount,
       isSaved: true,
       isBootnode: false,
-      isOfficialRelay: false,
+      isOfficialRelay: connectedPeer?.isOfficialRelay || Boolean(peer.isOfficialRelay),
       isDiscoveryOnly: false,
     }
   })
@@ -85,19 +85,21 @@ function roleBadges(peer: PeerRow) {
         Saved
       </Badge>,
     )
+  }
+
+  if (peer.isOfficialRelay) {
+    badges.push(
+      <Badge key="relay" color="zinc">
+        Official relay
+      </Badge>,
+    )
   } else if (peer.isBootnode) {
     badges.push(
       <Badge key="bootnode" color="amber">
         Bootnode
       </Badge>,
     )
-  } else if (peer.isOfficialRelay) {
-    badges.push(
-      <Badge key="relay" color="zinc">
-        Official relay
-      </Badge>,
-    )
-  } else {
+  } else if (!peer.isSaved) {
     badges.push(
       <Badge key="other" color="zinc">
         Connected
@@ -151,7 +153,8 @@ function peerAction(
   if (peer.isSaved) {
     const isConnecting = isActing && connectingPubkey === peer.pubkey
     const isDisconnecting = isActing && disconnectingPubkey === peer.pubkey
-    const isRemoving = isActing && removingPubkey === peer.pubkey
+    const isRemoving =
+      !peer.isOfficialRelay && isActing && removingPubkey === peer.pubkey
 
     return (
       <div className="flex flex-wrap items-center justify-end gap-2">
@@ -174,21 +177,21 @@ function peerAction(
             {isDisconnecting ? "Disconnecting…" : "Disconnect"}
           </Button>
         )}
-        <Button
-          outline
-          className="text-xs text-red-600 dark:text-red-400"
-          disabled={
-            savedPeerCount <= 1 || isActing
-          }
-          title={
-            savedPeerCount <= 1
-              ? "At least one saved peer is required"
-              : undefined
-          }
-          onClick={() => onRemoveSavedPeer(peer.pubkey)}
-        >
-          {isRemoving ? "Removing…" : "Remove"}
-        </Button>
+        {peer.isOfficialRelay ? null : (
+          <Button
+            outline
+            className="text-xs text-red-600 dark:text-red-400"
+            disabled={savedPeerCount <= 1 || isActing}
+            title={
+              savedPeerCount <= 1
+                ? "At least one saved peer is required"
+                : undefined
+            }
+            onClick={() => onRemoveSavedPeer(peer.pubkey)}
+          >
+            {isRemoving ? "Removing…" : "Remove"}
+          </Button>
+        )}
       </div>
     )
   }
