@@ -27,6 +27,8 @@ const EMPTY_RESPONSE: HomeDashboardResponse = {
   assets: [],
   channelTotals: [],
   onChainBalances: [],
+  legacyChannelCount: 0,
+  showLegacyChannelNudge: false,
 }
 
 const DEFAULT_POLL_INTERVAL_MS = 10_000

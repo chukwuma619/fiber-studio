@@ -3,6 +3,7 @@ use tauri::{AppHandle, State};
 
 use crate::fnn::assets::{self, AssetBalanceView, AssetChannelTotals, AssetView};
 use crate::fnn::channel::{self, HomeChannel};
+use crate::fnn::features;
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
 use crate::fnn::manager::NodeRuntimeStatus;
@@ -37,6 +38,8 @@ pub struct HomeDashboardResponse {
     pub assets: Vec<AssetView>,
     pub channel_totals: Vec<AssetChannelTotals>,
     pub on_chain_balances: Vec<AssetBalanceView>,
+    pub legacy_channel_count: u32,
+    pub show_legacy_channel_nudge: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -48,6 +51,9 @@ pub struct HomeNodeInfo {
     pub channel_count: u32,
     pub pending_channel_count: u32,
     pub peers_count: u32,
+    pub features: Vec<String>,
+    pub feature_labels: Vec<String>,
+    pub supports_channel_v2: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -127,6 +133,8 @@ pub async fn get_home_dashboard(
             assets: Vec::new(),
             channel_totals: Vec::new(),
             on_chain_balances: Vec::new(),
+            legacy_channel_count: 0,
+            show_legacy_channel_nudge: false,
         });
     }
 
@@ -135,7 +143,7 @@ pub async fn get_home_dashboard(
     let peer_autoconnect_settled = manager.peer_autoconnect_settled();
     drop(manager);
 
-    let studio_metadata = data_directory
+    let mut studio_metadata = data_directory
         .as_ref()
         .and_then(|path| studio::read_studio_metadata(path).ok());
 
@@ -150,6 +158,19 @@ pub async fn get_home_dashboard(
     let channels = channels.map_err(|error| error.to_string())?;
     let peers = peers.map_err(|error| error.to_string())?;
     let payments = payments.map_err(|error| error.to_string())?;
+
+    if let (Some(path), Some(metadata)) = (data_directory.as_ref(), studio_metadata.as_mut()) {
+        let open_ids: Vec<String> = channels
+            .iter()
+            .filter(|channel| {
+                rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
+            })
+            .map(|channel| channel.channel_id.clone())
+            .collect();
+        if metadata.sync_channel_v2_upgrade(&open_ids) {
+            let _ = studio::write_studio_metadata(path, metadata);
+        }
+    }
 
     let catalog = assets::build_asset_catalog(&node_info);
     let channel_totals = assets::build_channel_totals(&catalog, &channels);
@@ -223,7 +244,28 @@ pub async fn get_home_dashboard(
     let pending_channel_count = channel::count_pending_channels(&channels);
     let total_local_balance = channel::sum_local_balances(&channels);
     let total_remote_balance = channel::sum_remote_balances(&channels);
-    let home_channels = select_home_channels(channels, &catalog);
+    let legacy_channel_count = studio_metadata
+        .as_ref()
+        .map(|metadata| {
+            channels
+                .iter()
+                .filter(|channel| {
+                    (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
+                        && metadata.is_legacy_channel(&channel.channel_id)
+                })
+                .count() as u32
+        })
+        .unwrap_or(0);
+    let show_legacy_channel_nudge = legacy_channel_count > 0
+        && studio_metadata
+            .as_ref()
+            .is_some_and(|metadata| !metadata.legacy_channel_nudge_dismissed);
+
+    let home_channels = select_home_channels(
+        channels,
+        &catalog,
+        studio_metadata.as_ref(),
+    );
 
     let relay_status = peer_connect::relay_status_for_peers(
         network_str,
@@ -283,10 +325,14 @@ pub async fn get_home_dashboard(
         assets,
         channel_totals,
         on_chain_balances,
+        legacy_channel_count,
+        show_legacy_channel_nudge,
     })
 }
 
 fn to_home_node_info(info: NodeInfo) -> HomeNodeInfo {
+    let feature_labels = features::feature_labels(&info.features);
+    let supports_channel_v2 = features::supports_channel_v2(&info.features);
     HomeNodeInfo {
         version: info.version,
         pubkey: info.pubkey,
@@ -294,6 +340,9 @@ fn to_home_node_info(info: NodeInfo) -> HomeNodeInfo {
         channel_count: parse_hex_u32(&info.channel_count),
         pending_channel_count: parse_hex_u32(&info.pending_channel_count),
         peers_count: parse_hex_u32(&info.peers_count),
+        features: info.features,
+        feature_labels,
+        supports_channel_v2,
     }
 }
 
@@ -301,9 +350,15 @@ fn parse_hex_u32(hex: &str) -> u32 {
     parse_hex_u128(hex).unwrap_or(0).min(u32::MAX as u128) as u32
 }
 
-fn select_home_channels(channels: Vec<Channel>, catalog: &[AssetView]) -> Vec<HomeChannel> {
-    channel::map_channels(channels, catalog)
-        .into_iter()
-        .take(HOME_CHANNEL_LIMIT)
-        .collect()
+fn select_home_channels(
+    channels: Vec<Channel>,
+    catalog: &[AssetView],
+    studio_metadata: Option<&studio::StudioMetadata>,
+) -> Vec<HomeChannel> {
+    channel::map_channels(channels, catalog, |channel_id| {
+        studio_metadata.is_some_and(|metadata| metadata.is_legacy_channel(channel_id))
+    })
+    .into_iter()
+    .take(HOME_CHANNEL_LIMIT)
+    .collect()
 }

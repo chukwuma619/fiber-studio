@@ -1,4 +1,5 @@
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
+import { LegacyChannelNudge } from "../channels/LegacyChannelNudge"
 import { RelayChannelPrompt } from "../channels/RelayChannelPrompt"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { Button } from "../ui/button"
@@ -79,6 +80,12 @@ export function HomePage() {
       ) : null}
 
       <RelayChannelPrompt dashboard={dashboard} />
+
+      <LegacyChannelNudge
+        open={Boolean(dashboard?.showLegacyChannelNudge)}
+        legacyChannelCount={dashboard?.legacyChannelCount ?? 0}
+        onDismissed={() => void refresh()}
+      />
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard

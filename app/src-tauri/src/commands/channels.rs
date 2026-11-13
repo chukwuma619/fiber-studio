@@ -7,6 +7,7 @@ use crate::fnn::channel::{
     min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances, sum_remote_balances,
     sum_total_capacity, HomeChannel,
 };
+use crate::fnn::features;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
 use crate::fnn::relays;
@@ -45,6 +46,9 @@ pub struct ChannelsPageResponse {
     pub assets: Vec<AssetView>,
     pub on_chain_balances: Vec<assets::AssetBalanceView>,
     pub channel_totals: Vec<assets::AssetChannelTotals>,
+    pub legacy_channel_count: u32,
+    pub show_legacy_channel_nudge: bool,
+    pub supports_channel_v2: bool,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,7 +162,23 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         assets: Vec::new(),
         on_chain_balances: Vec::new(),
         channel_totals: Vec::new(),
+        legacy_channel_count: 0,
+        show_legacy_channel_nudge: false,
+        supports_channel_v2: false,
     }
+}
+
+fn map_open_channel_error(error: String) -> String {
+    let lower = error.to_ascii_lowercase();
+    if lower.contains("channel_v2")
+        || lower.contains("channel v2")
+        || (lower.contains("feature") && lower.contains("channel"))
+        || lower.contains("does not support")
+        || (lower.contains("legacy") && lower.contains("open"))
+    {
+        return "This peer is on an older Fiber version. Fiber 0.10+ can only open new channels with peers that support Channel V2. Ask them to upgrade, or open with another peer.".into();
+    }
+    error
 }
 
 fn peer_is_connected(peers: &[rpc::PeerInfo], pubkey: &str) -> bool {
@@ -211,7 +231,7 @@ pub async fn get_channels_page(
     let manager_relay_status = manager.relay_state().status;
     drop(manager);
 
-    let studio_metadata = data_directory
+    let mut studio_metadata = data_directory
         .as_ref()
         .and_then(|path| studio::read_studio_metadata(path).ok());
 
@@ -225,8 +245,22 @@ pub async fn get_channels_page(
         .await
         .map_err(|error| error.to_string())?;
 
+    if let (Some(path), Some(metadata)) = (data_directory.as_ref(), studio_metadata.as_mut()) {
+        let open_ids: Vec<String> = channels
+            .iter()
+            .filter(|channel| {
+                rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
+            })
+            .map(|channel| channel.channel_id.clone())
+            .collect();
+        if metadata.sync_channel_v2_upgrade(&open_ids) {
+            let _ = studio::write_studio_metadata(path, metadata);
+        }
+    }
+
     let catalog = assets::build_asset_catalog(&node_info);
     let channel_totals = assets::build_channel_totals(&catalog, &channels);
+    let supports_channel_v2 = features::supports_channel_v2(&node_info.features);
 
     let active_channel_count = count_active_channels(&channels);
     let pending_channel_count = count_pending_channels(&channels);
@@ -235,6 +269,23 @@ pub async fn get_channels_page(
     let total_remote_balance = sum_remote_balances(&channels);
     let min_funding_ckb =
         min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
+
+    let legacy_channel_count = studio_metadata
+        .as_ref()
+        .map(|metadata| {
+            channels
+                .iter()
+                .filter(|channel| {
+                    (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
+                        && metadata.is_legacy_channel(&channel.channel_id)
+                })
+                .count() as u32
+        })
+        .unwrap_or(0);
+    let show_legacy_channel_nudge = legacy_channel_count > 0
+        && studio_metadata
+            .as_ref()
+            .is_some_and(|metadata| !metadata.legacy_channel_nudge_dismissed);
 
     let saved_peers = studio_metadata
         .as_ref()
@@ -312,7 +363,11 @@ pub async fn get_channels_page(
 
     Ok(ChannelsPageResponse {
         available: true,
-        channels: channel::map_channels(channels, &catalog),
+        channels: channel::map_channels(channels, &catalog, |channel_id| {
+            studio_metadata
+                .as_ref()
+                .is_some_and(|metadata| metadata.is_legacy_channel(channel_id))
+        }),
         active_channel_count,
         pending_channel_count,
         total_capacity: total_capacity.to_string(),
@@ -328,6 +383,9 @@ pub async fn get_channels_page(
         assets,
         on_chain_balances,
         channel_totals,
+        legacy_channel_count,
+        show_legacy_channel_nudge,
+        supports_channel_v2,
     })
 }
 
@@ -454,11 +512,32 @@ pub async fn open_channel(
         ));
     }
 
+    if !features::supports_channel_v2(&node_info.features) {
+        return Err(
+            "This node does not advertise Channel V2. Upgrade fnn to 0.10+ before opening new channels."
+                .into(),
+        );
+    }
+
+    if let Ok(graph_nodes) = rpc::fetch_graph_nodes().await {
+        if let Some(peer_node) = graph_nodes
+            .iter()
+            .find(|node| peer_connect::pubkeys_equal(&node.pubkey, pubkey))
+        {
+            if !features::supports_channel_v2(&peer_node.features) {
+                return Err(
+                    "This peer is on an older Fiber version. Fiber 0.10+ can only open new channels with peers that support Channel V2. Ask them to upgrade, or open with another peer."
+                        .into(),
+                );
+            }
+        }
+    }
+
     let funding_amount = format!("0x{funding_raw:x}");
     let udt_script = asset.udt_type_script.as_ref();
     let channel_id = rpc::open_channel(pubkey, &funding_amount, true, udt_script)
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| map_open_channel_error(error.to_string()))?;
 
     Ok(OpenChannelResult { channel_id })
 }

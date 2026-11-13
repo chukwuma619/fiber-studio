@@ -41,6 +41,7 @@ type OpenChannelDialogProps = {
   minFundingCkb: number
   availableWalletCkb: number | null
   onChainWalletError: string | null
+  supportsChannelV2: boolean
   isActing: boolean
   actionError: string | null
   onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
@@ -63,6 +64,7 @@ export function OpenChannelDialog({
   minFundingCkb,
   availableWalletCkb,
   onChainWalletError,
+  supportsChannelV2,
   isActing,
   actionError,
   onOpenChannel,
@@ -242,6 +244,12 @@ export function OpenChannelDialog({
             ? "None of your saved peers are connected. Connect a peer on the Network page first."
             : `Open a public channel funded with ${selectedAsset.symbol}. CKB is still required for reserve and fees.`}
       </DialogDescription>
+
+      {supportsChannelV2 ? (
+        <Text className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+          New channels use Channel V2. Both peers must run Fiber 0.10 or newer.
+        </Text>
+      ) : null}
 
       <DialogBody>
         <FieldGroup>

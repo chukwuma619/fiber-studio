@@ -8,7 +8,9 @@ use tauri_plugin_opener::OpenerExt;
 use crate::fnn::assets::{self, AssetView};
 use crate::fnn::ckb_address;
 use crate::fnn::config_read;
+use crate::fnn::config_write;
 use crate::fnn::data_directory;
+use crate::fnn::features;
 use crate::fnn::keychain;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::provision::{self, ProvisionRequest};
@@ -27,6 +29,8 @@ pub struct NodeSettingsResponse {
     pub key_file_path: Option<String>,
     pub rpc_listen_addr: Option<String>,
     pub fiber_listening_addr: Option<String>,
+    pub fiber_listening_addrs: Vec<String>,
+    pub store_sync_writes: bool,
     pub ckb_rpc_url: Option<String>,
     pub announced_node_name: Option<String>,
     pub connection_mode: String,
@@ -42,6 +46,9 @@ pub struct NodeSettingsResponse {
     pub backup_paths: Vec<BackupPathEntry>,
     pub supported_assets: Vec<AssetView>,
     pub cch_rpc_url: Option<String>,
+    pub node_features: Vec<String>,
+    pub feature_labels: Vec<String>,
+    pub supports_channel_v2: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -66,6 +73,18 @@ pub struct SwitchNetworkPayload {
     pub custom_public_node_multiaddr: String,
     pub copy_key_from_current: bool,
     pub imported_private_key: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateStoreSyncWritesPayload {
+    pub enabled: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateFiberListeningAddrsPayload {
+    pub listening_addrs: Vec<String>,
 }
 
 #[tauri::command]
@@ -140,10 +159,14 @@ async fn build_node_settings(
         .map(|metadata| metadata.saved_peers.as_slice())
         .unwrap_or(&[]);
 
-    let (node_pub_key, live_version, funding_script, supported_assets, relay_status) = if matches!(
-        node_status,
-        NodeRuntimeStatus::Running { .. }
-    ) {
+    let (
+        node_pub_key,
+        live_version,
+        funding_script,
+        supported_assets,
+        relay_status,
+        node_features,
+    ) = if matches!(node_status, NodeRuntimeStatus::Running { .. }) {
         let peers = rpc::fetch_list_peers().await.unwrap_or_default();
         let computed_relay_status = crate::fnn::peer_connect::relay_status_for_peers(
             network.as_deref(),
@@ -160,13 +183,31 @@ async fn build_node_settings(
                     Some(info.default_funding_lock_script),
                     catalog,
                     computed_relay_status,
+                    info.features,
                 )
             }
-            Err(_) => (None, None, None, Vec::new(), computed_relay_status),
+            Err(_) => (
+                None,
+                None,
+                None,
+                Vec::new(),
+                computed_relay_status,
+                Vec::new(),
+            ),
         }
     } else {
-        (None, None, None, Vec::new(), manager_relay_status)
+        (
+            None,
+            None,
+            None,
+            Vec::new(),
+            manager_relay_status,
+            Vec::new(),
+        )
     };
+
+    let feature_labels = features::feature_labels(&node_features);
+    let supports_channel_v2 = features::supports_channel_v2(&node_features);
 
     let ckb_wallet_address = network
         .as_deref()
@@ -206,6 +247,14 @@ async fn build_node_settings(
         fiber_listening_addr: parsed_config
             .as_ref()
             .and_then(|config| config.fiber_listening_addr.clone()),
+        fiber_listening_addrs: parsed_config
+            .as_ref()
+            .map(|config| config.fiber_listening_addrs.clone())
+            .unwrap_or_default(),
+        store_sync_writes: parsed_config
+            .as_ref()
+            .map(|config| config.store_sync_writes)
+            .unwrap_or(false),
         ckb_rpc_url: parsed_config
             .as_ref()
             .and_then(|config| config.ckb_rpc_url.clone()),
@@ -229,6 +278,9 @@ async fn build_node_settings(
         cch_rpc_url: studio_metadata
             .as_ref()
             .and_then(|metadata| metadata.cch_rpc_url_trimmed().map(str::to_string)),
+        node_features,
+        feature_labels,
+        supports_channel_v2,
     })
 }
 
@@ -405,6 +457,62 @@ pub async fn switch_network(
     }
 
     build_node_settings(&state, Some(new_data_dir)).await
+}
+
+#[tauri::command]
+pub async fn update_store_sync_writes(
+    state: State<'_, AppState>,
+    payload: UpdateStoreSyncWritesPayload,
+) -> Result<NodeSettingsResponse, String> {
+    let data_directory = require_node_stopped(&state).await?;
+    config_write::set_store_sync_writes(&data_directory, payload.enabled)
+        .map_err(|error| format!("Failed to update store_sync_writes: {error}"))?;
+    build_node_settings(&state, Some(data_directory)).await
+}
+
+#[tauri::command]
+pub async fn update_fiber_listening_addrs(
+    state: State<'_, AppState>,
+    payload: UpdateFiberListeningAddrsPayload,
+) -> Result<NodeSettingsResponse, String> {
+    let data_directory = require_node_stopped(&state).await?;
+    let addrs: Vec<String> = payload
+        .listening_addrs
+        .into_iter()
+        .map(|addr| addr.trim().to_string())
+        .filter(|addr| !addr.is_empty())
+        .collect();
+    for addr in &addrs {
+        if !addr.starts_with('/') {
+            return Err(format!(
+                "Listening address must be a multiaddr starting with / (got \"{addr}\")."
+            ));
+        }
+    }
+    config_write::set_listening_addrs(&data_directory, &addrs)
+        .map_err(|error| format!("Failed to update listening_addrs: {error}"))?;
+    build_node_settings(&state, Some(data_directory)).await
+}
+
+#[tauri::command]
+pub async fn dismiss_legacy_channel_nudge(
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let manager = state.fnn.lock().await;
+    let data_directory = manager
+        .data_directory()
+        .cloned()
+        .ok_or_else(|| "Data directory is not configured.".to_string())?;
+    drop(manager);
+
+    let mut metadata = studio::read_studio_metadata(&data_directory)
+        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
+    if !metadata.legacy_channel_nudge_dismissed {
+        metadata.legacy_channel_nudge_dismissed = true;
+        studio::write_studio_metadata(&data_directory, &metadata)
+            .map_err(|error| format!("Failed to save studio metadata: {error}"))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

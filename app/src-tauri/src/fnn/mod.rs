@@ -7,7 +7,9 @@ pub mod channel;
 pub mod ckb_address;
 pub mod ckb_indexer;
 pub mod config_read;
+pub mod config_write;
 pub mod data_directory;
+pub mod features;
 pub mod graph_index;
 pub mod invoices;
 pub mod invoice_display;
@@ -30,5 +32,6 @@ pub mod rpc;
 pub mod sent_payments;
 pub mod spawn;
 pub mod studio;
+pub mod version;
 
 pub const FNN_VERSION: &str = "0.10.0";

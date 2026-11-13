@@ -81,6 +81,9 @@ pub fn run() {
             commands::settings::switch_network,
             commands::settings::is_network_provisioned,
             commands::settings::migrate_legacy_data_directory,
+            commands::settings::update_store_sync_writes,
+            commands::settings::update_fiber_listening_addrs,
+            commands::settings::dismiss_legacy_channel_nudge,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

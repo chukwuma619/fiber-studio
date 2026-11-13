@@ -44,6 +44,8 @@ import type {
   UpdateWalletPasswordPayload,
   SwitchNetworkPayload,
   UpdateCchRpcUrlPayload,
+  UpdateFiberListeningAddrsPayload,
+  UpdateStoreSyncWritesPayload,
   CchOrderView,
   CchSendBtcPayload,
   CchReceiveBtcPayload,
@@ -297,6 +299,24 @@ export async function updateCchRpcUrl(
   payload: UpdateCchRpcUrlPayload,
 ): Promise<NodeSettingsResponse> {
   return invoke<NodeSettingsResponse>("update_cch_rpc_url", { payload })
+}
+
+export async function updateStoreSyncWrites(
+  payload: UpdateStoreSyncWritesPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("update_store_sync_writes", { payload })
+}
+
+export async function updateFiberListeningAddrs(
+  payload: UpdateFiberListeningAddrsPayload,
+): Promise<NodeSettingsResponse> {
+  return invoke<NodeSettingsResponse>("update_fiber_listening_addrs", {
+    payload,
+  })
+}
+
+export async function dismissLegacyChannelNudge(): Promise<void> {
+  return invoke<void>("dismiss_legacy_channel_nudge")
 }
 
 export async function cchSendBtc(

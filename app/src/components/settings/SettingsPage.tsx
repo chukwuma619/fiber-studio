@@ -9,6 +9,7 @@ import { AppearanceSection } from "./AppearanceSection"
 import { BackgroundSection } from "./BackgroundSection"
 import { BackupPathsSection } from "./BackupPathsSection"
 import { CrossChainSettingsSection } from "./CrossChainSettingsSection"
+import { FiberNetworkSettingsSection } from "./FiberNetworkSettingsSection"
 import { NodeLifecycleSection } from "./NodeLifecycleSection"
 import { NodeSettingsSection } from "./NodeSettingsSection"
 import { SettingsSection } from "./SettingsSection"
@@ -46,6 +47,8 @@ export function SettingsPage() {
     handleUpdatePassword,
     handleSwitchNetwork,
     handleUpdateCchRpcUrl,
+    handleUpdateStoreSyncWrites,
+    handleUpdateListeningAddrs,
   } = useSettingsPage(config)
 
   const nodeStopped =
@@ -89,6 +92,13 @@ export function SettingsPage() {
             nodeStopped={nodeStopped}
             isActing={isActing}
             onSwitchNetwork={handleSwitchNetwork}
+          />
+          <FiberNetworkSettingsSection
+            settings={settings}
+            nodeStopped={nodeStopped}
+            isActing={isActing}
+            onUpdateStoreSyncWrites={handleUpdateStoreSyncWrites}
+            onUpdateListeningAddrs={handleUpdateListeningAddrs}
           />
           <CrossChainSettingsSection
             settings={settings}

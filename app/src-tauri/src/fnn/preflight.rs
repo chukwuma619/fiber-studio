@@ -89,7 +89,7 @@ pub async fn fetch_preflight_snapshot(
     let home_channels = channels
         .iter()
         .cloned()
-        .map(|channel| channel::to_home_channel(channel, &catalog))
+        .map(|channel| channel::to_home_channel(channel, &catalog, false))
         .collect();
 
     let official_relays: Vec<String> = relays::relays_for_network(network)

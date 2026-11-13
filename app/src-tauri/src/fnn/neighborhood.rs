@@ -85,7 +85,7 @@ pub async fn load_channel_neighborhood(
         .into_iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))
         .map(|channel| {
-            let view = channel::to_home_channel(channel, &catalog);
+            let view = channel::to_home_channel(channel, &catalog, false);
             OwnChannelInput {
                 peer_pubkey: view.pubkey,
                 is_public: view.is_public,

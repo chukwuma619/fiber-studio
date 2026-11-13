@@ -27,6 +27,8 @@ pub struct HomeChannel {
     pub funding_udt_type_script: Option<CkbScript>,
     pub local_balance_display: String,
     pub remote_balance_display: String,
+    /// True when this channel was already open before Fiber 0.10 (legacy V1 protocol).
+    pub is_legacy: bool,
 }
 
 #[cfg(test)]
@@ -64,7 +66,7 @@ pub fn has_active_or_pending_channel_to_peer(channels: &[Channel], pubkey: &str)
     })
 }
 
-pub fn to_home_channel(channel: Channel, catalog: &[AssetView]) -> HomeChannel {
+pub fn to_home_channel(channel: Channel, catalog: &[AssetView], is_legacy: bool) -> HomeChannel {
     let local = parse_hex_u128(&channel.local_balance).unwrap_or(0);
     let remote = parse_hex_u128(&channel.remote_balance).unwrap_or(0);
     let total = local.saturating_add(remote);
@@ -91,6 +93,7 @@ pub fn to_home_channel(channel: Channel, catalog: &[AssetView]) -> HomeChannel {
         funding_udt_type_script: channel.funding_udt_type_script,
         local_balance_display: assets::format_amount_display(local, &asset),
         remote_balance_display: assets::format_amount_display(remote, &asset),
+        is_legacy,
     }
 }
 
@@ -160,10 +163,17 @@ pub fn count_pending_channels(channels: &[Channel]) -> u32 {
         .count() as u32
 }
 
-pub fn map_channels(channels: Vec<Channel>, catalog: &[AssetView]) -> Vec<HomeChannel> {
+pub fn map_channels(
+    channels: Vec<Channel>,
+    catalog: &[AssetView],
+    is_legacy: impl Fn(&str) -> bool,
+) -> Vec<HomeChannel> {
     let mut mapped: Vec<HomeChannel> = channels
         .into_iter()
-        .map(|channel| to_home_channel(channel, catalog))
+        .map(|channel| {
+            let legacy = is_legacy(&channel.channel_id);
+            to_home_channel(channel, catalog, legacy)
+        })
         .collect();
     mapped.sort_by(|left, right| {
         let left_ready = left.state == "ChannelReady";

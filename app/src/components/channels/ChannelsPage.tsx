@@ -37,6 +37,7 @@ import {
   TableRow,
 } from "../ui/table"
 import { ChannelDetailDialog } from "./ChannelDetailDialog"
+import { LegacyChannelNudge } from "./LegacyChannelNudge"
 import { LiquidityHealthIndicator } from "./LiquidityHealthIndicator"
 import { OpenChannelDialog } from "./OpenChannelDialog"
 import { RebalanceChannelDialog } from "./RebalanceChannelDialog"
@@ -187,6 +188,12 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
         />
       ) : null}
 
+      <LegacyChannelNudge
+        open={Boolean(data?.showLegacyChannelNudge)}
+        legacyChannelCount={data?.legacyChannelCount ?? 0}
+        onDismissed={() => void refresh()}
+      />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Channels"
@@ -275,9 +282,14 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
                       <Badge color="zinc">{channel.assetSymbol}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge color={channel.isPublic ? "sky" : "zinc"}>
-                        {channel.isPublic ? "Public" : "Private"}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        <Badge color={channel.isPublic ? "sky" : "zinc"}>
+                          {channel.isPublic ? "Public" : "Private"}
+                        </Badge>
+                        {channel.isLegacy ? (
+                          <Badge color="amber">V1</Badge>
+                        ) : null}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
@@ -321,6 +333,7 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
         minFundingCkb={minFundingCkb}
         availableWalletCkb={data?.onChainWalletCkb ?? null}
         onChainWalletError={data?.onChainWalletError ?? null}
+        supportsChannelV2={data?.supportsChannelV2 ?? false}
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}
         onOpenChannel={channelActions.handleOpenChannel}

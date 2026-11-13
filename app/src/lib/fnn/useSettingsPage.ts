@@ -12,6 +12,8 @@ import {
   openDataDirectory,
   switchNetwork,
   updateCchRpcUrl,
+  updateFiberListeningAddrs,
+  updateStoreSyncWrites,
   updateWalletPassword,
 } from "./invoke"
 import { invalidatePageCaches, PAGE_CACHE_KEYS } from "./pageCache"
@@ -153,6 +155,25 @@ export function useSettingsPage(config: SetupConfig | null) {
     [runMutation],
   )
 
+  const handleUpdateStoreSyncWrites = useCallback(
+    (enabled: boolean) =>
+      runMutation(() => updateStoreSyncWrites({ enabled }), {
+        successMessage: enabled
+          ? "Store sync writes enabled. Start the node to apply."
+          : "Store sync writes disabled. Start the node to apply.",
+      }),
+    [runMutation],
+  )
+
+  const handleUpdateListeningAddrs = useCallback(
+    (listeningAddrs: string[]) =>
+      runMutation(() => updateFiberListeningAddrs({ listeningAddrs }), {
+        successMessage:
+          "Extra listen addresses saved. Start the node to apply.",
+      }),
+    [runMutation],
+  )
+
   return {
     settings,
     isLoading,
@@ -168,5 +189,7 @@ export function useSettingsPage(config: SetupConfig | null) {
     handleUpdatePassword,
     handleSwitchNetwork,
     handleUpdateCchRpcUrl,
+    handleUpdateStoreSyncWrites,
+    handleUpdateListeningAddrs,
   }
 }

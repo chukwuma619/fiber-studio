@@ -29,6 +29,9 @@ const EMPTY_RESPONSE: ChannelsPageResponse = {
   assets: [],
   onChainBalances: [],
   channelTotals: [],
+  legacyChannelCount: 0,
+  showLegacyChannelNudge: false,
+  supportsChannelV2: false,
 }
 
 const OPENING_POLL_INTERVAL_MS = 3_000

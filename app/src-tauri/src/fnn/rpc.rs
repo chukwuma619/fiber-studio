@@ -157,6 +157,8 @@ pub struct GraphNode {
     pub addresses: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node_name: Option<String>,
+    #[serde(default)]
+    pub features: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub auto_accept_min_ckb_funding_amount: Option<String>,
 }

@@ -41,6 +41,9 @@ export type HomeNodeInfo = {
   channelCount: number
   pendingChannelCount: number
   peersCount: number
+  features: string[]
+  featureLabels: string[]
+  supportsChannelV2: boolean
 }
 
 export type HomeChannel = {
@@ -58,6 +61,7 @@ export type HomeChannel = {
   fundingUdtTypeScript?: CkbScript | null
   localBalanceDisplay: string
   remoteBalanceDisplay: string
+  isLegacy: boolean
 }
 
 export type CkbScript = {
@@ -134,6 +138,9 @@ export type ChannelsPageResponse = {
   assets: AssetView[]
   onChainBalances: AssetBalanceView[]
   channelTotals: AssetChannelTotals[]
+  legacyChannelCount: number
+  showLegacyChannelNudge: boolean
+  supportsChannelV2: boolean
 }
 
 export type OpenChannelPayload = {
@@ -230,6 +237,8 @@ export type HomeDashboardResponse = {
   assets: AssetView[]
   channelTotals: AssetChannelTotals[]
   onChainBalances: AssetBalanceView[]
+  legacyChannelCount: number
+  showLegacyChannelNudge: boolean
 }
 
 export type PaymentsInvoiceItem = {
@@ -512,6 +521,8 @@ export type NodeSettingsResponse = {
   keyFilePath: string | null
   rpcListenAddr: string | null
   fiberListeningAddr: string | null
+  fiberListeningAddrs: string[]
+  storeSyncWrites: boolean
   ckbRpcUrl: string | null
   announcedNodeName: string | null
   connectionMode: string
@@ -527,6 +538,17 @@ export type NodeSettingsResponse = {
   backupPaths: BackupPathEntry[]
   supportedAssets: AssetView[]
   cchRpcUrl?: string | null
+  nodeFeatures: string[]
+  featureLabels: string[]
+  supportsChannelV2: boolean
+}
+
+export type UpdateStoreSyncWritesPayload = {
+  enabled: boolean
+}
+
+export type UpdateFiberListeningAddrsPayload = {
+  listeningAddrs: string[]
 }
 
 export type UpdateCchRpcUrlPayload = {

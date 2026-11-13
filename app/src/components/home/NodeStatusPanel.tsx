@@ -64,6 +64,27 @@ export function NodeStatusPanel({
           <DescriptionTerm>fnn version</DescriptionTerm>
           <DescriptionDetails>{version}</DescriptionDetails>
 
+          {dashboard?.nodeInfo?.supportsChannelV2 ? (
+            <>
+              <DescriptionTerm>Channel protocol</DescriptionTerm>
+              <DescriptionDetails>V2</DescriptionDetails>
+            </>
+          ) : dashboard?.available ? (
+            <>
+              <DescriptionTerm>Channel protocol</DescriptionTerm>
+              <DescriptionDetails>V1</DescriptionDetails>
+            </>
+          ) : null}
+
+          {dashboard?.nodeInfo?.featureLabels?.length ? (
+            <>
+              <DescriptionTerm>Features</DescriptionTerm>
+              <DescriptionDetails>
+                {dashboard.nodeInfo.featureLabels.join(", ")}
+              </DescriptionDetails>
+            </>
+          ) : null}
+
           {pubkey ? (
             <>
               <DescriptionTerm>Node pubkey</DescriptionTerm>
