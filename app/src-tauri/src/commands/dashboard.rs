@@ -159,16 +159,21 @@ pub async fn get_home_dashboard(
     let peers = peers.map_err(|error| error.to_string())?;
     let payments = payments.map_err(|error| error.to_string())?;
 
-    if let (Some(path), Some(metadata)) = (data_directory.as_ref(), studio_metadata.as_mut()) {
-        let open_ids: Vec<String> = channels
-            .iter()
-            .filter(|channel| {
-                rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
-            })
-            .map(|channel| channel.channel_id.clone())
-            .collect();
-        if metadata.sync_channel_v2_upgrade(&open_ids) {
-            let _ = studio::write_studio_metadata(path, metadata);
+    if let Some(path) = data_directory.as_ref() {
+        if studio_metadata.is_some() {
+            let open_ids: Vec<String> = channels
+                .iter()
+                .filter(|channel| {
+                    rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
+                })
+                .map(|channel| channel.channel_id.clone())
+                .collect();
+            studio_metadata = Some(
+                studio::update_studio_metadata(path, |metadata| {
+                    metadata.sync_channel_v2_upgrade(&open_ids)
+                })
+                .map_err(|error| format!("Failed to save channel version snapshot: {error}"))?,
+            );
         }
     }
 

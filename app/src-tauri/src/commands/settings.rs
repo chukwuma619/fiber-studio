@@ -505,13 +505,14 @@ pub async fn dismiss_legacy_channel_nudge(
         .ok_or_else(|| "Data directory is not configured.".to_string())?;
     drop(manager);
 
-    let mut metadata = studio::read_studio_metadata(&data_directory)
-        .map_err(|error| format!("Failed to read studio metadata: {error}"))?;
-    if !metadata.legacy_channel_nudge_dismissed {
+    studio::update_studio_metadata(&data_directory, |metadata| {
+        if metadata.legacy_channel_nudge_dismissed {
+            return false;
+        }
         metadata.legacy_channel_nudge_dismissed = true;
-        studio::write_studio_metadata(&data_directory, &metadata)
-            .map_err(|error| format!("Failed to save studio metadata: {error}"))?;
-    }
+        true
+    })
+    .map_err(|error| format!("Failed to save studio metadata: {error}"))?;
     Ok(())
 }
 

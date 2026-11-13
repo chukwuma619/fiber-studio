@@ -19,11 +19,12 @@ export function useChannelActions(onSuccess?: () => void) {
       setActionWarning(null)
       try {
         const result = await openChannel(payload)
-        const warning = result.warnings?.filter(Boolean).join(" ")
+        const warning = result.warnings?.filter(Boolean).join(" ") || null
         if (warning) {
           setActionWarning(warning)
         }
         onSuccess?.()
+        return warning
       } catch (error) {
         setActionError(getErrorMessage(error))
         throw error

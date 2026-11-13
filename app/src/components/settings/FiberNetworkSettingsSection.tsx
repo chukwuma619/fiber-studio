@@ -42,9 +42,13 @@ export function FiberNetworkSettingsSection({
   const handleSaveAddrs = async () => {
     setLocalError(null)
     for (const addr of parsedAddrs) {
-      if (!addr.startsWith("/")) {
+      if (
+        !addr.startsWith("/") ||
+        /[\s"'\\#]/.test(addr) ||
+        addr.includes("\n")
+      ) {
         setLocalError(
-          `Listening address must be a multiaddr starting with / (got "${addr}").`,
+          `Listening address must be a multiaddr starting with / and without quotes or spaces (got "${addr}").`,
         )
         return
       }

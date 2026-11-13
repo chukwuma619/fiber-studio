@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useState } from "react"
+import { getErrorMessage } from "../../lib/fnn/errors"
 import { dismissLegacyChannelNudge } from "../../lib/fnn/invoke"
 import { Button } from "../ui/button"
 
@@ -16,14 +17,16 @@ export function LegacyChannelNudge({
 }: LegacyChannelNudgeProps) {
   const navigate = useNavigate()
   const [dismissing, setDismissing] = useState(false)
+  const [dismissError, setDismissError] = useState<string | null>(null)
 
   const dismiss = useCallback(async () => {
     setDismissing(true)
+    setDismissError(null)
     try {
       await dismissLegacyChannelNudge()
       onDismissed?.()
-    } catch {
-      onDismissed?.()
+    } catch (error) {
+      setDismissError(getErrorMessage(error))
     } finally {
       setDismissing(false)
     }
@@ -67,6 +70,9 @@ export function LegacyChannelNudge({
           Dismiss
         </Button>
       </div>
+      {dismissError ? (
+        <p className="mt-2 text-xs text-red-700 dark:text-red-300">{dismissError}</p>
+      ) : null}
     </div>
   )
 }

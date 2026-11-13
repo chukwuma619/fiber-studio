@@ -1,6 +1,6 @@
 use std::fs;
 use std::path::Path;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -30,8 +30,9 @@ pub struct StudioMetadata {
     pub saved_peers: Vec<SavedPeer>,
     #[serde(default)]
     pub cch_rpc_url: String,
-    /// Channel IDs that existed when this node first moved onto Fiber ≥ 0.10.
-    /// Those channels use the legacy (V1) protocol and should be closed when practical.
+    /// Channel IDs open when this data directory first crossed onto Fiber ≥ 0.10.
+    /// Fiber's `list_channels` does not expose `ChannelFeatures` (0 = legacy, 1 = V2),
+    /// and 0.10 rejects new non-V2 opens, so this snapshot is the V1 set.
     #[serde(default)]
     pub legacy_channel_ids: Vec<String>,
     #[serde(default)]
@@ -39,7 +40,8 @@ pub struct StudioMetadata {
     /// True once Studio has taken (or intentionally skipped) the V1 channel snapshot.
     #[serde(default)]
     pub legacy_channel_snapshot_done: bool,
-    /// Channels with `created_at` before this unix-ms cutoff are treated as V1.
+    /// Previously a `created_at` cutoff. Not a protocol signal — cleared on sync.
+    /// Kept so older `studio.json` files still parse.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub legacy_channel_cutoff_ms: Option<u64>,
 }
@@ -57,69 +59,50 @@ impl StudioMetadata {
             legacy_channel_nudge_dismissed: false,
             // Fresh installs start on Channel V2 — no prior V1 channels to snapshot.
             legacy_channel_snapshot_done: version::version_at_least(FNN_VERSION, CHANNEL_V2_SINCE),
-            legacy_channel_cutoff_ms: if version::version_at_least(FNN_VERSION, CHANNEL_V2_SINCE) {
-                Some(now_unix_ms())
-            } else {
-                None
-            },
+            legacy_channel_cutoff_ms: None,
         };
         metadata.normalize_saved_peers();
         metadata
     }
 
-    /// Prefer passing RPC `created_at` so late-discovered V1 channels still classify
-    /// correctly after the ID snapshot. Pass `0` when the timestamp is unknown.
-    pub fn channel_is_legacy(&self, channel_id: &str, created_at_ms: u64) -> bool {
+    /// `created_at_ms` is Fiber's unix-millisecond `list_channels.created_at`. It is not
+    /// used: that RPC does not include `ChannelFeatures`, and a timestamp cutoff labels
+    /// Channel V2 channels opened before Studio snapshotted as V1.
+    pub fn channel_is_legacy(&self, channel_id: &str, _created_at_ms: u64) -> bool {
         let normalized = normalize_channel_id(channel_id);
-        if self
-            .legacy_channel_ids
+        self.legacy_channel_ids
             .iter()
             .any(|id| normalize_channel_id(id) == normalized)
-        {
-            return true;
-        }
-        match self.legacy_channel_cutoff_ms {
-            Some(cutoff) if created_at_ms > 0 && created_at_ms < cutoff => true,
-            _ => false,
-        }
     }
 
-    /// True when Studio can distinguish V1 vs V2 for non-listed channels.
+    /// True when Studio can distinguish V1 vs V2 for channels that are not in the snapshot.
     pub fn channel_protocol_known(&self) -> bool {
         self.legacy_channel_snapshot_done
-            || self.legacy_channel_cutoff_ms.is_some()
-            || !self.legacy_channel_ids.is_empty()
     }
 
-    /// On first boot under Fiber ≥ 0.10, snapshot open channel IDs as legacy V1.
-    /// Also catches upgrades that bumped `fnn_version` without taking the snapshot.
+    /// Snapshot open channel ids only while this directory's Studio pin is still below
+    /// Fiber 0.10. A pin that is already ≥ 0.10 is sealed without copying current
+    /// channels — those may already be V2. Also drops any stored `created_at` cutoff.
     pub fn sync_channel_v2_upgrade(&mut self, current_channel_ids: &[String]) -> bool {
         let mut changed = false;
 
         if version::version_at_least(FNN_VERSION, CHANNEL_V2_SINCE) && !self.legacy_channel_snapshot_done
         {
-            if !self.legacy_channel_ids.is_empty() {
-                // Snapshot already existed from an older Studio build — just seal the flag.
-                self.legacy_channel_snapshot_done = true;
-                if self.legacy_channel_cutoff_ms.is_none() {
-                    self.legacy_channel_cutoff_ms = Some(now_unix_ms());
-                }
-                changed = true;
-            } else {
-                // Crossing from < 0.10, or catch-up after a missed snapshot.
-                let crossing = version::version_less_than(&self.fnn_version, CHANNEL_V2_SINCE);
+            if version::version_less_than(&self.fnn_version, CHANNEL_V2_SINCE) {
                 self.legacy_channel_ids = current_channel_ids
                     .iter()
                     .map(|id| normalize_channel_id(id))
                     .filter(|id| !id.is_empty())
                     .collect();
-                self.legacy_channel_cutoff_ms = Some(now_unix_ms());
-                if crossing || !self.legacy_channel_ids.is_empty() {
-                    self.legacy_channel_nudge_dismissed = false;
-                }
-                self.legacy_channel_snapshot_done = true;
-                changed = true;
+                self.legacy_channel_nudge_dismissed = false;
             }
+            self.legacy_channel_snapshot_done = true;
+            changed = true;
+        }
+
+        if self.legacy_channel_cutoff_ms.is_some() {
+            self.legacy_channel_cutoff_ms = None;
+            changed = true;
         }
 
         if self.fnn_version != FNN_VERSION {
@@ -191,13 +174,6 @@ impl StudioMetadata {
     }
 }
 
-fn now_unix_ms() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map(|duration| duration.as_millis() as u64)
-        .unwrap_or(0)
-}
-
 fn pubkeys_equal(left: &str, right: &str) -> bool {
     normalize_pubkey(left) == normalize_pubkey(right)
 }
@@ -218,7 +194,43 @@ pub enum StudioError {
     Parse(#[from] serde_json::Error),
 }
 
+static STUDIO_IO: Mutex<()> = Mutex::new(());
+
+fn lock_studio_io() -> std::sync::MutexGuard<'static, ()> {
+    STUDIO_IO.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+/// Read-modify-write `studio.json` under one lock so a dismiss cannot drop a snapshot.
+pub fn update_studio_metadata(
+    data_dir: &Path,
+    mutate: impl FnOnce(&mut StudioMetadata) -> bool,
+) -> Result<StudioMetadata, StudioError> {
+    let _guard = lock_studio_io();
+    let mut metadata = read_studio_metadata_unlocked(data_dir)?;
+    if mutate(&mut metadata) {
+        write_studio_metadata_unlocked(data_dir, &metadata)?;
+    }
+    Ok(metadata)
+}
+
 pub fn write_studio_metadata(
+    data_dir: &Path,
+    metadata: &StudioMetadata,
+) -> Result<(), StudioError> {
+    let _guard = lock_studio_io();
+    let mut to_write = metadata.clone();
+    // Callers pass a struct they read earlier. Keep the legacy snapshot from disk so
+    // a peer or CCH save cannot drop a version snapshot written in between.
+    if let Ok(current) = read_studio_metadata_unlocked(data_dir) {
+        to_write.legacy_channel_ids = current.legacy_channel_ids;
+        to_write.legacy_channel_snapshot_done = current.legacy_channel_snapshot_done;
+        to_write.legacy_channel_nudge_dismissed = current.legacy_channel_nudge_dismissed;
+        to_write.legacy_channel_cutoff_ms = current.legacy_channel_cutoff_ms;
+    }
+    write_studio_metadata_unlocked(data_dir, &to_write)
+}
+
+fn write_studio_metadata_unlocked(
     data_dir: &Path,
     metadata: &StudioMetadata,
 ) -> Result<(), StudioError> {
@@ -227,16 +239,32 @@ pub fn write_studio_metadata(
 
     let path = data_dir.join(STUDIO_METADATA_FILE);
     let json = serde_json::to_string_pretty(&normalized)?;
-    fs::write(path, json)?;
+    atomic_write(&path, &json)?;
     Ok(())
 }
 
 pub fn read_studio_metadata(data_dir: &Path) -> Result<StudioMetadata, StudioError> {
+    let _guard = lock_studio_io();
+    read_studio_metadata_unlocked(data_dir)
+}
+
+fn read_studio_metadata_unlocked(data_dir: &Path) -> Result<StudioMetadata, StudioError> {
     let path = data_dir.join(STUDIO_METADATA_FILE);
     let raw = fs::read_to_string(path)?;
     let mut metadata: StudioMetadata = serde_json::from_str(&raw)?;
     metadata.normalize_saved_peers();
     Ok(metadata)
+}
+
+fn atomic_write(path: &Path, contents: &str) -> Result<(), std::io::Error> {
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or(STUDIO_METADATA_FILE);
+    let tmp = path.with_file_name(format!(".{file_name}.tmp"));
+    fs::write(&tmp, contents)?;
+    fs::rename(&tmp, path)?;
+    Ok(())
 }
 
 pub fn persist_relay_multiaddr(
@@ -322,27 +350,44 @@ mod tests {
         );
         assert!(!metadata.legacy_channel_nudge_dismissed);
         assert!(metadata.legacy_channel_snapshot_done);
-        assert!(metadata.legacy_channel_cutoff_ms.is_some());
+        assert!(metadata.legacy_channel_cutoff_ms.is_none());
         assert!(metadata.channel_is_legacy("0xAbC", 0));
+        assert!(!metadata.channel_is_legacy("0xnew", 1));
     }
 
     #[test]
-    fn catch_up_snapshots_when_version_already_v2_but_flag_missing() {
+    fn already_on_v2_does_not_guess_open_channels_are_legacy() {
         let mut metadata = base_metadata(FNN_VERSION);
-        assert!(metadata.sync_channel_v2_upgrade(&["0xold".into()]));
+        assert!(metadata.sync_channel_v2_upgrade(&["0xalready-open".into()]));
         assert!(metadata.legacy_channel_snapshot_done);
-        assert_eq!(metadata.legacy_channel_ids, vec!["0xold".to_string()]);
-        assert!(metadata.channel_is_legacy("0xnew", metadata.legacy_channel_cutoff_ms.unwrap() - 1));
-        assert!(!metadata.channel_is_legacy("0xnew", metadata.legacy_channel_cutoff_ms.unwrap() + 1));
+        assert!(metadata.legacy_channel_ids.is_empty());
+        assert!(metadata.channel_protocol_known());
+        assert!(!metadata.channel_is_legacy("0xalready-open", 1));
+    }
+
+    #[test]
+    fn clears_created_at_cutoff_without_dropping_real_ids() {
+        let mut metadata = base_metadata(FNN_VERSION);
+        metadata.legacy_channel_snapshot_done = true;
+        metadata.legacy_channel_cutoff_ms = Some(u64::MAX);
+        metadata.legacy_channel_ids = vec!["0xreal".into()];
+        assert!(metadata.sync_channel_v2_upgrade(&["0xother".into()]));
+        assert!(metadata.legacy_channel_cutoff_ms.is_none());
+        assert_eq!(metadata.legacy_channel_ids, vec!["0xreal".to_string()]);
+        assert!(metadata.channel_is_legacy("0xreal", 1));
+        assert!(!metadata.channel_is_legacy("0xother", 1));
     }
 
     #[test]
     fn seals_existing_snapshot_without_clobbering_ids() {
         let mut metadata = base_metadata(FNN_VERSION);
         metadata.legacy_channel_ids = vec!["0xkeep".into()];
+        metadata.legacy_channel_cutoff_ms = Some(50);
         assert!(metadata.sync_channel_v2_upgrade(&["0xother".into()]));
         assert_eq!(metadata.legacy_channel_ids, vec!["0xkeep".to_string()]);
         assert!(metadata.legacy_channel_snapshot_done);
+        assert!(metadata.legacy_channel_cutoff_ms.is_none());
+        assert!(!metadata.channel_is_legacy("0xother", 1));
     }
 
     #[test]
@@ -350,6 +395,7 @@ mod tests {
         let mut metadata = StudioMetadata::new("testnet".into(), "/tmp".into(), Vec::new());
         assert!(metadata.legacy_channel_snapshot_done);
         assert!(metadata.legacy_channel_ids.is_empty());
+        assert!(metadata.legacy_channel_cutoff_ms.is_none());
         assert!(!metadata.sync_channel_v2_upgrade(&["0xshould-not-snapshot".into()]));
         assert!(metadata.legacy_channel_ids.is_empty());
     }

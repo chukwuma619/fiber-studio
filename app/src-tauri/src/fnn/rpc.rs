@@ -343,37 +343,6 @@ pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
     Ok(fetch_graph_nodes_page(0x100, None).await?.items)
 }
 
-const GRAPH_NODE_LOOKUP_PAGE_LIMIT: u32 = 100;
-const GRAPH_NODE_LOOKUP_MAX_PAGES: u32 = 40;
-
-/// Walk `graph_nodes` pages until `pubkey` is found (or the graph is exhausted).
-pub async fn find_graph_node(pubkey: &str) -> Result<Option<GraphNode>, RpcError> {
-    let mut after: Option<String> = None;
-    for _ in 0..GRAPH_NODE_LOOKUP_MAX_PAGES {
-        let page =
-            fetch_graph_nodes_page(GRAPH_NODE_LOOKUP_PAGE_LIMIT, after.as_deref()).await?;
-        let page_len = page.items.len();
-        if let Some(node) = page
-            .items
-            .into_iter()
-            .find(|node| crate::fnn::peer_connect::pubkeys_equal(&node.pubkey, pubkey))
-        {
-            return Ok(Some(node));
-        }
-        if page_len < GRAPH_NODE_LOOKUP_PAGE_LIMIT as usize {
-            return Ok(None);
-        }
-        let Some(next) = page.last_cursor.filter(|cursor| !cursor.is_empty()) else {
-            return Ok(None);
-        };
-        if after.as_deref() == Some(next.as_str()) {
-            return Ok(None);
-        }
-        after = Some(next);
-    }
-    Ok(None)
-}
-
 /// `"0x"` marks the last graph page. fnn rejects it as a cursor.
 fn cursor_to_string(cursor: Option<serde_json::Value>) -> Option<String> {
     let text = match cursor? {

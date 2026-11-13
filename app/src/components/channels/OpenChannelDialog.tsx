@@ -45,7 +45,7 @@ type OpenChannelDialogProps = {
   isActing: boolean
   actionError: string | null
   actionWarning?: string | null
-  onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
+  onOpenChannel: (payload: OpenChannelPayload) => Promise<string | null>
   onClearError: () => void
 }
 
@@ -236,12 +236,14 @@ export function OpenChannelDialog({
     setValidationError(null)
 
     try {
-      await onOpenChannel({
+      const warning = await onOpenChannel({
         pubkey: selectedPubkey,
         fundingAmount: parsedCapacity,
         udtTypeScript: selectedAsset.udtTypeScript ?? undefined,
       })
-      onClose()
+      if (!warning) {
+        onClose()
+      }
     } catch {
       // actionError is set by the hook
     }
@@ -432,14 +434,16 @@ export function OpenChannelDialog({
 
       <DialogActions>
         <Button plain onClick={onClose} disabled={isActing}>
-          Cancel
+          {actionWarning ? "Close" : "Cancel"}
         </Button>
-        <Button
-          onClick={() => void handleSubmit()}
-          disabled={submitDisabled}
-        >
-          {isActing ? "Opening channel…" : "Open channel"}
-        </Button>
+        {actionWarning ? null : (
+          <Button
+            onClick={() => void handleSubmit()}
+            disabled={submitDisabled}
+          >
+            {isActing ? "Opening channel…" : "Open channel"}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   )

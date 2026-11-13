@@ -176,22 +176,19 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
 
 fn map_open_channel_error(error: String) -> String {
     let lower = error.to_ascii_lowercase();
-    // Fiber: "Peer …'s feature not found, waiting for peer to send Init message"
+    // fiber-lib network.rs `check_feature_compatibility`:
+    // "Peer …'s feature not found, waiting for peer to send Init message"
     if lower.contains("waiting for peer to send init")
         || (lower.contains("feature not found") && lower.contains("init"))
     {
         return "Peer is connected but has not finished the Fiber handshake yet. Wait a moment and try opening the channel again.".into();
     }
-    // Fiber: "Cannot open channel with peer …: CHANNEL_V2 is required"
-    // Fiber: "Cannot accept Legacy channel: CHANNEL_V2 is required"
-    // Fiber: "Peer … features … are not compatible with our features …"
-    if lower.contains("channel_v2")
-        || lower.contains("channel v2")
-        || lower.contains("cannot accept legacy")
+    // "Cannot open channel with peer …: CHANNEL_V2 is required"
+    // "Cannot accept Legacy channel: CHANNEL_V2 is required"
+    // "Peer … features … are not compatible with our features …"
+    if lower.contains("channel_v2 is required")
+        || lower.contains("cannot accept legacy channel")
         || lower.contains("not compatible with our features")
-        || (lower.contains("feature") && lower.contains("channel"))
-        || lower.contains("does not support")
-        || (lower.contains("legacy") && lower.contains("open"))
     {
         return "This peer is on an older Fiber version. Fiber 0.10+ can only open new channels with peers that support Channel V2. Ask them to upgrade, or open with another peer.".into();
     }
@@ -314,16 +311,21 @@ pub async fn get_channels_page(
         .await
         .map_err(|error| error.to_string())?;
 
-    if let (Some(path), Some(metadata)) = (data_directory.as_ref(), studio_metadata.as_mut()) {
-        let open_ids: Vec<String> = channels
-            .iter()
-            .filter(|channel| {
-                rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
-            })
-            .map(|channel| channel.channel_id.clone())
-            .collect();
-        if metadata.sync_channel_v2_upgrade(&open_ids) {
-            let _ = studio::write_studio_metadata(path, metadata);
+    if let Some(path) = data_directory.as_ref() {
+        if studio_metadata.is_some() {
+            let open_ids: Vec<String> = channels
+                .iter()
+                .filter(|channel| {
+                    rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state)
+                })
+                .map(|channel| channel.channel_id.clone())
+                .collect();
+            studio_metadata = Some(
+                studio::update_studio_metadata(path, |metadata| {
+                    metadata.sync_channel_v2_upgrade(&open_ids)
+                })
+                .map_err(|error| format!("Failed to save channel version snapshot: {error}"))?,
+            );
         }
     }
 
@@ -607,36 +609,11 @@ pub async fn open_channel(
         );
     }
 
-    let mut warnings = Vec::new();
-    // Fiber decides Channel V2 from the peer's Init/session FeatureVector
-    // (`required_new_channel_features` in fiber-lib network.rs). `list_peers` does not
-    // expose session features, so the gossip graph is only a stale-able preflight hint —
-    // never a hard reject. Fiber returns "CHANNEL_V2 is required" when the session lacks it.
-    match rpc::find_graph_node(pubkey).await {
-        Ok(Some(peer_node)) => {
-            if !features::graph_node_supports_channel_v2(
-                &peer_node.features,
-                peer_node.version.as_deref(),
-            ) {
-                warnings.push(
-                    "Network graph announcement for this peer does not advertise Channel V2 (Fiber 0.10+). The open may still succeed if their live session supports it; otherwise Fiber will reject the open."
-                        .into(),
-                );
-            }
-        }
-        Ok(None) => {
-            warnings.push(
-                "Could not verify Channel V2 support for this peer (not found in the network graph yet). Private or newly announced peers may still work; Fiber will reject the open if the peer lacks Channel V2."
-                    .into(),
-            );
-        }
-        Err(error) => {
-            warnings.push(format!(
-                "Could not check the network graph for peer Channel V2 support ({error}). Proceeding; Fiber will reject the open if the peer lacks Channel V2."
-            ));
-        }
-    }
-
+    // Fiber decides inside `open_channel`: `check_feature_compatibility` then
+    // `required_new_channel_features` run before any funding transaction.
+    // `list_peers` has no session features, and a successful RPC result already means
+    // the peer's Init advertised Channel V2, so a graph preflight would only add a
+    // stale warning after the open has succeeded. The dialog shows the graph hint.
     let funding_amount = format!("0x{funding_raw:x}");
     let udt_script = asset.udt_type_script.as_ref();
     let channel_id = rpc::open_channel(pubkey, &funding_amount, true, udt_script)
@@ -645,7 +622,7 @@ pub async fn open_channel(
 
     Ok(OpenChannelResult {
         channel_id,
-        warnings,
+        warnings: Vec::new(),
     })
 }
 
@@ -700,4 +677,25 @@ pub async fn abandon_channel(
     rpc::abandon_channel(channel_id)
         .await
         .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::map_open_channel_error;
+
+    #[test]
+    fn maps_fiber_channel_v2_and_init_errors_only() {
+        let v2 = map_open_channel_error(
+            "Cannot open channel with peer 02aa: CHANNEL_V2 is required".into(),
+        );
+        assert!(v2.contains("Channel V2"));
+
+        let init = map_open_channel_error(
+            "Peer 02aa's feature not found, waiting for peer to send Init message".into(),
+        );
+        assert!(init.contains("handshake"));
+
+        let unrelated = "Selected UDT does not support this funding amount".to_string();
+        assert_eq!(map_open_channel_error(unrelated.clone()), unrelated);
+    }
 }
