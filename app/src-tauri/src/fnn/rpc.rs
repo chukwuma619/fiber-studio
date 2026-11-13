@@ -908,7 +908,7 @@ mod tests {
         "jsonrpc": "2.0",
         "id": 1,
         "result": {
-            "version": "0.9.1",
+            "version": "0.10.0",
             "commit_hash": "05ccebf 2026-06-18",
             "pubkey": "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71",
             "features": ["GOSSIP_QUERIES_REQUIRED"],
@@ -955,7 +955,7 @@ mod tests {
     fn deserializes_node_info_success_response() {
         let payload: RpcResponse<NodeInfo> = serde_json::from_str(NODE_INFO_SUCCESS).unwrap();
         let info = payload.result.expect("result should be present");
-        assert_eq!(info.version, "0.9.1");
+        assert_eq!(info.version, "0.10.0");
         assert_eq!(
             info.pubkey,
             "02b6d4e3ab86a2ca2fad6fae0ecb2e1e559e0b911939872a90abdda6d20302be71"

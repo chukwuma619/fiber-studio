@@ -54,7 +54,7 @@ After install, updates are in **Settings → Updates**.
 git clone https://github.com/chukwuma619/fiber-studio.git
 cd fiber-studio/app
 bun install
-bun run fetch-fnn    # bundled fnn sidecar (currently v0.9.1); required once
+bun run fetch-fnn    # bundled fnn sidecar (currently v0.10.0); required once
 bun run tauri dev
 ```
 
