@@ -4,6 +4,8 @@ import {
   canCloseChannel,
   canCooperativeCloseChannel,
   canForceCloseChannel,
+  channelFundingDirectionLabel,
+  channelPaymentDirectionLabel,
   channelStateBadgeColor,
   channelStateDisplayLabel,
   defaultChannelCloseMethod,
@@ -264,6 +266,33 @@ export function ChannelDetailDialog({
                   <Text className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                     Opened before Fiber 0.10. Still works; close and reopen when
                     you can so both sides use Channel V2.
+                  </Text>
+                ) : null}
+              </DescriptionDetails>
+
+              <DescriptionTerm>
+                <span className="inline-flex items-center gap-1">
+                  Direction
+                  <HelpTooltip content="Inbound means the peer funded this channel (you accepted). Outbound means you funded it. One-way matches Fiber’s send/receive rules: acceptor is receive-only; funder is send-only." />
+                </span>
+              </DescriptionTerm>
+              <DescriptionDetails>
+                <div className="flex flex-wrap gap-1">
+                  <Badge color={channel.isAcceptor ? "violet" : "sky"}>
+                    {channelFundingDirectionLabel(channel.isAcceptor)}
+                  </Badge>
+                  <Badge color={channel.isOneWay ? "amber" : "zinc"}>
+                    {channelPaymentDirectionLabel(
+                      channel.isAcceptor,
+                      channel.isOneWay,
+                    )}
+                  </Badge>
+                </div>
+                {channel.isOneWay ? (
+                  <Text className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
+                    {channel.isAcceptor
+                      ? "You can receive on this channel, but not send."
+                      : "You can send on this channel, but not receive."}
                   </Text>
                 ) : null}
               </DescriptionDetails>

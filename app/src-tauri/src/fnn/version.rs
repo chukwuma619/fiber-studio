@@ -1,7 +1,9 @@
-/// Parse a dotted semver-ish version (`0.10.0`, `v0.9.1`). Extra suffixes are ignored.
+/// Parse a dotted semver-ish version (`0.10.0`, `v0.9.1`, `Fiber v0.10.0 (abc)`).
+/// Finds the first digit run and ignores surrounding text / suffixes.
 pub fn parse_version(raw: &str) -> Option<(u64, u64, u64)> {
-    let cleaned = raw.trim().trim_start_matches('v').trim_start_matches('V');
-    let numeric = cleaned
+    let cleaned = raw.trim();
+    let start = cleaned.find(|c: char| c.is_ascii_digit())?;
+    let numeric = cleaned[start..]
         .split(|c: char| !(c.is_ascii_digit() || c == '.'))
         .next()
         .unwrap_or("");
@@ -40,5 +42,7 @@ mod tests {
         assert!(version_at_least("0.10.0", "0.10.0"));
         assert!(version_at_least("0.10.1", "0.10.0"));
         assert!(!version_less_than("0.10.0", "0.9.1"));
+        assert!(version_at_least("Fiber v0.10.0 (d6868d1 2026-11-13)", "0.10.0"));
+        assert!(version_less_than("fnn Fiber v0.9.1", "0.10.0"));
     }
 }

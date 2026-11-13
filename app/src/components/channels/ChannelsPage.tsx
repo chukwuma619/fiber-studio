@@ -3,6 +3,8 @@ import { useNavigate } from "@tanstack/react-router"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import {
+  channelFundingDirectionLabel,
+  channelPaymentDirectionLabel,
   channelStateBadgeColor,
   channelStateDisplayLabel,
   formatCkb,
@@ -286,6 +288,17 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
                         <Badge color={channel.isPublic ? "sky" : "zinc"}>
                           {channel.isPublic ? "Public" : "Private"}
                         </Badge>
+                        <Badge color={channel.isAcceptor ? "violet" : "sky"}>
+                          {channelFundingDirectionLabel(channel.isAcceptor)}
+                        </Badge>
+                        {channel.isOneWay ? (
+                          <Badge color="amber">
+                            {channelPaymentDirectionLabel(
+                              channel.isAcceptor,
+                              channel.isOneWay,
+                            )}
+                          </Badge>
+                        ) : null}
                         {channel.channelVersion === "v1" ||
                         channel.isLegacy ? (
                           <Badge color="amber">V1</Badge>

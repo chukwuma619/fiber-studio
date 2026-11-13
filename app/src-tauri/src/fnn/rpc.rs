@@ -123,6 +123,12 @@ pub struct NodeInfo {
 pub struct Channel {
     pub channel_id: String,
     pub is_public: bool,
+    /// True when we accepted the open (counterparty funded).
+    #[serde(default)]
+    pub is_acceptor: bool,
+    /// True when the channel can only move funds one direction.
+    #[serde(default)]
+    pub is_one_way: bool,
     pub pubkey: String,
     pub state: serde_json::Value,
     pub local_balance: String,
@@ -1131,6 +1137,8 @@ mod tests {
         assert_eq!(result.channels.len(), 1);
         assert_eq!(result.channels[0].local_balance, "0xbebc200");
         assert_eq!(result.channels[0].created_at, 1718000000000);
+        assert!(!result.channels[0].is_acceptor);
+        assert!(!result.channels[0].is_one_way);
         assert!(is_channel_ready(&result.channels[0].state));
     }
 
@@ -1258,6 +1266,8 @@ mod tests {
         let active = vec![Channel {
             channel_id: "0xabc".into(),
             is_public: true,
+            is_acceptor: false,
+            is_one_way: false,
             pubkey: "02aa".into(),
             state: serde_json::json!("ChannelReady"),
             local_balance: "0x1".into(),
@@ -1275,6 +1285,8 @@ mod tests {
             Channel {
                 channel_id: "0xabc".into(),
                 is_public: true,
+                is_acceptor: false,
+                is_one_way: false,
                 pubkey: "02aa".into(),
                 state: serde_json::json!("AwaitingTxSignatures"),
                 local_balance: "0x1".into(),
@@ -1291,6 +1303,8 @@ mod tests {
             Channel {
                 channel_id: "0xdef".into(),
                 is_public: false,
+                is_acceptor: true,
+                is_one_way: true,
                 pubkey: "02bb".into(),
                 state: serde_json::json!({
                     "state_name": "NegotiatingFunding",

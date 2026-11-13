@@ -1,3 +1,5 @@
+use std::collections::{HashMap, HashSet};
+
 use serde::{Deserialize, Serialize};
 use tauri::State;
 
@@ -23,6 +25,8 @@ pub struct ChannelsSavedPeerEntry {
     pub connected: bool,
     pub channel_count: u32,
     pub has_active_or_pending_channel: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub supports_channel_v2: Option<bool>,
 }
 
 #[derive(Debug, Serialize)]
@@ -211,6 +215,7 @@ fn build_channels_saved_peer_entry(
     saved_peer: &studio::SavedPeer,
     peers: &[rpc::PeerInfo],
     channels: &[rpc::Channel],
+    supports_channel_v2: Option<bool>,
 ) -> ChannelsSavedPeerEntry {
     let connected = peer_is_connected(peers, &saved_peer.pubkey);
     let channel_count = count_channels_to_peer(channels, &saved_peer.pubkey);
@@ -227,7 +232,58 @@ fn build_channels_saved_peer_entry(
         connected,
         channel_count,
         has_active_or_pending_channel,
+        supports_channel_v2,
     }
+}
+
+/// Walk the network graph once and map pubkey → Channel V2 support for the given peers.
+async fn graph_channel_v2_by_pubkey(
+    pubkeys: &[String],
+) -> HashMap<String, bool> {
+    let mut remaining: HashSet<String> = pubkeys
+        .iter()
+        .map(|pubkey| peer_connect::normalize_pubkey(pubkey))
+        .filter(|pubkey| !pubkey.is_empty())
+        .collect();
+    let mut found = HashMap::new();
+    if remaining.is_empty() {
+        return found;
+    }
+
+    let mut after: Option<String> = None;
+    for _ in 0..40 {
+        let Ok(page) = rpc::fetch_graph_nodes_page(100, after.as_deref()).await else {
+            break;
+        };
+        let page_len = page.items.len();
+        for node in page.items {
+            let key = peer_connect::normalize_pubkey(&node.pubkey);
+            if !remaining.remove(&key) {
+                continue;
+            }
+            found.insert(
+                key,
+                features::graph_node_supports_channel_v2(
+                    &node.features,
+                    node.version.as_deref(),
+                ),
+            );
+            if remaining.is_empty() {
+                return found;
+            }
+        }
+        if page_len < 100 {
+            break;
+        }
+        let Some(next) = page.last_cursor.filter(|cursor| !cursor.is_empty()) else {
+            break;
+        };
+        if after.as_deref() == Some(next.as_str()) {
+            break;
+        }
+        after = Some(next);
+    }
+    found
 }
 
 #[tauri::command]
@@ -316,7 +372,7 @@ pub async fn get_channels_page(
         &manager_relay_status,
     );
 
-    let mut saved_peer_entries: Vec<ChannelsSavedPeerEntry> = Vec::new();
+    let mut candidate_peers: Vec<studio::SavedPeer> = Vec::new();
     if let Some(network) = network_str {
         for relay in relays::relays_for_network(network) {
             if relay.pubkey.trim().is_empty() {
@@ -334,26 +390,38 @@ pub async fn get_channels_page(
                 .filter(|addr| !addr.is_empty())
                 .map(str::to_string)
                 .unwrap_or(saved_multiaddr);
-            let relay_as_saved = studio::SavedPeer {
+            candidate_peers.push(studio::SavedPeer {
                 pubkey: relay.pubkey,
                 multiaddr,
-            };
-            saved_peer_entries.push(build_channels_saved_peer_entry(
-                &relay_as_saved,
-                &peers,
-                &channels,
-            ));
+            });
         }
     }
     for peer in saved_peers {
-        if saved_peer_entries
+        if candidate_peers
             .iter()
             .any(|entry| peer_connect::pubkeys_equal(&entry.pubkey, &peer.pubkey))
         {
             continue;
         }
-        saved_peer_entries.push(build_channels_saved_peer_entry(peer, &peers, &channels));
+        candidate_peers.push(peer.clone());
     }
+
+    let graph_v2 = graph_channel_v2_by_pubkey(
+        &candidate_peers
+            .iter()
+            .map(|peer| peer.pubkey.clone())
+            .collect::<Vec<_>>(),
+    )
+    .await;
+
+    let saved_peer_entries: Vec<ChannelsSavedPeerEntry> = candidate_peers
+        .iter()
+        .map(|peer| {
+            let key = peer_connect::normalize_pubkey(&peer.pubkey);
+            let supports_channel_v2 = graph_v2.get(&key).copied();
+            build_channels_saved_peer_entry(peer, &peers, &channels, supports_channel_v2)
+        })
+        .collect();
 
     let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
         match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
@@ -540,16 +608,18 @@ pub async fn open_channel(
     }
 
     let mut warnings = Vec::new();
-    // Fiber itself decides from the peer's Init features after connect; the graph is a
-    // preflight hint only (list_peers does not expose session features).
+    // Fiber decides Channel V2 from the peer's Init/session FeatureVector
+    // (`required_new_channel_features` in fiber-lib network.rs). `list_peers` does not
+    // expose session features, so the gossip graph is only a stale-able preflight hint —
+    // never a hard reject. Fiber returns "CHANNEL_V2 is required" when the session lacks it.
     match rpc::find_graph_node(pubkey).await {
         Ok(Some(peer_node)) => {
             if !features::graph_node_supports_channel_v2(
                 &peer_node.features,
                 peer_node.version.as_deref(),
             ) {
-                return Err(
-                    "This peer is on an older Fiber version. Fiber 0.10+ can only open new channels with peers that support Channel V2. Ask them to upgrade, or open with another peer."
+                warnings.push(
+                    "Network graph announcement for this peer does not advertise Channel V2 (Fiber 0.10+). The open may still succeed if their live session supports it; otherwise Fiber will reject the open."
                         .into(),
                 );
             }

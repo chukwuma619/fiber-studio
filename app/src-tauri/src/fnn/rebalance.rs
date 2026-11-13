@@ -239,6 +239,8 @@ mod tests {
         Channel {
             channel_id: channel_id.into(),
             is_public: true,
+            is_acceptor: false,
+            is_one_way: false,
             pubkey: pubkey.into(),
             state: serde_json::json!("ChannelReady"),
             local_balance: ckb_to_shannons_hex(local_ckb),

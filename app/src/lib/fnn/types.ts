@@ -50,6 +50,8 @@ export type HomeChannel = {
   channelId: string
   pubkey: string
   isPublic: boolean
+  isAcceptor: boolean
+  isOneWay: boolean
   state: string
   localBalance: string
   remoteBalance: string
@@ -119,6 +121,8 @@ export type SavedPeerEntry = {
   channelCount: number
   hasActiveOrPendingChannel: boolean
   isOfficialRelay?: boolean
+  /** Graph-advertised Channel V2 support. Undefined/null when not in the graph yet. */
+  supportsChannelV2?: boolean | null
 }
 
 export type ChannelsPageResponse = {

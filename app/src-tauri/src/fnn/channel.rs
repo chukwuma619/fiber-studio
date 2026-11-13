@@ -12,6 +12,10 @@ pub struct HomeChannel {
     pub channel_id: String,
     pub pubkey: String,
     pub is_public: bool,
+    /// True when we accepted the open (counterparty funded).
+    pub is_acceptor: bool,
+    /// True when the channel can only move funds one direction.
+    pub is_one_way: bool,
     pub state: String,
     pub local_balance: String,
     pub remote_balance: String,
@@ -30,6 +34,31 @@ pub struct HomeChannel {
     /// True when this channel was already open before Fiber 0.10 (legacy V1 protocol).
     pub is_legacy: bool,
     pub channel_version: String,
+}
+
+/// Who funded the channel.
+/// Fiber: `is_acceptor` means the counterparty funded (inbound open).
+pub fn funding_direction_label(is_acceptor: bool) -> &'static str {
+    if is_acceptor {
+        "Inbound"
+    } else {
+        "Outbound"
+    }
+}
+
+/// How payments can move on this channel from our perspective.
+/// Mirrors Fiber `ChannelActorState::{can_be_tlc_sender,can_be_tlc_receiver}`:
+/// - sender when `!is_one_way || !is_acceptor`
+/// - receiver when `!is_one_way || is_acceptor`
+pub fn payment_direction_label(is_acceptor: bool, is_one_way: bool) -> &'static str {
+    let can_send = !is_one_way || !is_acceptor;
+    let can_receive = !is_one_way || is_acceptor;
+    match (can_send, can_receive) {
+        (true, true) => "Two-way",
+        (true, false) => "Send only",
+        (false, true) => "Receive only",
+        (false, false) => "Inactive",
+    }
 }
 
 #[cfg(test)]
@@ -95,6 +124,8 @@ pub fn to_home_channel(
         channel_id: channel.channel_id,
         pubkey: channel.pubkey,
         is_public: channel.is_public,
+        is_acceptor: channel.is_acceptor,
+        is_one_way: channel.is_one_way,
         state: rpc::channel_state_label(&channel.state),
         local_balance: channel.local_balance,
         remote_balance: channel.remote_balance,
@@ -240,6 +271,8 @@ mod tests {
             Channel {
                 channel_id: "0x1".into(),
                 is_public: true,
+                is_acceptor: false,
+                is_one_way: false,
                 pubkey: "02AA".into(),
                 state: serde_json::json!("ChannelReady"),
                 local_balance: "0x1".into(),
@@ -256,6 +289,8 @@ mod tests {
             Channel {
                 channel_id: "0x2".into(),
                 is_public: true,
+                is_acceptor: true,
+                is_one_way: false,
                 pubkey: "02BB".into(),
                 state: serde_json::json!("Closed"),
                 local_balance: "0x0".into(),
@@ -281,6 +316,8 @@ mod tests {
             Channel {
                 channel_id: "0x1".into(),
                 is_public: true,
+                is_acceptor: false,
+                is_one_way: false,
                 pubkey: "02aa".into(),
                 state: serde_json::json!("ChannelReady"),
                 local_balance: "0x1".into(),
@@ -297,6 +334,8 @@ mod tests {
             Channel {
                 channel_id: "0x2".into(),
                 is_public: true,
+                is_acceptor: false,
+                is_one_way: true,
                 pubkey: "02bb".into(),
                 state: serde_json::json!("AwaitingTxSignatures"),
                 local_balance: "0x3".into(),
@@ -313,5 +352,14 @@ mod tests {
         ];
 
         assert_eq!(count_pending_channels(&channels), 1);
+    }
+
+    #[test]
+    fn payment_direction_labels_cover_one_way_and_two_way() {
+        assert_eq!(funding_direction_label(false), "Outbound");
+        assert_eq!(funding_direction_label(true), "Inbound");
+        assert_eq!(payment_direction_label(false, false), "Two-way");
+        assert_eq!(payment_direction_label(false, true), "Send only");
+        assert_eq!(payment_direction_label(true, true), "Receive only");
     }
 }

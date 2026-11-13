@@ -56,6 +56,21 @@ function peerChannelLabel(peer: SavedPeerEntry): string {
     : ` (${peer.channelCount} channels)`
 }
 
+function peerCompatLabel(peer: SavedPeerEntry): string {
+  if (peer.supportsChannelV2 === true) return " · Channel V2"
+  if (peer.supportsChannelV2 === false) return " · older Fiber"
+  return " · V2 unknown"
+}
+
+function peerSupportsChannelV2(
+  peer: SavedPeerEntry | null,
+): boolean | null {
+  if (!peer) return null
+  if (peer.supportsChannelV2 === true) return true
+  if (peer.supportsChannelV2 === false) return false
+  return null
+}
+
 export function OpenChannelDialog({
   open,
   onClose,
@@ -92,6 +107,10 @@ export function OpenChannelDialog({
       connectedPeers.find((peer) => peer.pubkey === selectedPubkey) ?? null,
     [connectedPeers, selectedPubkey],
   )
+
+  const selectedPeerV2 = peerSupportsChannelV2(selectedPeer)
+  /** Graph hint only — Fiber decides from the live Init/session features. */
+  const peerGraphLacksV2 = supportsChannelV2 && selectedPeerV2 === false
 
   const assetBalanceDisplay = useMemo(() => {
     const match = onChainBalances.find(
@@ -297,6 +316,7 @@ export function OpenChannelDialog({
                   <option key={peer.pubkey} value={peer.pubkey}>
                     {truncatePubkey(peer.pubkey)}
                     {peerChannelLabel(peer)}
+                    {supportsChannelV2 ? peerCompatLabel(peer) : ""}
                   </option>
                 ))}
               </Select>
@@ -326,7 +346,30 @@ export function OpenChannelDialog({
                       : `${selectedPeer.channelCount} channels`}
                   </Badge>
                 ) : null}
+                {supportsChannelV2 && selectedPeerV2 === true ? (
+                  <Badge color="emerald">Channel V2</Badge>
+                ) : null}
+                {supportsChannelV2 && selectedPeerV2 === false ? (
+                  <Badge color="amber">Older Fiber</Badge>
+                ) : null}
+                {supportsChannelV2 && selectedPeerV2 === null ? (
+                  <Badge color="zinc">V2 unknown</Badge>
+                ) : null}
               </div>
+              {peerGraphLacksV2 ? (
+                <Description className="text-amber-700 dark:text-amber-400">
+                  Their gossip announcement does not advertise Channel V2. Fiber
+                  still decides from the live session — the open may work if they
+                  already upgraded, otherwise Fiber will reject it.
+                </Description>
+              ) : null}
+              {supportsChannelV2 && selectedPeerV2 === null ? (
+                <Description>
+                  Not found in the network graph yet. Private or newly announced
+                  peers may still work; Fiber will reject the open if they lack
+                  Channel V2.
+                </Description>
+              ) : null}
             </Field>
           ) : null}
 

@@ -54,6 +54,27 @@ export function channelStateDisplayLabel(state: string): string {
   }
 }
 
+/** Who funded the channel (Fiber `is_acceptor` = peer funded). */
+export function channelFundingDirectionLabel(isAcceptor: boolean): string {
+  return isAcceptor ? "Inbound" : "Outbound"
+}
+
+/**
+ * How payments can move from our perspective.
+ * Mirrors Fiber `can_be_tlc_sender` / `can_be_tlc_receiver`.
+ */
+export function channelPaymentDirectionLabel(
+  isAcceptor: boolean,
+  isOneWay: boolean,
+): string {
+  const canSend = !isOneWay || !isAcceptor
+  const canReceive = !isOneWay || isAcceptor
+  if (canSend && canReceive) return "Two-way"
+  if (canSend) return "Send only"
+  if (canReceive) return "Receive only"
+  return "Inactive"
+}
+
 export function isChannelPending(state: string): boolean {
   return (
     state !== "ChannelReady" &&

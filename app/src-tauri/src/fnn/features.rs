@@ -11,13 +11,18 @@ pub fn supports_channel_v2(features: &[String]) -> bool {
     })
 }
 
-/// Whether a graph node should be treated as Channel V2-capable.
-/// Prefers advertised features; falls back to announced fnn version ≥ 0.10.0.
+/// Whether a *graph* node announcement looks Channel V2-capable.
+///
+/// Prefers advertised features (`enabled_features_names()`); falls back to the
+/// announced `version` (≥ 0.10.0) only when the feature list is empty.
+///
+/// This is a gossip hint only. Fiber opens channels from the peer's Init/session
+/// `FeatureVector` (`supports_channel_v2()`), which `list_peers` does not expose.
 pub fn graph_node_supports_channel_v2(features: &[String], version: Option<&str>) -> bool {
     if supports_channel_v2(features) {
         return true;
     }
-    // Explicit feature list without CHANNEL_V2 means the peer does not support it.
+    // Explicit feature list without CHANNEL_V2 means the announcement does not claim it.
     if !features.is_empty() {
         return false;
     }
