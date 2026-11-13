@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use serde::{Deserialize, Serialize};
 
 use super::assets;
@@ -5,6 +7,7 @@ use super::channel::{self, HomeChannel};
 use super::peer_connect;
 use super::relays;
 use super::rpc;
+use super::studio;
 
 const GRAPH_PAGE_LIMIT: u32 = 0x100;
 const GRAPH_CHANNEL_SCAN_PAGES: u32 = 2;
@@ -72,6 +75,7 @@ fn json_pubkey_string(value: &serde_json::Value) -> Option<String> {
 pub async fn fetch_preflight_snapshot(
     network: &str,
     payee_pubkey: Option<&str>,
+    data_directory: Option<&Path>,
 ) -> Result<PreflightSnapshot, String> {
     let (node_info, channels, peers, graph_nodes) = tokio::join!(
         rpc::fetch_node_info(),
@@ -85,11 +89,21 @@ pub async fn fetch_preflight_snapshot(
     let peers = peers.map_err(|error| error.to_string())?;
     let graph_nodes = graph_nodes.map_err(|error| error.to_string())?;
 
+    let studio_metadata = data_directory.and_then(|path| studio::read_studio_metadata(path).ok());
+    let protocol_known = studio_metadata
+        .as_ref()
+        .is_some_and(|metadata| metadata.channel_protocol_known());
+
     let catalog = assets::build_asset_catalog(&node_info);
     let home_channels = channels
         .iter()
         .cloned()
-        .map(|channel| channel::to_home_channel(channel, &catalog, false))
+        .map(|channel| {
+            let is_legacy = studio_metadata.as_ref().is_some_and(|metadata| {
+                metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
+            });
+            channel::to_home_channel(channel, &catalog, is_legacy, protocol_known)
+        })
         .collect();
 
     let official_relays: Vec<String> = relays::relays_for_network(network)

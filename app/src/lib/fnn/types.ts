@@ -62,6 +62,7 @@ export type HomeChannel = {
   localBalanceDisplay: string
   remoteBalanceDisplay: string
   isLegacy: boolean
+  channelVersion: "v1" | "v2" | "unknown"
 }
 
 export type CkbScript = {
@@ -151,6 +152,7 @@ export type OpenChannelPayload = {
 
 export type OpenChannelResult = {
   channelId: string | null
+  warnings?: string[]
 }
 
 export type ShutdownChannelPayload = {

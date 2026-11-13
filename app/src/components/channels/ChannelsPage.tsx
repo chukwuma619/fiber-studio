@@ -286,8 +286,12 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
                         <Badge color={channel.isPublic ? "sky" : "zinc"}>
                           {channel.isPublic ? "Public" : "Private"}
                         </Badge>
-                        {channel.isLegacy ? (
+                        {channel.channelVersion === "v1" ||
+                        channel.isLegacy ? (
                           <Badge color="amber">V1</Badge>
+                        ) : null}
+                        {channel.channelVersion === "v2" ? (
+                          <Badge color="emerald">V2</Badge>
                         ) : null}
                       </div>
                     </TableCell>
@@ -336,6 +340,7 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
         supportsChannelV2={data?.supportsChannelV2 ?? false}
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}
+        actionWarning={channelActions.actionWarning}
         onOpenChannel={channelActions.handleOpenChannel}
         onClearError={channelActions.clearActionError}
       />

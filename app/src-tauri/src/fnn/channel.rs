@@ -29,6 +29,7 @@ pub struct HomeChannel {
     pub remote_balance_display: String,
     /// True when this channel was already open before Fiber 0.10 (legacy V1 protocol).
     pub is_legacy: bool,
+    pub channel_version: String,
 }
 
 #[cfg(test)]
@@ -66,7 +67,12 @@ pub fn has_active_or_pending_channel_to_peer(channels: &[Channel], pubkey: &str)
     })
 }
 
-pub fn to_home_channel(channel: Channel, catalog: &[AssetView], is_legacy: bool) -> HomeChannel {
+pub fn to_home_channel(
+    channel: Channel,
+    catalog: &[AssetView],
+    is_legacy: bool,
+    protocol_known: bool,
+) -> HomeChannel {
     let local = parse_hex_u128(&channel.local_balance).unwrap_or(0);
     let remote = parse_hex_u128(&channel.remote_balance).unwrap_or(0);
     let total = local.saturating_add(remote);
@@ -77,6 +83,13 @@ pub fn to_home_channel(channel: Channel, catalog: &[AssetView], is_legacy: bool)
     };
 
     let asset = assets::asset_for_channel_funding(catalog, channel.funding_udt_type_script.as_ref());
+    let channel_version = if is_legacy {
+        "v1".to_string()
+    } else if protocol_known {
+        "v2".to_string()
+    } else {
+        "unknown".to_string()
+    };
 
     HomeChannel {
         channel_id: channel.channel_id,
@@ -94,6 +107,7 @@ pub fn to_home_channel(channel: Channel, catalog: &[AssetView], is_legacy: bool)
         local_balance_display: assets::format_amount_display(local, &asset),
         remote_balance_display: assets::format_amount_display(remote, &asset),
         is_legacy,
+        channel_version,
     }
 }
 
@@ -166,13 +180,14 @@ pub fn count_pending_channels(channels: &[Channel]) -> u32 {
 pub fn map_channels(
     channels: Vec<Channel>,
     catalog: &[AssetView],
-    is_legacy: impl Fn(&str) -> bool,
+    is_legacy: impl Fn(&Channel) -> bool,
+    protocol_known: bool,
 ) -> Vec<HomeChannel> {
     let mut mapped: Vec<HomeChannel> = channels
         .into_iter()
         .map(|channel| {
-            let legacy = is_legacy(&channel.channel_id);
-            to_home_channel(channel, catalog, legacy)
+            let legacy = is_legacy(&channel);
+            to_home_channel(channel, catalog, legacy, protocol_known)
         })
         .collect();
     mapped.sort_by(|left, right| {
@@ -236,6 +251,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
+                created_at: 0,
             },
             Channel {
                 channel_id: "0x2".into(),
@@ -251,6 +267,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
+                created_at: 0,
             },
         ];
 
@@ -275,6 +292,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
+                created_at: 0,
             },
             Channel {
                 channel_id: "0x2".into(),
@@ -290,6 +308,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
+                created_at: 0,
             },
         ];
 

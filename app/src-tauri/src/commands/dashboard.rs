@@ -251,7 +251,7 @@ pub async fn get_home_dashboard(
                 .iter()
                 .filter(|channel| {
                     (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
-                        && metadata.is_legacy_channel(&channel.channel_id)
+                        && metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
                 })
                 .count() as u32
         })
@@ -355,9 +355,16 @@ fn select_home_channels(
     catalog: &[AssetView],
     studio_metadata: Option<&studio::StudioMetadata>,
 ) -> Vec<HomeChannel> {
-    channel::map_channels(channels, catalog, |channel_id| {
-        studio_metadata.is_some_and(|metadata| metadata.is_legacy_channel(channel_id))
-    })
+    channel::map_channels(
+        channels,
+        catalog,
+        |channel| {
+            studio_metadata.is_some_and(|metadata| {
+                metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
+            })
+        },
+        studio_metadata.is_some_and(|metadata| metadata.channel_protocol_known()),
+    )
     .into_iter()
     .take(HOME_CHANNEL_LIMIT)
     .collect()

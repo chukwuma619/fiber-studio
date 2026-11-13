@@ -141,6 +141,8 @@ pub struct Channel {
     pub failure_detail: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub funding_udt_type_script: Option<CkbScript>,
+    #[serde(default, deserialize_with = "deserialize_hex_or_u64")]
+    pub created_at: u64,
 }
 
 /// Peer entry from `list_peers`.
@@ -157,6 +159,8 @@ pub struct GraphNode {
     pub addresses: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub node_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
     #[serde(default)]
     pub features: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -331,6 +335,37 @@ pub async fn fetch_list_peers() -> Result<Vec<PeerInfo>, RpcError> {
 
 pub async fn fetch_graph_nodes() -> Result<Vec<GraphNode>, RpcError> {
     Ok(fetch_graph_nodes_page(0x100, None).await?.items)
+}
+
+const GRAPH_NODE_LOOKUP_PAGE_LIMIT: u32 = 100;
+const GRAPH_NODE_LOOKUP_MAX_PAGES: u32 = 40;
+
+/// Walk `graph_nodes` pages until `pubkey` is found (or the graph is exhausted).
+pub async fn find_graph_node(pubkey: &str) -> Result<Option<GraphNode>, RpcError> {
+    let mut after: Option<String> = None;
+    for _ in 0..GRAPH_NODE_LOOKUP_MAX_PAGES {
+        let page =
+            fetch_graph_nodes_page(GRAPH_NODE_LOOKUP_PAGE_LIMIT, after.as_deref()).await?;
+        let page_len = page.items.len();
+        if let Some(node) = page
+            .items
+            .into_iter()
+            .find(|node| crate::fnn::peer_connect::pubkeys_equal(&node.pubkey, pubkey))
+        {
+            return Ok(Some(node));
+        }
+        if page_len < GRAPH_NODE_LOOKUP_PAGE_LIMIT as usize {
+            return Ok(None);
+        }
+        let Some(next) = page.last_cursor.filter(|cursor| !cursor.is_empty()) else {
+            return Ok(None);
+        };
+        if after.as_deref() == Some(next.as_str()) {
+            return Ok(None);
+        }
+        after = Some(next);
+    }
+    Ok(None)
 }
 
 /// `"0x"` marks the last graph page. fnn rejects it as a cursor.
@@ -677,8 +712,10 @@ pub async fn cancel_invoice(payment_hash: &str) -> Result<GetInvoiceResult, RpcE
 
 #[derive(Debug, Deserialize)]
 struct OpenChannelResult {
-    #[serde(default, rename = "channel_id")]
-    channel_id: Option<String>,
+    /// Fiber returns `temporary_channel_id` (fiber-json-types `OpenChannelResult`).
+    /// `channel_id` is accepted as a fallback alias.
+    #[serde(default, alias = "channel_id")]
+    temporary_channel_id: Option<String>,
 }
 
 /// Opens a channel with a connected peer.
@@ -703,7 +740,7 @@ pub async fn open_channel(
     }
 
     let result: OpenChannelResult = call_rpc("open_channel", serde_json::json!([open_params])).await?;
-    Ok(result.channel_id)
+    Ok(result.temporary_channel_id)
 }
 
 /// Shuts down a channel. `force` broadcasts the latest commitment unilaterally.
@@ -1093,7 +1130,38 @@ mod tests {
         let result = payload.result.expect("result should be present");
         assert_eq!(result.channels.len(), 1);
         assert_eq!(result.channels[0].local_balance, "0xbebc200");
+        assert_eq!(result.channels[0].created_at, 1718000000000);
         assert!(is_channel_ready(&result.channels[0].state));
+    }
+
+    #[test]
+    fn deserializes_open_channel_temporary_channel_id() {
+        let payload: OpenChannelResult = serde_json::from_value(serde_json::json!({
+            "temporary_channel_id": "0xabc123"
+        }))
+        .unwrap();
+        assert_eq!(payload.temporary_channel_id.as_deref(), Some("0xabc123"));
+
+        let legacy: OpenChannelResult = serde_json::from_value(serde_json::json!({
+            "channel_id": "0xlegacy"
+        }))
+        .unwrap();
+        assert_eq!(legacy.temporary_channel_id.as_deref(), Some("0xlegacy"));
+    }
+
+    #[test]
+    fn deserializes_list_channels_created_at_hex() {
+        let channel: Channel = serde_json::from_value(serde_json::json!({
+            "channel_id": "0x1",
+            "is_public": true,
+            "pubkey": "02aa",
+            "state": "ChannelReady",
+            "local_balance": "0x1",
+            "remote_balance": "0x2",
+            "created_at": "0x19f25284afe"
+        }))
+        .unwrap();
+        assert_eq!(channel.created_at, 0x19f25284afe);
     }
 
     #[test]
@@ -1201,6 +1269,7 @@ mod tests {
             latest_commitment_transaction_hash: None,
             failure_detail: None,
             funding_udt_type_script: None,
+            created_at: 0,
         }];
         let pending = vec![
             Channel {
@@ -1217,6 +1286,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: None,
                 funding_udt_type_script: None,
+                created_at: 0,
             },
             Channel {
                 channel_id: "0xdef".into(),
@@ -1235,6 +1305,7 @@ mod tests {
                 latest_commitment_transaction_hash: None,
                 failure_detail: Some("Peer did not respond".into()),
                 funding_udt_type_script: None,
+                created_at: 0,
             },
         ];
 

@@ -64,6 +64,8 @@ pub struct OpenChannelPayload {
 #[serde(rename_all = "camelCase")]
 pub struct OpenChannelResult {
     pub channel_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -170,8 +172,19 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
 
 fn map_open_channel_error(error: String) -> String {
     let lower = error.to_ascii_lowercase();
+    // Fiber: "Peer …'s feature not found, waiting for peer to send Init message"
+    if lower.contains("waiting for peer to send init")
+        || (lower.contains("feature not found") && lower.contains("init"))
+    {
+        return "Peer is connected but has not finished the Fiber handshake yet. Wait a moment and try opening the channel again.".into();
+    }
+    // Fiber: "Cannot open channel with peer …: CHANNEL_V2 is required"
+    // Fiber: "Cannot accept Legacy channel: CHANNEL_V2 is required"
+    // Fiber: "Peer … features … are not compatible with our features …"
     if lower.contains("channel_v2")
         || lower.contains("channel v2")
+        || lower.contains("cannot accept legacy")
+        || lower.contains("not compatible with our features")
         || (lower.contains("feature") && lower.contains("channel"))
         || lower.contains("does not support")
         || (lower.contains("legacy") && lower.contains("open"))
@@ -277,7 +290,7 @@ pub async fn get_channels_page(
                 .iter()
                 .filter(|channel| {
                     (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
-                        && metadata.is_legacy_channel(&channel.channel_id)
+                        && metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
                 })
                 .count() as u32
         })
@@ -363,11 +376,18 @@ pub async fn get_channels_page(
 
     Ok(ChannelsPageResponse {
         available: true,
-        channels: channel::map_channels(channels, &catalog, |channel_id| {
+        channels: channel::map_channels(
+            channels,
+            &catalog,
+            |channel| {
+                studio_metadata.as_ref().is_some_and(|metadata| {
+                    metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
+                })
+            },
             studio_metadata
                 .as_ref()
-                .is_some_and(|metadata| metadata.is_legacy_channel(channel_id))
-        }),
+                .is_some_and(|metadata| metadata.channel_protocol_known()),
+        ),
         active_channel_count,
         pending_channel_count,
         total_capacity: total_capacity.to_string(),
@@ -519,17 +539,31 @@ pub async fn open_channel(
         );
     }
 
-    if let Ok(graph_nodes) = rpc::fetch_graph_nodes().await {
-        if let Some(peer_node) = graph_nodes
-            .iter()
-            .find(|node| peer_connect::pubkeys_equal(&node.pubkey, pubkey))
-        {
-            if !features::supports_channel_v2(&peer_node.features) {
+    let mut warnings = Vec::new();
+    // Fiber itself decides from the peer's Init features after connect; the graph is a
+    // preflight hint only (list_peers does not expose session features).
+    match rpc::find_graph_node(pubkey).await {
+        Ok(Some(peer_node)) => {
+            if !features::graph_node_supports_channel_v2(
+                &peer_node.features,
+                peer_node.version.as_deref(),
+            ) {
                 return Err(
                     "This peer is on an older Fiber version. Fiber 0.10+ can only open new channels with peers that support Channel V2. Ask them to upgrade, or open with another peer."
                         .into(),
                 );
             }
+        }
+        Ok(None) => {
+            warnings.push(
+                "Could not verify Channel V2 support for this peer (not found in the network graph yet). Private or newly announced peers may still work; Fiber will reject the open if the peer lacks Channel V2."
+                    .into(),
+            );
+        }
+        Err(error) => {
+            warnings.push(format!(
+                "Could not check the network graph for peer Channel V2 support ({error}). Proceeding; Fiber will reject the open if the peer lacks Channel V2."
+            ));
         }
     }
 
@@ -539,7 +573,10 @@ pub async fn open_channel(
         .await
         .map_err(|error| map_open_channel_error(error.to_string()))?;
 
-    Ok(OpenChannelResult { channel_id })
+    Ok(OpenChannelResult {
+        channel_id,
+        warnings,
+    })
 }
 
 #[tauri::command]

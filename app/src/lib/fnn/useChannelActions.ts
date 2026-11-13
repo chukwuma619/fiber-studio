@@ -10,13 +10,19 @@ import type {
 export function useChannelActions(onSuccess?: () => void) {
   const [isActing, setIsActing] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [actionWarning, setActionWarning] = useState<string | null>(null)
 
   const handleOpenChannel = useCallback(
     async (payload: OpenChannelPayload) => {
       setIsActing(true)
       setActionError(null)
+      setActionWarning(null)
       try {
-        await openChannel(payload)
+        const result = await openChannel(payload)
+        const warning = result.warnings?.filter(Boolean).join(" ")
+        if (warning) {
+          setActionWarning(warning)
+        }
         onSuccess?.()
       } catch (error) {
         setActionError(getErrorMessage(error))
@@ -64,11 +70,13 @@ export function useChannelActions(onSuccess?: () => void) {
 
   const clearActionError = useCallback(() => {
     setActionError(null)
+    setActionWarning(null)
   }, [])
 
   return {
     isActing,
     actionError,
+    actionWarning,
     handleOpenChannel,
     handleShutdownChannel,
     handleAbandonChannel,

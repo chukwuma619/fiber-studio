@@ -1,9 +1,27 @@
 /// Whether a Fiber feature list advertises Channel V2 support.
+///
+/// Fiber advertises `CHANNEL_V2_OPTIONAL` / `CHANNEL_V2_REQUIRED` via
+/// `FeatureVector::enabled_features_names()` (see fiber-types `feature_bits`).
 pub fn supports_channel_v2(features: &[String]) -> bool {
     features.iter().any(|feature| {
         let upper = feature.to_ascii_uppercase();
-        upper.contains("CHANNEL_V2")
+        upper == "CHANNEL_V2_OPTIONAL"
+            || upper == "CHANNEL_V2_REQUIRED"
+            || upper.contains("CHANNEL_V2")
     })
+}
+
+/// Whether a graph node should be treated as Channel V2-capable.
+/// Prefers advertised features; falls back to announced fnn version ≥ 0.10.0.
+pub fn graph_node_supports_channel_v2(features: &[String], version: Option<&str>) -> bool {
+    if supports_channel_v2(features) {
+        return true;
+    }
+    // Explicit feature list without CHANNEL_V2 means the peer does not support it.
+    if !features.is_empty() {
+        return false;
+    }
+    version.is_some_and(|raw| crate::fnn::version::version_at_least(raw, "0.10.0"))
 }
 
 /// Human-readable labels for common Fiber feature bits.
@@ -49,6 +67,21 @@ mod tests {
             "GOSSIP_QUERIES_REQUIRED".into(),
             "BASIC_MPP_REQUIRED".into(),
         ]));
+    }
+
+    #[test]
+    fn graph_node_v2_uses_features_then_version_fallback() {
+        assert!(graph_node_supports_channel_v2(
+            &["CHANNEL_V2_OPTIONAL".into()],
+            Some("0.9.1")
+        ));
+        assert!(!graph_node_supports_channel_v2(
+            &["GOSSIP_QUERIES_REQUIRED".into()],
+            Some("0.10.0")
+        ));
+        assert!(graph_node_supports_channel_v2(&[], Some("0.10.0")));
+        assert!(!graph_node_supports_channel_v2(&[], Some("0.9.1")));
+        assert!(!graph_node_supports_channel_v2(&[], None));
     }
 
     #[test]

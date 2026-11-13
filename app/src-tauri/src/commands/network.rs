@@ -618,19 +618,22 @@ pub async fn get_channel_neighborhood(
     state: State<'_, AppState>,
     payload: GetChannelNeighborhoodPayload,
 ) -> Result<NeighborhoodResponse, String> {
-    let manager = state.fnn.lock().await;
-
-    if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err(
-            "Node is not running. Start your node to view your channel neighborhood.".to_string(),
-        );
-    }
-    drop(manager);
+    let data_directory = {
+        let manager = state.fnn.lock().await;
+        if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
+            return Err(
+                "Node is not running. Start your node to view your channel neighborhood."
+                    .to_string(),
+            );
+        }
+        manager.data_directory().cloned()
+    };
 
     neighborhood::load_channel_neighborhood(
         &state.graph_index,
         payload.expand_pubkey.as_deref(),
         payload.refresh,
+        data_directory.as_deref(),
     )
     .await
     .map_err(|error| error.to_string())

@@ -861,6 +861,7 @@ pub async fn get_preflight_snapshot(
     preflight::fetch_preflight_snapshot(
         studio_metadata.network.as_str(),
         payload.payee_pubkey.as_deref(),
+        Some(data_directory.as_path()),
     )
     .await
 }

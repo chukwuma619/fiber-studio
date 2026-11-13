@@ -250,6 +250,7 @@ mod tests {
             latest_commitment_transaction_hash: None,
             failure_detail: None,
             funding_udt_type_script: None,
+            created_at: 0,
         }
     }
 

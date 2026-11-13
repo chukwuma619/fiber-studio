@@ -8,6 +8,7 @@ use super::channel;
 use super::graph_index::{self, GraphIndex, IndexedPublicChannel};
 use super::peer_connect::{self, normalize_pubkey};
 use super::rpc::{self, RpcError};
+use super::studio;
 
 pub const NEIGHBOR_LINK_LIMIT: usize = 8;
 
@@ -76,16 +77,24 @@ pub async fn load_channel_neighborhood(
     cache: &Mutex<Option<GraphIndex>>,
     expand_pubkey: Option<&str>,
     refresh: bool,
+    data_directory: Option<&std::path::Path>,
 ) -> Result<NeighborhoodResponse, RpcError> {
     let node_info = rpc::fetch_node_info().await?;
     let catalog = assets::build_asset_catalog(&node_info);
     let channels = rpc::fetch_list_channels().await?;
     let index = graph_index::cached_graph_index(cache, refresh).await?;
+    let studio_metadata = data_directory.and_then(|path| studio::read_studio_metadata(path).ok());
+    let protocol_known = studio_metadata
+        .as_ref()
+        .is_some_and(|metadata| metadata.channel_protocol_known());
     let own_channels = channels
         .into_iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))
         .map(|channel| {
-            let view = channel::to_home_channel(channel, &catalog, false);
+            let is_legacy = studio_metadata.as_ref().is_some_and(|metadata| {
+                metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
+            });
+            let view = channel::to_home_channel(channel, &catalog, is_legacy, protocol_known);
             OwnChannelInput {
                 peer_pubkey: view.pubkey,
                 is_public: view.is_public,

@@ -44,6 +44,7 @@ type OpenChannelDialogProps = {
   supportsChannelV2: boolean
   isActing: boolean
   actionError: string | null
+  actionWarning?: string | null
   onOpenChannel: (payload: OpenChannelPayload) => Promise<void>
   onClearError: () => void
 }
@@ -67,6 +68,7 @@ export function OpenChannelDialog({
   supportsChannelV2,
   isActing,
   actionError,
+  actionWarning = null,
   onOpenChannel,
   onClearError,
 }: OpenChannelDialogProps) {
@@ -377,6 +379,11 @@ export function OpenChannelDialog({
             message={actionError}
             onDismiss={onClearError}
           />
+        ) : null}
+        {actionWarning && !actionError ? (
+          <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
+            {actionWarning}
+          </Text>
         ) : null}
       </DialogBody>
 
