@@ -66,7 +66,6 @@ export type PreflightInput = {
   snapshot: PreflightSnapshot
   /** Set when the snapshot RPC failed; do not infer graph/channel blockers from an empty snapshot. */
   snapshotError?: string | null
-  jit?: boolean
 }
 
 const THIN_HEADROOM_CKB_SHANNONS = 1_000_000_000n // 10 CKB
@@ -153,7 +152,7 @@ export function classifyPreflight(input: PreflightInput): PreflightReport {
 
   if (pathFound || findings.length === 0) {
     findings.unshift(
-      findingForCode("route_ready", summary, input.payeePubkey, undefined, input.jit),
+      findingForCode("route_ready", summary, input.payeePubkey),
     )
   }
 
@@ -222,7 +221,7 @@ function classifyFailure(
   }
 
   if (readyChannels.length === 0 && payeeReady.length === 0) {
-    findings.push(findingForCode("no_ready_channels", undefined, payee, undefined, input.jit))
+    findings.push(findingForCode("no_ready_channels", undefined, payee))
   }
 
   if (
@@ -251,11 +250,11 @@ function classifyFailure(
   if (payee && !isDirectChannelPeer) {
     if (isKnownPayeeMismatch(graph, payee, input.snapshot)) {
       findings.push(
-        findingForCode("invoice_payee_mismatch", undefined, payee, undefined, input.jit),
+        findingForCode("invoice_payee_mismatch", undefined, payee),
       )
     } else if (graph?.lookupComplete && graph.inGraph && graph.neighborCount === 0) {
       findings.push(
-        findingForCode("payee_no_inbound_path", undefined, payee, undefined, input.jit),
+        findingForCode("payee_no_inbound_path", undefined, payee),
       )
     } else if (
       graph?.lookupComplete &&
@@ -264,19 +263,19 @@ function classifyFailure(
       input.snapshot.channels.length === 0
     ) {
       findings.push(
-        findingForCode("payee_no_inbound_path", undefined, payee, undefined, input.jit),
+        findingForCode("payee_no_inbound_path", undefined, payee),
       )
     }
 
     if (lacksCommonRelay(input.snapshot, graph, isDirectChannelPeer)) {
       findings.push(
-        findingForCode("payee_no_common_relays", undefined, payee, undefined, input.jit),
+        findingForCode("payee_no_common_relays", undefined, payee),
       )
     }
   }
 
   if (findings.length === 0) {
-    findings.push(findingForCode("path_not_found", undefined, payee, undefined, input.jit))
+    findings.push(findingForCode("path_not_found", undefined, payee))
   }
 
   return findings
@@ -518,7 +517,6 @@ function findingForCode(
   summary?: PreflightSummary,
   payeePubkey?: string | null,
   detail?: FindingDetail,
-  jit = false,
 ): PreflightFinding {
   switch (code) {
     case "route_ready": {
@@ -534,9 +532,8 @@ function findingForCode(
         severity: "ok",
         title: "Route ready",
         reason: `${hopLabel}${fee}${headroom}.`,
-        recommendation: jit
-          ? "The route reaches the liquidity node. That node opens a private channel to the recipient, which can take several minutes."
-          : "This payment can be sent over Fiber. Off-chain sends are irreversible once confirmed.",
+        recommendation:
+          "This payment can be sent over Fiber. Off-chain sends are irreversible once confirmed.",
         action: null,
       }
     }
@@ -558,9 +555,8 @@ function findingForCode(
         title: "No spendable balance",
         reason:
           "There is no ready channel with spendable CKB to start this payment.",
-        recommendation: jit
-          ? "You still need a ready channel of your own to reach the liquidity node. The recipient does not need a channel yet."
-          : "Add funds to open a channel with a public hub, then wait until it is ready.",
+        recommendation:
+          "Add funds to open a channel with a public hub, then wait until it is ready.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     case "channel_not_ready":
@@ -611,17 +607,12 @@ function findingForCode(
       return {
         code,
         severity: "blocker",
-        title: jit
-          ? "Liquidity node is not in the graph"
-          : "Invoice payee is not a known channel peer",
-        reason: jit
-          ? "This invoice names a liquidity node that is not in your gossip graph, so there is no route to the node that would open the channel."
-          : payeePubkey
-            ? "This invoice was issued by a node you do not have a channel with, and it is not in the local gossip graph."
-            : "The invoice payee pubkey does not match a node you have channeled with.",
-        recommendation: jit
-          ? "Connect to that liquidity node, or wait until it appears in the network graph."
-          : "Ask the recipient for an invoice from a node you already have a channel with, or add funds with a shared hub.",
+        title: "Invoice payee is not a known channel peer",
+        reason: payeePubkey
+          ? "This invoice was issued by a node you do not have a channel with, and it is not in the local gossip graph."
+          : "The invoice payee pubkey does not match a node you have channeled with.",
+        recommendation:
+          "Ask the recipient for an invoice from a node you already have a channel with, or add funds with a shared hub.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     case "payee_no_common_relays":
@@ -629,25 +620,21 @@ function findingForCode(
         code,
         severity: "blocker",
         title: "No shared public relay",
-        reason: jit
-          ? "Your node and the liquidity node are not connected through a common public hub, so there is no route to the node that opens the channel."
-          : "Your node and the recipient are not connected through a common public hub, so there is no multi-hop path.",
-        recommendation: jit
-          ? "Open a channel to a hub you share with the liquidity node, or connect to that node directly."
-          : "Connect both sides to the same official relay or community hub, then open channels to that hub.",
+        reason:
+          "Your node and the recipient are not connected through a common public hub, so there is no multi-hop path.",
+        recommendation:
+          "Connect both sides to the same official relay or community hub, then open channels to that hub.",
         action: { label: "Open Network", href: "/network" },
       }
     case "payee_no_inbound_path":
       return {
         code,
         severity: "blocker",
-        title: jit ? "Liquidity node has no inbound path" : "Receiver has no inbound path",
-        reason: jit
-          ? "The liquidity node does not appear to have a public channel that can receive this payment. The recipient does not need one yet."
-          : "The payee does not appear to have a public channel that can accept this payment.",
-        recommendation: jit
-          ? "Wait for a route to the liquidity node, or connect to it through a shared hub."
-          : "They need to open a channel to a public hub (or to you) and keep that peer online.",
+        title: "Receiver has no inbound path",
+        reason:
+          "The payee does not appear to have a public channel that can accept this payment.",
+        recommendation:
+          "They need to open a channel to a public hub (or to you) and keep that peer online.",
         action: { label: "Open Network", href: "/network" },
       }
     case "thin_liquidity_headroom":
@@ -678,12 +665,9 @@ function findingForCode(
         code,
         severity: "blocker",
         title: "No route found",
-        reason: jit
-          ? "Fiber could not build a path to the liquidity node. The recipient does not need an existing channel."
-          : "Fiber could not build a path to the recipient from your local channels and gossip graph.",
-        recommendation: jit
-          ? "Connect to the liquidity node or a hub you share with it, then try again."
-          : "Add funds with a public hub, then try again.",
+        reason:
+          "Fiber could not build a path to the recipient from your local channels and gossip graph.",
+        recommendation: "Add funds with a public hub, then try again.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     default: {

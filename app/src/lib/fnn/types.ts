@@ -146,7 +146,6 @@ export type ChannelsPageResponse = {
   legacyChannelCount: number
   showLegacyChannelNudge: boolean
   supportsChannelV2: boolean
-  jitLspPubkey?: string | null
 }
 
 export type OpenChannelPayload = {
@@ -319,19 +318,11 @@ export type ParseInvoicePreview = {
   amountRaw: string
   networkMatch: boolean
   networkWarning?: string | null
-  liquidityProvider?: string | null
-  /** Decimal shannons. Absent when the invoice has no JIT open-fee attribute. */
-  jitOpenFeeShannons?: string | null
-  jitOpenFeeDisplay?: string | null
 }
 
 export type CreateInvoiceResult = {
   invoiceAddress: string
   paymentHash: string
-  liquidityProvider?: string | null
-  jitOpenFeeShannons?: string | null
-  jitOpenFeeDisplay?: string | null
-  jitUnavailable?: boolean
 }
 
 export type SendPaymentPayload = {
@@ -357,9 +348,6 @@ export type PreviewSendPaymentResult = {
   amountDisplay: string
   assetSymbol: string
   routeHops: string[]
-  liquidityProvider?: string | null
-  jitOpenFeeShannons?: string | null
-  jitOpenFeeDisplay?: string | null
 }
 
 export type PreflightSnapshotPayload = {
@@ -541,10 +529,6 @@ export type NodeSettingsResponse = {
   fiberListeningAddr: string | null
   fiberListeningAddrs: string[]
   storeSyncWrites: boolean
-  jitLspPubkey?: string | null
-  jitMaxAmountCkb?: string | null
-  jitMaxOpenFeeCkb?: string | null
-  jitPeerPubkeys?: string[]
   ckbRpcUrl: string | null
   announcedNodeName: string | null
   connectionMode: string
@@ -567,12 +551,6 @@ export type NodeSettingsResponse = {
 
 export type UpdateStoreSyncWritesPayload = {
   enabled: boolean
-}
-
-export type UpdateJitReceiverPayload = {
-  lspPubkey: string
-  maxAmountCkb: string
-  maxOpenFeeCkb: string
 }
 
 export type UpdateFiberListeningAddrsPayload = {

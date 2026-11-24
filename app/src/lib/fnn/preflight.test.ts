@@ -347,28 +347,6 @@ describe("classifyPreflight", () => {
     expect(report.primary.code).toBe("payee_no_common_relays")
   })
 
-  it("uses jit wording when the route stops at a liquidity node", () => {
-    const report = classifyPreflight({
-      ownPubkey: SELF,
-      payeePubkey: PAYEE,
-      amountRaw: ckbHexAmount(1n),
-      assetSymbol: "CKB",
-      jit: true,
-      routePreview: preview([PEER]),
-      pathFindError: null,
-      snapshot: testSnapshot({
-        channels: [
-          testChannel({
-            pubkey: PEER,
-            localBalance: ckbHex(100n),
-          }),
-        ],
-      }),
-    })
-
-    expect(report.primary.recommendation).toMatch(/liquidity node/)
-  })
-
   it("warns on a udt route whose spare balance is small relative to the send", () => {
     const report = classifyPreflight({
       ownPubkey: SELF,

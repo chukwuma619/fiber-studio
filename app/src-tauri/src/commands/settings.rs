@@ -5,17 +5,14 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
-use crate::fnn::amounts;
 use crate::fnn::assets::{self, AssetView};
 use crate::fnn::ckb_address;
 use crate::fnn::config_read;
 use crate::fnn::config_write;
 use crate::fnn::data_directory;
 use crate::fnn::features;
-use crate::fnn::jit;
 use crate::fnn::keychain;
 use crate::fnn::manager::NodeRuntimeStatus;
-use crate::fnn::peer_connect;
 use crate::fnn::provision::{self, ProvisionRequest};
 use crate::fnn::relays;
 use crate::fnn::rpc;
@@ -34,11 +31,6 @@ pub struct NodeSettingsResponse {
     pub fiber_listening_addr: Option<String>,
     pub fiber_listening_addrs: Vec<String>,
     pub store_sync_writes: bool,
-    pub jit_lsp_pubkey: Option<String>,
-    pub jit_max_amount_ckb: Option<String>,
-    pub jit_max_open_fee_ckb: Option<String>,
-    /// Peers this wallet reconnects to. One of them can be the liquidity node.
-    pub jit_peer_pubkeys: Vec<String>,
     pub ckb_rpc_url: Option<String>,
     pub announced_node_name: Option<String>,
     pub connection_mode: String,
@@ -93,14 +85,6 @@ pub struct UpdateStoreSyncWritesPayload {
 #[serde(rename_all = "camelCase")]
 pub struct UpdateFiberListeningAddrsPayload {
     pub listening_addrs: Vec<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct UpdateJitReceiverPayload {
-    pub lsp_pubkey: String,
-    pub max_amount_ckb: String,
-    pub max_open_fee_ckb: String,
 }
 
 #[tauri::command]
@@ -275,28 +259,6 @@ async fn build_node_settings(
             .as_ref()
             .map(|config| config.store_sync_writes)
             .unwrap_or(false),
-        jit_lsp_pubkey: parsed_config
-            .as_ref()
-            .and_then(|config| config.jit_lsp_pubkey.clone()),
-        jit_max_amount_ckb: parsed_config
-            .as_ref()
-            .and_then(|config| config.jit_max_amount)
-            .map(jit::shannons_to_ckb_input),
-        jit_max_open_fee_ckb: parsed_config
-            .as_ref()
-            .and_then(|config| config.jit_max_open_fee)
-            .map(jit::shannons_to_ckb_input),
-        jit_peer_pubkeys: studio_metadata
-            .as_ref()
-            .map(|metadata| {
-                metadata
-                    .saved_peers
-                    .iter()
-                    .map(|peer| peer.pubkey.clone())
-                    .filter(|pubkey| !pubkey.trim().is_empty())
-                    .collect()
-            })
-            .unwrap_or_default(),
         ckb_rpc_url: parsed_config
             .as_ref()
             .and_then(|config| config.ckb_rpc_url.clone()),
@@ -504,70 +466,6 @@ pub async fn update_store_sync_writes(
     config_write::set_store_sync_writes(&data_directory, payload.enabled)
         .map_err(|error| format!("Failed to update store_sync_writes: {error}"))?;
     build_node_settings(&state, Some(data_directory)).await
-}
-
-#[tauri::command]
-pub async fn update_jit_receiver(
-    state: State<'_, AppState>,
-    payload: UpdateJitReceiverPayload,
-) -> Result<NodeSettingsResponse, String> {
-    let data_directory = require_node_stopped(&state).await?;
-    let pubkey = payload.lsp_pubkey.trim();
-    if pubkey.is_empty() {
-        config_write::set_jit_receiver(&data_directory, None, 0, 0)
-            .map_err(|error| format!("Failed to update just-in-time receiving: {error}"))?;
-    } else {
-        let normalized = jit::normalize_lsp_pubkey(pubkey)?;
-        if payload.max_amount_ckb.trim().is_empty() {
-            return Err(
-                "Set the largest payment you will accept on a just-in-time channel.".into(),
-            );
-        }
-        let max_amount = amounts::parse_decimal_amount_str(&payload.max_amount_ckb, 8)?;
-        if max_amount == 0 {
-            return Err(
-                "Max receive amount must be greater than zero. Clear the liquidity node to turn just-in-time receiving off."
-                    .into(),
-            );
-        }
-        if payload.max_open_fee_ckb.trim().is_empty() {
-            return Err(
-                "Set the largest open fee you will quote. Use 0 when the liquidity node charges nothing."
-                    .into(),
-            );
-        }
-        let max_open_fee = amounts::parse_decimal_amount_str(&payload.max_open_fee_ckb, 8)?;
-        config_write::set_jit_receiver(
-            &data_directory,
-            Some(&normalized),
-            max_amount,
-            max_open_fee,
-        )
-        .map_err(|error| format!("Failed to update just-in-time receiving: {error}"))?;
-        remember_liquidity_peer(&data_directory, &normalized)?;
-    }
-    build_node_settings(&state, Some(data_directory)).await
-}
-
-/// The wallet dials saved peers on startup. Registration only happens on that connection.
-fn remember_liquidity_peer(data_directory: &Path, pubkey: &str) -> Result<(), String> {
-    studio::update_studio_metadata(data_directory, |metadata| {
-        if metadata
-            .saved_peers
-            .iter()
-            .any(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
-        {
-            return false;
-        }
-        metadata.saved_peers.push(SavedPeer {
-            pubkey: pubkey.to_string(),
-            multiaddr: String::new(),
-        });
-        metadata.normalize_saved_peers();
-        true
-    })
-    .map(|_| ())
-    .map_err(|error| format!("Failed to remember the liquidity node: {error}"))
 }
 
 #[tauri::command]

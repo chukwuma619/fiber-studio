@@ -32,9 +32,7 @@ pub fn graph_node_supports_channel_v2(features: &[String], version: Option<&str>
 /// Human-readable labels for common Fiber feature bits.
 pub fn feature_display_label(feature: &str) -> &str {
     let upper = feature.to_ascii_uppercase();
-    if upper.contains("JIT_CHANNEL") {
-        "Just-in-time channels"
-    } else if upper.contains("CHANNEL_V2") {
+    if upper.contains("CHANNEL_V2") {
         "Channel V2"
     } else if upper.contains("BASIC_MPP") {
         "Multi-part payments"

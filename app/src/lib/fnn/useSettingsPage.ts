@@ -13,7 +13,6 @@ import {
   switchNetwork,
   updateCchRpcUrl,
   updateFiberListeningAddrs,
-  updateJitReceiver,
   updateStoreSyncWrites,
   updateWalletPassword,
 } from "./invoke"
@@ -38,7 +37,10 @@ function syncSetupConfigFromSettings(
   })
 }
 
-export function useSettingsPage(config: SetupConfig | null) {
+export function useSettingsPage(
+  config: SetupConfig | null,
+  nodeState: string | undefined,
+) {
   const [settings, setSettings] = useState<NodeSettingsResponse | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -62,7 +64,7 @@ export function useSettingsPage(config: SetupConfig | null) {
 
   useEffect(() => {
     void refresh()
-  }, [refresh])
+  }, [refresh, nodeState])
 
   const runMutation = useCallback(
     async (
@@ -166,19 +168,6 @@ export function useSettingsPage(config: SetupConfig | null) {
     [runMutation],
   )
 
-  const handleUpdateJitReceiver = useCallback(
-    (lspPubkey: string, maxAmountCkb: string, maxOpenFeeCkb: string) =>
-      runMutation(
-        () => updateJitReceiver({ lspPubkey, maxAmountCkb, maxOpenFeeCkb }),
-        {
-          successMessage: lspPubkey.trim()
-            ? "Just-in-time receiving saved. Start the node to apply."
-            : "Just-in-time receiving turned off. Start the node to apply.",
-        },
-      ),
-    [runMutation],
-  )
-
   const handleUpdateListeningAddrs = useCallback(
     (listeningAddrs: string[]) =>
       runMutation(() => updateFiberListeningAddrs({ listeningAddrs }), {
@@ -204,7 +193,6 @@ export function useSettingsPage(config: SetupConfig | null) {
     handleSwitchNetwork,
     handleUpdateCchRpcUrl,
     handleUpdateStoreSyncWrites,
-    handleUpdateJitReceiver,
     handleUpdateListeningAddrs,
   }
 }

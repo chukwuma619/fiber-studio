@@ -14,7 +14,6 @@ pub mod features;
 pub mod graph_index;
 pub mod invoice_display;
 pub mod invoices;
-pub mod jit;
 pub mod keychain;
 pub mod log_store;
 pub mod logs;

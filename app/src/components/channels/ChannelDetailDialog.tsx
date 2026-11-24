@@ -50,7 +50,6 @@ type Step = "detail" | "confirm-close" | "confirm-abandon"
 type ChannelDetailDialogProps = {
   open: boolean
   channel: HomeChannel | null
-  jitInbound?: boolean
   onClose: () => void
   isActing: boolean
   actionError: string | null
@@ -99,7 +98,6 @@ function closeDisabledReason(channel: {
 export function ChannelDetailDialog({
   open,
   channel,
-  jitInbound = false,
   onClose,
   isActing,
   actionError,
@@ -263,17 +261,7 @@ export function ChannelDetailDialog({
                   {channel.channelVersion === "v2" ? (
                     <Badge color="emerald">V2</Badge>
                   ) : null}
-                  {jitInbound ? (
-                    <Badge color="violet">Just-in-time</Badge>
-                  ) : null}
                 </div>
-                {jitInbound ? (
-                  <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                    Opened by your liquidity node for a payment. You funded the
-                    cell reserve. It stays private and is not announced on the
-                    public graph.
-                  </Text>
-                ) : null}
                 {channel.channelVersion === "v1" || channel.isLegacy ? (
                   <Text className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                     Opened before Fiber 0.10. Still works; close and reopen when

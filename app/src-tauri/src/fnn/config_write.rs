@@ -11,8 +11,6 @@ pub enum ConfigWriteError {
     MissingFiberSection,
     #[error("listening address must be a multiaddr starting with / and without quotes or spaces (got \"{0}\")")]
     InvalidAddr(String),
-    #[error("liquidity node pubkey must be 66 hex characters")]
-    InvalidPubkey,
     #[error("failed to read config: {0}")]
     Io(#[from] std::io::Error),
 }
@@ -123,55 +121,40 @@ fn is_jit_receiver_key(line: &str) -> bool {
         || yaml_key_matches(line, "jit_max_open_fee")
 }
 
-fn pubkey_is_safe_yaml(pubkey: &str) -> bool {
-    pubkey.len() == 66
-        && pubkey
-            .chars()
-            .all(|character| character.is_ascii_hexdigit())
-}
-
-/// Set or clear `fiber.jit_lsp_pubkey`, `jit_max_amount`, and `jit_max_open_fee`.
-pub fn set_jit_receiver(
-    data_dir: &Path,
-    lsp_pubkey: Option<&str>,
-    max_amount_shannons: u128,
-    max_open_fee_shannons: u128,
-) -> Result<(), ConfigWriteError> {
-    let path = config_path(data_dir)?;
+/// Drop leftover just-in-time receiver keys from the `fiber:` section.
+///
+/// Returns true when the file changed. Missing config is a no-op so node start
+/// can call this before the config exists.
+pub fn clear_jit_receiver(data_dir: &Path) -> Result<bool, ConfigWriteError> {
+    let path = match config_path(data_dir) {
+        Ok(path) => path,
+        Err(ConfigWriteError::NotFound) => return Ok(false),
+        Err(error) => return Err(error),
+    };
     let content = fs::read_to_string(&path)?;
     let trailing = ends_with_newline(&content);
     let lines: Vec<String> = content.lines().map(str::to_string).collect();
-    let (section_start, section_end) =
-        fiber_section_bounds(&lines).ok_or(ConfigWriteError::MissingFiberSection)?;
+    let Some((section_start, section_end)) = fiber_section_bounds(&lines) else {
+        return Ok(false);
+    };
 
     let mut kept = Vec::with_capacity(lines.len());
+    let mut removed = false;
     for (index, line) in lines.into_iter().enumerate() {
         let in_fiber = index > section_start && index < section_end;
         if in_fiber && is_jit_receiver_key(&line) {
+            removed = true;
             continue;
         }
         kept.push(line);
     }
 
-    if let Some(pubkey) = lsp_pubkey {
-        if !pubkey_is_safe_yaml(pubkey) {
-            return Err(ConfigWriteError::InvalidPubkey);
-        }
-        let block = [
-            format!("  jit_lsp_pubkey: \"{pubkey}\""),
-            format!("  jit_max_amount: {max_amount_shannons}"),
-            format!("  jit_max_open_fee: {max_open_fee_shannons}"),
-        ];
-        let insert_at = fiber_section_bounds(&kept)
-            .map(|(_, end)| end)
-            .ok_or(ConfigWriteError::MissingFiberSection)?;
-        for (offset, line) in block.into_iter().enumerate() {
-            kept.insert(insert_at + offset, line);
-        }
+    if !removed {
+        return Ok(false);
     }
 
     atomic_write(&path, &join_lines(&kept, trailing))?;
-    Ok(())
+    Ok(true)
 }
 
 /// Set `fiber.store_sync_writes` while preserving surrounding config comments.
@@ -422,34 +405,20 @@ mod tests {
     }
 
     #[test]
-    fn writes_and_clears_jit_receiver_keys() {
+    fn clears_jit_receiver_keys() {
         let dir = temp_dir();
         fs::write(
             dir.join("config.yml"),
-            "fiber:\n  listening_addr: \"/ip4/0.0.0.0/tcp/8228\"\n  # jit_lsp_pubkey: \"\"\n  chain: testnet\nrpc:\n  listening_addr: \"127.0.0.1:8227\"\nckb:\n  rpc_url: \"http://127.0.0.1:8114\"\n",
+            "fiber:\n  listening_addr: \"/ip4/0.0.0.0/tcp/8228\"\n  jit_lsp_pubkey: \"02aa\"\n  jit_max_amount: 1\n  jit_max_open_fee: 0\n  # jit_lsp_pubkey: \"\"\n  chain: testnet\nrpc:\n  listening_addr: \"127.0.0.1:8227\"\n",
         )
         .unwrap();
 
-        let pubkey = "02abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789";
-        set_jit_receiver(&dir, Some(pubkey), 1_000_000_000, 50_000_000).unwrap();
+        assert!(clear_jit_receiver(&dir).unwrap());
         let raw = fs::read_to_string(dir.join("config.yml")).unwrap();
-        assert!(raw.contains(&format!("jit_lsp_pubkey: \"{pubkey}\"")));
-        assert!(raw.contains("jit_max_amount: 1000000000"));
-        assert!(raw.contains("jit_max_open_fee: 50000000"));
+        assert!(!raw.contains("jit_"));
         assert!(raw.contains("chain: testnet"));
-        assert!(!raw.contains("# jit_lsp_pubkey"));
-        let parsed = crate::fnn::config_read::read_node_config(&dir).unwrap();
-        assert_eq!(parsed.jit_lsp_pubkey.as_deref(), Some(pubkey));
-        assert_eq!(parsed.jit_max_amount, Some(1_000_000_000));
-        assert_eq!(parsed.jit_max_open_fee, Some(50_000_000));
-        let rpc_at = raw.find("\nrpc:").unwrap();
-        let jit_at = raw.find("jit_lsp_pubkey").unwrap();
-        assert!(jit_at < rpc_at);
-
-        set_jit_receiver(&dir, None, 0, 0).unwrap();
-        let cleared = fs::read_to_string(dir.join("config.yml")).unwrap();
-        assert!(!cleared.contains("jit_"));
-        assert!(cleared.contains("chain: testnet"));
+        assert!(raw.contains("listening_addr: \"127.0.0.1:8227\""));
+        assert!(!clear_jit_receiver(&dir).unwrap());
         let _ = fs::remove_dir_all(dir);
     }
 }

@@ -82,7 +82,6 @@ pub fn run() {
             commands::settings::is_network_provisioned,
             commands::settings::migrate_legacy_data_directory,
             commands::settings::update_store_sync_writes,
-            commands::settings::update_jit_receiver,
             commands::settings::update_fiber_listening_addrs,
             commands::settings::dismiss_legacy_channel_nudge,
         ])

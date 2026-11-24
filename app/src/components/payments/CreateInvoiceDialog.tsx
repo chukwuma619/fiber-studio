@@ -39,19 +39,6 @@ function currencyLabel(network: string | null): string {
   return invoiceCurrencyLabel(network)
 }
 
-function invoiceReceiveNote(result: CreateInvoiceResult): string | null {
-  if (result.liquidityProvider) {
-    if (result.jitOpenFeeDisplay) {
-      return `No channel with you is required. The payer covers a ${result.jitOpenFeeDisplay} open fee.`
-    }
-    return "No channel with you is required for this invoice."
-  }
-  if (result.jitUnavailable) {
-    return "This invoice needs a route to you. Add funds if you do not have a channel yet."
-  }
-  return null
-}
-
 export function CreateInvoiceDialog({
   open,
   onClose,
@@ -68,7 +55,6 @@ export function CreateInvoiceDialog({
   const [expiryHours, setExpiryHours] = useState("24")
   const [note, setNote] = useState("")
   const [invoiceAddress, setInvoiceAddress] = useState<string | null>(null)
-  const [jitNote, setJitNote] = useState<string | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
 
   const catalog = assets.length > 0 ? assets : [defaultAsset([])]
@@ -82,7 +68,6 @@ export function CreateInvoiceDialog({
       setExpiryHours("24")
       setNote("")
       setInvoiceAddress(null)
-      setJitNote(null)
       setLocalError(null)
       onClearError()
     }
@@ -113,7 +98,6 @@ export function CreateInvoiceDialog({
         udtTypeScript: selectedAsset.udtTypeScript ?? undefined,
       })
       setInvoiceAddress(result.invoiceAddress)
-      setJitNote(invoiceReceiveNote(result))
     } catch {
       // actionError is set by the hook
     }
@@ -213,10 +197,7 @@ export function CreateInvoiceDialog({
               invoiceAddress={invoiceAddress}
               currency={currency}
               assetSymbol={selectedAsset.symbol}
-              subtitle={
-                jitNote ??
-                "Scan the QR code or share the Bech32m string with the payer"
-              }
+              subtitle="Scan the QR code or share the Bech32m string with the payer"
             />
           ) : null}
         </FieldGroup>

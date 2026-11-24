@@ -136,18 +136,16 @@ export function SendPaymentPanel({
   const inspectRoute = useCallback(
     async (args: {
       payeePubkey: string | null
-      liquidityProvider?: string | null
       amountRaw: bigint | null
       assetSymbol: string
       preview: PreviewSendPaymentResult | null
       pathFindError: string | null
     }) => {
-      const routePubkey = args.liquidityProvider ?? args.payeePubkey
       let snapshot = EMPTY_PREFLIGHT_SNAPSHOT
       let snapshotError: string | null = null
       try {
         snapshot = await onGetPreflightSnapshot({
-          payeePubkey: routePubkey ?? undefined,
+          payeePubkey: args.payeePubkey ?? undefined,
         })
       } catch (error) {
         snapshotError = getErrorMessage(error)
@@ -155,8 +153,7 @@ export function SendPaymentPanel({
 
       return classifyPreflight({
         ownPubkey: snapshot.ownPubkey,
-        payeePubkey: routePubkey,
-        jit: Boolean(args.liquidityProvider),
+        payeePubkey: args.payeePubkey,
         amountRaw: args.amountRaw,
         assetSymbol: args.assetSymbol,
         routePreview: args.preview,
@@ -306,7 +303,6 @@ export function SendPaymentPanel({
 
           const report = await inspectRoute({
             payeePubkey: preview.payeePubkey ?? null,
-            liquidityProvider: preview.liquidityProvider,
             amountRaw: parseAmountRaw(preview.amountRaw),
             assetSymbol: preview.assetSymbol,
             preview: route,
@@ -818,9 +814,6 @@ export function SendPaymentPanel({
           mode={sendMode === "keysend" ? "keysend" : "invoice"}
           invoice={invoice.trim()}
           targetPubkey={targetPubkey.trim()}
-          jitLiquidityProvider={parsedInvoice?.liquidityProvider ?? null}
-          jitOpenFeeShannons={parsedInvoice?.jitOpenFeeShannons ?? null}
-          jitOpenFeeDisplay={parsedInvoice?.jitOpenFeeDisplay ?? null}
           preview={reviewSnapshot}
           isActing={isActing}
           actionError={actionError}

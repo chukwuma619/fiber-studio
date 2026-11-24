@@ -48,9 +48,8 @@ export function SettingsPage() {
     handleSwitchNetwork,
     handleUpdateCchRpcUrl,
     handleUpdateStoreSyncWrites,
-    handleUpdateJitReceiver,
     handleUpdateListeningAddrs,
-  } = useSettingsPage(config)
+  } = useSettingsPage(config, status?.state)
 
   const nodeStopped =
     status?.state === "stopped" || status?.state === "error" || !status
@@ -99,7 +98,6 @@ export function SettingsPage() {
             nodeStopped={nodeStopped}
             isActing={isActing}
             onUpdateStoreSyncWrites={handleUpdateStoreSyncWrites}
-            onUpdateJitReceiver={handleUpdateJitReceiver}
             onUpdateListeningAddrs={handleUpdateListeningAddrs}
           />
           <CrossChainSettingsSection

@@ -9,7 +9,6 @@ use crate::fnn::channel::{
     min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances,
     sum_remote_balances, sum_total_capacity, HomeChannel,
 };
-use crate::fnn::config_read;
 use crate::fnn::features;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
@@ -54,8 +53,6 @@ pub struct ChannelsPageResponse {
     pub legacy_channel_count: u32,
     pub show_legacy_channel_nudge: bool,
     pub supports_channel_v2: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub jit_lsp_pubkey: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -176,7 +173,6 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         legacy_channel_count: 0,
         show_legacy_channel_nudge: false,
         supports_channel_v2: false,
-        jit_lsp_pubkey: None,
     }
 }
 
@@ -481,11 +477,6 @@ pub async fn get_channels_page(state: State<'_, AppState>) -> Result<ChannelsPag
         legacy_channel_count,
         show_legacy_channel_nudge,
         supports_channel_v2,
-        jit_lsp_pubkey: data_directory.as_ref().and_then(|path| {
-            config_read::read_node_config(path)
-                .ok()
-                .and_then(|config| config.jit_lsp_pubkey)
-        }),
     })
 }
 

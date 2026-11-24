@@ -33,12 +33,6 @@ struct FiberSection {
     chain: Option<String>,
     #[serde(default)]
     store_sync_writes: Option<bool>,
-    #[serde(default)]
-    jit_lsp_pubkey: Option<String>,
-    #[serde(default)]
-    jit_max_amount: Option<u128>,
-    #[serde(default)]
-    jit_max_open_fee: Option<u128>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -62,9 +56,6 @@ pub struct ParsedNodeConfig {
     pub rpc_listening_addr: Option<String>,
     pub ckb_rpc_url: Option<String>,
     pub store_sync_writes: bool,
-    pub jit_lsp_pubkey: Option<String>,
-    pub jit_max_amount: Option<u128>,
-    pub jit_max_open_fee: Option<u128>,
 }
 
 pub fn read_node_config(data_dir: &Path) -> Result<ParsedNodeConfig, ConfigReadError> {
@@ -90,13 +81,6 @@ pub fn read_node_config(data_dir: &Path) -> Result<ParsedNodeConfig, ConfigReadE
         rpc_listening_addr: parsed.rpc.listening_addr,
         ckb_rpc_url: parsed.ckb.rpc_url,
         store_sync_writes: parsed.fiber.store_sync_writes.unwrap_or(false),
-        jit_lsp_pubkey: parsed
-            .fiber
-            .jit_lsp_pubkey
-            .map(|pubkey| pubkey.trim().to_string())
-            .filter(|pubkey| !pubkey.is_empty()),
-        jit_max_amount: parsed.fiber.jit_max_amount,
-        jit_max_open_fee: parsed.fiber.jit_max_open_fee,
     })
 }
 
@@ -126,7 +110,7 @@ mod tests {
     }
 
     #[test]
-    fn reads_fiber_rpc_and_jit_fields() {
+    fn reads_fiber_and_rpc_fields() {
         let dir = temp_dir();
         fs::write(
             dir.join("config.yml"),
@@ -140,9 +124,6 @@ fiber:
   announced_node_name: "fiber-studio"
   chain: testnet
   store_sync_writes: true
-  jit_lsp_pubkey: "  02aa  "
-  jit_max_amount: 10
-  jit_max_open_fee: 0
 rpc:
   listening_addr: "127.0.0.1:8230"
 ckb:
@@ -163,9 +144,6 @@ ckb:
         assert_eq!(config.announced_node_name.as_deref(), Some("fiber-studio"));
         assert_eq!(config.chain.as_deref(), Some("testnet"));
         assert!(config.store_sync_writes);
-        assert_eq!(config.jit_lsp_pubkey.as_deref(), Some("02aa"));
-        assert_eq!(config.jit_max_amount, Some(10));
-        assert_eq!(config.jit_max_open_fee, Some(0));
         assert_eq!(config.rpc_listening_addr.as_deref(), Some("127.0.0.1:8230"));
         assert_eq!(
             config.ckb_rpc_url.as_deref(),
@@ -175,17 +153,12 @@ ckb:
     }
 
     #[test]
-    fn defaults_sync_writes_off_and_drops_a_blank_jit_pubkey() {
+    fn defaults_sync_writes_off() {
         let dir = temp_dir();
-        fs::write(
-            dir.join("config.yml"),
-            "fiber:\n  jit_lsp_pubkey: \"   \"\nrpc: {}\nckb: {}\n",
-        )
-        .unwrap();
+        fs::write(dir.join("config.yml"), "fiber: {}\nrpc: {}\nckb: {}\n").unwrap();
 
         let config = read_node_config(&dir).unwrap();
         assert!(!config.store_sync_writes);
-        assert!(config.jit_lsp_pubkey.is_none());
         assert!(config.fiber_listening_addrs.is_empty());
         let _ = fs::remove_dir_all(dir);
     }

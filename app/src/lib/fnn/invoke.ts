@@ -45,7 +45,6 @@ import type {
   SwitchNetworkPayload,
   UpdateCchRpcUrlPayload,
   UpdateFiberListeningAddrsPayload,
-  UpdateJitReceiverPayload,
   UpdateStoreSyncWritesPayload,
   CchOrderView,
   CchSendBtcPayload,
@@ -306,12 +305,6 @@ export async function updateStoreSyncWrites(
   payload: UpdateStoreSyncWritesPayload,
 ): Promise<NodeSettingsResponse> {
   return invoke<NodeSettingsResponse>("update_store_sync_writes", { payload })
-}
-
-export async function updateJitReceiver(
-  payload: UpdateJitReceiverPayload,
-): Promise<NodeSettingsResponse> {
-  return invoke<NodeSettingsResponse>("update_jit_receiver", { payload })
 }
 
 export async function updateFiberListeningAddrs(
