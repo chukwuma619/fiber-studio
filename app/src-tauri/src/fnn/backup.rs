@@ -59,3 +59,52 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> std::io::Result<()> 
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_dir() -> PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("fiber-studio-backup-{nanos}"));
+        fs::create_dir_all(&dir).expect("mkdir");
+        dir
+    }
+
+    #[test]
+    fn copies_nested_files_into_a_timestamped_sibling() {
+        let parent = temp_dir();
+        let source = parent.join("fiber-studio-testnet");
+        fs::create_dir_all(source.join("ckb")).unwrap();
+        fs::write(source.join("config.yml"), "fiber: {}\n").unwrap();
+        fs::write(source.join("ckb").join("key"), "secret\n").unwrap();
+
+        let destination = backup_data_directory(&source).unwrap();
+        assert!(destination
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("fiber-studio-testnet-backup-"));
+        assert_eq!(
+            fs::read_to_string(destination.join("config.yml")).unwrap(),
+            "fiber: {}\n"
+        );
+        assert_eq!(
+            fs::read_to_string(destination.join("ckb").join("key")).unwrap(),
+            "secret\n"
+        );
+        let _ = fs::remove_dir_all(parent);
+    }
+
+    #[test]
+    fn missing_directory_is_an_error() {
+        let missing = std::env::temp_dir().join("fiber-studio-backup-missing-dir");
+        let error = backup_data_directory(&missing).unwrap_err();
+        assert!(error.contains("does not exist"));
+    }
+}

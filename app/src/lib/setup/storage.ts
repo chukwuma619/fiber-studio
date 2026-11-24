@@ -46,12 +46,22 @@ export function loadSetupConfig(): SetupConfig | null {
   try {
     const parsed = JSON.parse(raw) as Partial<SetupConfig>
     const network = (parsed.network as NetworkChoice | undefined) ?? "testnet"
+    const {
+      importedPrivateKey: storedKey,
+      password: storedPassword,
+      passwordConfirm: storedPasswordConfirm,
+      ...persisted
+    } = parsed
+    const storedSecrets = Boolean(
+      storedKey || storedPassword || storedPasswordConfirm,
+    )
     const config = normalizeDataDirectory({
       ...createDefaultSetupConfig(),
-      ...parsed,
+      ...persisted,
       network,
     })
     const needsSave =
+      storedSecrets ||
       parsed.dataDirectory !== config.dataDirectory ||
       isLegacyDataDirectoryPath(parsed.dataDirectory ?? "")
     if (needsSave) {

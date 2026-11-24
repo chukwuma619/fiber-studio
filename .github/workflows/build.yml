@@ -16,7 +16,32 @@ jobs:
       - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
+      - run: bun run test
       - run: bun run build
+
+  test-rust:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            pkg-config \
+            libssl-dev \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./app/src-tauri -> target
+          prefix-key: v1-rust-test
+      - name: test the node library
+        working-directory: app
+        run: cargo test --manifest-path src-tauri/Cargo.toml --lib
 
   build-website:
     runs-on: ubuntu-latest

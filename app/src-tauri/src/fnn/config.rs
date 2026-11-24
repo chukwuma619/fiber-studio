@@ -33,3 +33,31 @@ pub fn build_config_yaml(network: &str) -> Result<String, ConfigError> {
 
     Ok(yaml)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn testnet_config_announces_fiber_studio_and_keeps_the_testnet_rpc() {
+        let yaml = build_config_yaml("testnet").unwrap();
+        assert!(yaml.contains(r#"announced_node_name: "fiber-studio""#));
+        assert!(!yaml.contains(r#"announced_node_name: "my-fiber-node""#));
+        assert!(yaml.contains("https://testnet.ckbapp.dev/"));
+        assert!(yaml.contains("chain: testnet"));
+    }
+
+    #[test]
+    fn mainnet_config_points_at_the_public_ckb_endpoint() {
+        let yaml = build_config_yaml("mainnet").unwrap();
+        assert!(yaml.contains(MAINNET_CKB_RPC_URL));
+        assert!(!yaml.contains(r#"rpc_url: "http://127.0.0.1:8114/""#));
+        assert!(yaml.contains("chain: mainnet"));
+    }
+
+    #[test]
+    fn rejects_an_unknown_network() {
+        let error = build_config_yaml("devnet").unwrap_err();
+        assert!(error.to_string().contains("devnet"));
+    }
+}

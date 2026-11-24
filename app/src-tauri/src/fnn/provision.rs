@@ -121,3 +121,113 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
+    use std::path::Path;
+
+    fn temp_dir() -> std::path::PathBuf {
+        let nanos = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("time")
+            .as_nanos();
+        let dir = std::env::temp_dir().join(format!("fiber-studio-provision-{nanos}"));
+        fs::create_dir_all(&dir).expect("mkdir");
+        dir
+    }
+
+    fn request(dir: &Path, key: Option<&str>, custom_pubkey: &str) -> ProvisionRequest {
+        ProvisionRequest {
+            network: "testnet".to_string(),
+            data_directory: dir.display().to_string(),
+            key_file_mode: "import".to_string(),
+            key_file_path: String::new(),
+            imported_private_key: key.map(str::to_string),
+            custom_public_node_pubkey: custom_pubkey.to_string(),
+            custom_public_node_multiaddr: "/ip4/127.0.0.1/tcp/8228".to_string(),
+        }
+    }
+
+    #[test]
+    fn import_strips_the_key_prefix_and_saves_official_relays() {
+        let dir = temp_dir();
+        let key = "ab".repeat(32);
+        provision_data_directory(&request(&dir, Some(&format!("0X{key}\nignored")), "")).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(dir.join("ckb").join("key")).unwrap(),
+            format!("{key}\n")
+        );
+        #[cfg(unix)]
+        {
+            let mode = fs::metadata(dir.join("ckb").join("key"))
+                .unwrap()
+                .permissions()
+                .mode()
+                & 0o777;
+            assert_eq!(mode, 0o600);
+        }
+        let config = fs::read_to_string(dir.join("config.yml")).unwrap();
+        assert!(config.contains("chain: testnet"));
+        let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
+        assert_eq!(metadata.saved_peers.len(), 2);
+        assert!(metadata
+            .saved_peers
+            .iter()
+            .all(|peer| relays::is_official_relay_pubkey("testnet", &peer.pubkey)));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn adds_a_custom_peer_once_and_skips_an_official_duplicate() {
+        let dir = temp_dir();
+        let official = relays::relays_for_network("testnet")
+            .into_iter()
+            .next()
+            .unwrap()
+            .pubkey;
+        provision_data_directory(&request(&dir, Some("cd"), &official)).unwrap();
+        let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
+        assert_eq!(metadata.saved_peers.len(), 2);
+        let _ = fs::remove_dir_all(&dir);
+
+        let dir = temp_dir();
+        let custom = "02".to_string() + &"aa".repeat(32);
+        provision_data_directory(&request(&dir, Some("cd"), &custom)).unwrap();
+        let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
+        assert_eq!(metadata.saved_peers.len(), 3);
+        assert!(metadata
+            .saved_peers
+            .iter()
+            .any(|peer| peer.pubkey == custom));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn rejects_an_empty_directory_a_missing_key_and_a_missing_existing_file() {
+        let dir = temp_dir();
+        let mut empty = request(&dir, Some("aa"), "");
+        empty.data_directory = "  ".to_string();
+        assert!(matches!(
+            provision_data_directory(&empty),
+            Err(ProvisionError::EmptyDataDirectory)
+        ));
+
+        assert!(matches!(
+            provision_data_directory(&request(&dir, None, "")),
+            Err(ProvisionError::MissingImportedKey)
+        ));
+
+        let mut existing = request(&dir, None, "");
+        existing.key_file_mode = "existing".to_string();
+        existing.key_file_path = "ckb/key".to_string();
+        assert!(matches!(
+            provision_data_directory(&existing),
+            Err(ProvisionError::KeyFileNotFound(_))
+        ));
+        let _ = fs::remove_dir_all(dir);
+    }
+}

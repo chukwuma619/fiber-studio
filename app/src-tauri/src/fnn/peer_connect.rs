@@ -30,7 +30,12 @@ pub fn pubkeys_equal(left: &str, right: &str) -> bool {
 }
 
 pub fn normalize_pubkey(pubkey: &str) -> String {
-    pubkey.trim().trim_start_matches("0x").to_ascii_lowercase()
+    let trimmed = pubkey.trim();
+    let hex = match trimmed.get(..2) {
+        Some(prefix) if prefix.eq_ignore_ascii_case("0x") => &trimmed[2..],
+        _ => trimmed,
+    };
+    hex.to_ascii_lowercase()
 }
 
 pub fn relay_status_for_peers(

@@ -18,6 +18,15 @@ export function formatCkb(shannons: bigint | string): string {
   return `${whole}.${fractionStr}`
 }
 
+/** Convert a CKB amount to shannons, rounded to 8 decimal places. */
 export function ckbToShannons(ckb: number): bigint {
-  return BigInt(ckb) * SHANNONS_PER_CKB
+  if (!Number.isFinite(ckb)) {
+    throw new RangeError("CKB amount must be a finite number.")
+  }
+  const negative = ckb < 0
+  const [wholePart, fracPart = ""] = Math.abs(ckb).toFixed(8).split(".")
+  const raw =
+    BigInt(wholePart) * SHANNONS_PER_CKB +
+    BigInt(fracPart.padEnd(8, "0").slice(0, 8))
+  return negative ? -raw : raw
 }

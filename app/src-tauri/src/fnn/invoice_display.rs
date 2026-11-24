@@ -186,3 +186,132 @@ fn expires_in_label(created_at: &str, expiry_seconds: u64, status: &str) -> Opti
         Some(format!("{minutes}m"))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fnn::assets::{self, AssetView};
+    use crate::fnn::rpc::{CkbInvoice, CkbInvoiceStatus, GetInvoiceResult, InvoiceData};
+
+    fn stored(
+        description: Option<&str>,
+        created_at: DateTime<Utc>,
+        expiry_seconds: u64,
+    ) -> StoredInvoice {
+        StoredInvoice {
+            payment_hash: "0xabc".to_string(),
+            invoice_address: "fibt1".to_string(),
+            amount_shannons: "0x5f5e100".to_string(),
+            description: description.map(str::to_string),
+            created_at: created_at.to_rfc3339(),
+            expiry_seconds,
+            udt_type_script: None,
+            asset_name: None,
+        }
+    }
+
+    fn live(status: CkbInvoiceStatus, amount: Option<&str>) -> GetInvoiceResult {
+        GetInvoiceResult {
+            invoice_address: "fibt1".to_string(),
+            status,
+            invoice: CkbInvoice {
+                currency: Some("Fibt".to_string()),
+                amount: amount.map(str::to_string),
+                data: InvoiceData {
+                    payment_hash: "0xabc".to_string(),
+                    attrs: Vec::new(),
+                },
+                udt_type_script: None,
+            },
+        }
+    }
+
+    fn item(status: &str) -> InvoiceListItem {
+        InvoiceListItem {
+            payment_hash: status.to_string(),
+            invoice_address: "fibt1".to_string(),
+            amount_display: "1 CKB".to_string(),
+            asset_symbol: "CKB".to_string(),
+            note: "—".to_string(),
+            status: status.to_string(),
+            expires_in: None,
+        }
+    }
+
+    #[test]
+    fn incoming_list_keeps_every_received_invoice_and_caps_paid() {
+        let items = vec![
+            item("Open"),
+            item("Received"),
+            item("Paid"),
+            item("Cancelled"),
+            item("Paid"),
+        ];
+
+        let incoming = select_incoming_invoices(&items, 1);
+        assert_eq!(
+            incoming
+                .iter()
+                .map(|item| item.status.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Received", "Paid"]
+        );
+        assert_eq!(incoming[1].payment_hash, "Paid");
+    }
+
+    #[test]
+    fn stored_invoice_uses_ckb_and_hides_a_blank_note() {
+        let item = stored_invoice_to_item(
+            stored(Some("   "), Utc::now(), 3 * 60 * 60),
+            None,
+            &[assets::ckb_asset()],
+        );
+
+        assert_eq!(item.status, "Open");
+        assert_eq!(item.note, "—");
+        assert_eq!(item.amount_display, "1 CKB");
+        let expires = item.expires_in.expect("open invoice expires");
+        assert!(expires.contains('h'), "{expires}");
+    }
+
+    #[test]
+    fn live_invoice_overrides_status_amount_and_drops_expiry() {
+        let item = stored_invoice_to_item(
+            stored(Some("rent"), Utc::now(), 3600),
+            Some(&live(CkbInvoiceStatus::Paid, Some("0x2"))),
+            &[assets::ckb_asset()],
+        );
+
+        assert_eq!(item.status, "Paid");
+        assert_eq!(item.note, "rent");
+        assert_eq!(item.amount_display, "0.00000002 CKB");
+        assert!(item.expires_in.is_none());
+    }
+
+    #[test]
+    fn past_expiry_is_labeled_even_while_the_status_is_still_open() {
+        let created = Utc::now() - chrono::Duration::hours(3);
+        let item = stored_invoice_to_item(stored(None, created, 60), None, &[assets::ckb_asset()]);
+
+        assert_eq!(item.expires_in.as_deref(), Some("Expired"));
+    }
+
+    #[test]
+    fn asset_name_selects_the_catalog_entry() {
+        let mut record = stored(None, Utc::now(), 120);
+        record.amount_shannons = "0x96".to_string();
+        record.asset_name = Some("rusd".to_string());
+        let catalog = [AssetView {
+            id: "rusd".to_string(),
+            name: "RUSD".to_string(),
+            symbol: "RUSD".to_string(),
+            decimals: 2,
+            udt_type_script: None,
+        }];
+
+        let item = stored_invoice_to_item(record, None, &catalog);
+        assert_eq!(item.asset_symbol, "RUSD");
+        assert_eq!(item.amount_display, "1.5 RUSD");
+        assert!(item.expires_in.unwrap().ends_with('m'));
+    }
+}

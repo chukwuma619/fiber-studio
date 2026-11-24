@@ -287,7 +287,7 @@ function classifyThinHeadroom(
   summary: PreflightSummary,
 ): PreflightFinding | null {
   const amount = input.amountRaw ?? 0n
-  if (amount <= 0n || summary.liquidityHeadroomDisplay == null) {
+  if (amount <= 0n) {
     return null
   }
 
@@ -312,6 +312,10 @@ function classifyThinHeadroom(
       needed: formatAssetAmount(amount + fee, input.assetSymbol),
       available: formatAssetAmount(local, input.assetSymbol),
     })
+  }
+
+  if (summary.liquidityHeadroomDisplay == null) {
+    return null
   }
 
   const thinAbsolute =
