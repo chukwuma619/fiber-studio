@@ -34,4 +34,4 @@ pub mod spawn;
 pub mod studio;
 pub mod version;
 
-pub const FNN_VERSION: &str = "0.10.0";
+pub const FNN_VERSION: &str = "0.10.1";

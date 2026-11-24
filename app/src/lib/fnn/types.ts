@@ -1,4 +1,4 @@
-export const FNN_VERSION = "0.10.0"
+export const FNN_VERSION = "0.10.1"
 
 export type NodeStatusState =
   | { state: "stopped" }
