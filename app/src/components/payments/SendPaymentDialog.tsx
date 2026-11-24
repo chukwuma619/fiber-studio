@@ -8,6 +8,7 @@ import {
   sanitizePaymentError,
 } from "../../lib/fnn/format"
 import { buildSendOptions } from "../../lib/fnn/maxFee"
+import type { SendFundingPlan } from "../../lib/fnn/sendFunding"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -29,7 +30,7 @@ import { Input } from "../ui/input"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
 
-type Step = "review" | "inflight" | "success" | "failure"
+type Step = "review" | "funding" | "inflight" | "success" | "failure"
 
 type SendPaymentDialogProps = {
   open: boolean
@@ -48,6 +49,9 @@ type SendPaymentDialogProps = {
   onGetPayment: (paymentHash: string) => Promise<SendPaymentResult>
   onPaymentSettled: () => void
   onClearError: () => void
+  fundingPlan?: SendFundingPlan | null
+  onPrepareFunding?: (plan: SendFundingPlan) => Promise<void>
+  amountLabel?: string | null
 }
 
 const PAYMENT_POLL_INTERVAL_MS = 2_000
@@ -78,6 +82,9 @@ export function SendPaymentDialog({
   onGetPayment,
   onPaymentSettled,
   onClearError,
+  fundingPlan = null,
+  onPrepareFunding,
+  amountLabel = null,
 }: SendPaymentDialogProps) {
   const [step, setStep] = useState<Step>("review")
   const [result, setResult] = useState<SendPaymentResult | null>(null)
@@ -86,6 +93,7 @@ export function SendPaymentDialog({
     String(DEFAULT_TIMEOUT_SECONDS),
   )
   const [localError, setLocalError] = useState<string | null>(null)
+  const [fundingMessage, setFundingMessage] = useState<string | null>(null)
   const [frozenPreview, setFrozenPreview] =
     useState<PreviewSendPaymentResult | null>(null)
   const pollStartedAtRef = useRef<number | null>(null)
@@ -101,6 +109,7 @@ export function SendPaymentDialog({
       setMaxFeeCkb("")
       setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
       setLocalError(null)
+      setFundingMessage(null)
       pollStartedAtRef.current = null
       setFrozenPreview(preview)
       return
@@ -112,6 +121,7 @@ export function SendPaymentDialog({
       setMaxFeeCkb("")
       setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
       setLocalError(null)
+      setFundingMessage(null)
       pollStartedAtRef.current = null
       setFrozenPreview(null)
     }
@@ -243,6 +253,13 @@ export function SendPaymentDialog({
     const sendOptions = sendOptionsResult.options
 
     try {
+      if (fundingPlan && onPrepareFunding) {
+        setFundingMessage(
+          `Moving ${fundingPlan.fundingCkb.toLocaleString()} CKB from your wallet into Fiber…`,
+        )
+        setStep("funding")
+        await onPrepareFunding(fundingPlan)
+      }
       const paymentResult =
         mode === "keysend" && keysendPayload
           ? await onSendKeysendPayment({ ...keysendPayload, ...sendOptions })
@@ -251,12 +268,13 @@ export function SendPaymentDialog({
     } catch (error) {
       const recovered = await recoverExistingPaymentSession(error)
       if (!recovered) {
+        setLocalError(getErrorMessage(error))
         setStep("failure")
       }
     }
   }
 
-  const displayAmount = activePreview?.amountDisplay ?? "—"
+  const displayAmount = activePreview?.amountDisplay ?? amountLabel ?? "—"
   const displayFee =
     activePreview?.feeShannons != null
       ? `${formatCkb(activePreview.feeShannons)} CKB`
@@ -264,7 +282,7 @@ export function SendPaymentDialog({
   const isKeysend = mode === "keysend"
   const displayError = localError ?? (step === "review" ? actionError : null)
 
-  const rawFailureError = result?.failedError ?? actionError ?? null
+  const rawFailureError = result?.failedError ?? localError ?? actionError ?? null
   const existingSession = rawFailureError
     ? parseExistingPaymentSession(rawFailureError)
     : null
@@ -298,11 +316,13 @@ export function SendPaymentDialog({
       ? isKeysend
         ? "Review keysend"
         : "Review payment"
-      : step === "inflight"
-        ? "Payment in progress"
-        : step === "success"
-          ? "Payment sent"
-          : "Payment failed"
+      : step === "funding"
+        ? "Moving CKB into Fiber"
+        : step === "inflight"
+          ? "Payment in progress"
+          : step === "success"
+            ? "Payment sent"
+            : "Payment failed"
 
   return (
     <Dialog open={open} onClose={handleClose} size="lg">
@@ -386,12 +406,32 @@ export function SendPaymentDialog({
               />
             ) : null}
 
+            {fundingPlan ? (
+              <div className="rounded-md bg-zinc-100 px-3 py-2 text-xs text-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
+                This send moves {fundingPlan.fundingCkb.toLocaleString()} CKB
+                from your wallet into a channel with {fundingPlan.providerLabel}{" "}
+                first. That channel can send this payment and receive later.
+              </div>
+            ) : null}
+
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               Off-chain Fiber payments are irreversible once confirmed.
               {maxFeeCkb.trim() === ""
                 ? " With Max fee empty, FNN applies its own default maximum fee cap (typically around 0.5% of the payment)."
                 : null}
             </div>
+          </div>
+        ) : step === "funding" ? (
+          <div className="flex flex-col items-center py-4 text-center">
+            <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/50">
+              <StatusDot tone="warning" />
+            </div>
+            <Text className="text-sm font-medium text-zinc-950 dark:text-white">
+              {fundingMessage}
+            </Text>
+            <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+              {displayAmount} sends after the channel can spend it.
+            </Text>
           </div>
         ) : step === "inflight" ? (
           <div className="flex flex-col items-center py-4 text-center">
@@ -489,10 +529,14 @@ export function SendPaymentDialog({
               Cancel
             </Button>
             <Button onClick={() => void handleConfirm()} disabled={isActing}>
-              {isActing ? "Sending…" : "Confirm send"}
+              {isActing
+                ? "Sending…"
+                : fundingPlan
+                  ? "Move CKB and send"
+                  : "Confirm send"}
             </Button>
           </>
-        ) : step === "inflight" ? (
+        ) : step === "funding" || step === "inflight" ? (
           <Button plain onClick={handleClose}>
             Close
           </Button>

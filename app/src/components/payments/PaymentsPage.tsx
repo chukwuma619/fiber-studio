@@ -248,6 +248,8 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           relayStatus={data?.relayStatus ?? "not_configured"}
           sendTargets={sendTargets}
           assets={data?.assets ?? []}
+          inChannelTotals={data?.inChannelTotals ?? []}
+          walletCkb={data?.onChainWalletCkb ?? null}
           cchConfigured={cchConfigured}
           isActing={isActing}
           actionError={actionError}

@@ -1,12 +1,20 @@
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { parseHexU128 } from "../../lib/fnn/ckbAmount"
 import { getErrorMessage } from "../../lib/fnn/errors"
 import {
   invoiceCurrencyLabel,
   parseExistingPaymentSession,
   paymentErrorSummary,
 } from "../../lib/fnn/format"
+import { getChannelsPage, openChannel } from "../../lib/fnn/invoke"
 import { relaySendPaymentWarning } from "../../lib/fnn/relay"
+import {
+  planSendFunding,
+  waitForSpendableChannel,
+  type SendFundingPlan,
+} from "../../lib/fnn/sendFunding"
 import type {
+  AssetChannelTotals,
   AssetView,
   CchOrderView,
   KeysendPaymentPayload,
@@ -67,6 +75,8 @@ type SendPaymentPanelProps = {
   relayStatus: RelayConnectionStatus
   sendTargets: PaymentsSendTarget[]
   assets: AssetView[]
+  inChannelTotals: AssetChannelTotals[]
+  walletCkb: number | null
   cchConfigured: boolean
   isActing: boolean
   actionError: string | null
@@ -98,6 +108,8 @@ export function SendPaymentPanel({
   relayStatus,
   sendTargets,
   assets,
+  inChannelTotals,
+  walletCkb,
   cchConfigured,
   isActing,
   actionError,
@@ -436,6 +448,43 @@ export function SendPaymentPanel({
     targetPubkey,
   ])
 
+  const fundingPlan = useMemo(() => {
+    const code = diagnostic?.primary.code
+    if (code !== "no_ready_channels" && code !== "insufficient_local_liquidity") {
+      return null
+    }
+    const invoiceSend = sendMode === "invoice"
+    const assetIsCkb = invoiceSend
+      ? parsedInvoice?.assetSymbol.toUpperCase() === "CKB"
+      : keysendAsset.id === CKB_ASSET_ID
+    const amountRaw = invoiceSend
+      ? parsedInvoice
+        ? parseHexU128(parsedInvoice.amountRaw)
+        : 0n
+      : (parseDecimalToRaw(keysendAmount.trim(), keysendAsset.decimals) ?? 0n)
+    const spendableRaw = parseHexU128(
+      inChannelTotals.find((total) => total.symbol.toUpperCase() === "CKB")
+        ?.localBalance ?? "0x0",
+    )
+    return planSendFunding({
+      network,
+      amountRaw,
+      spendableRaw,
+      walletCkb,
+      assetIsCkb,
+    })
+  }, [
+    diagnostic?.primary.code,
+    inChannelTotals,
+    keysendAmount,
+    keysendAsset.decimals,
+    keysendAsset.id,
+    network,
+    parsedInvoice,
+    sendMode,
+    walletCkb,
+  ])
+
   const canReviewInvoice =
     sendMode === "invoice" &&
     invoice.trim().length > 0 &&
@@ -444,9 +493,8 @@ export function SendPaymentPanel({
     parsedInvoice !== null &&
     parseError === null &&
     existingPayment === null &&
-    routePreview !== null &&
-    previewError === null &&
-    parsedInvoice.networkMatch
+    parsedInvoice.networkMatch &&
+    ((routePreview !== null && previewError === null) || fundingPlan !== null)
 
   const canReviewKeysend =
     sendMode === "keysend" &&
@@ -454,8 +502,7 @@ export function SendPaymentPanel({
     (parseDecimalToRaw(keysendAmount.trim(), keysendAsset.decimals) ?? 0n) >
       0n &&
     !previewLoading &&
-    routePreview !== null &&
-    previewError === null
+    ((routePreview !== null && previewError === null) || fundingPlan !== null)
 
   const canReviewLightning =
     sendMode === "lightning" &&
@@ -509,7 +556,7 @@ export function SendPaymentPanel({
       return
     }
 
-    if (!canReviewPayment || !routePreview) return
+    if (!canReviewPayment || (!routePreview && !fundingPlan)) return
     onClearError()
     setReviewSnapshot(routePreview)
     setSendDialogOpen(true)
@@ -520,9 +567,27 @@ export function SendPaymentPanel({
     onClearError,
     onCchSendBtc,
     onPreviewSendPayment,
+    fundingPlan,
     routePreview,
     sendMode,
   ])
+
+  const prepareFunding = useCallback(async (plan: SendFundingPlan) => {
+    await openChannel({
+      pubkey: plan.providerPubkey,
+      fundingAmount: plan.fundingCkb,
+    })
+    const ready = await waitForSpendableChannel({
+      providerPubkey: plan.providerPubkey,
+      amountRaw: plan.amountRaw,
+      fetchChannels: async () => (await getChannelsPage()).channels,
+    })
+    if (!ready) {
+      throw new Error(
+        `The channel with ${plan.providerLabel} is still opening. Send this payment again when it is ready.`,
+      )
+    }
+  }, [])
 
   const handleCloseSendDialog = useCallback(() => {
     setSendDialogOpen(false)
@@ -822,6 +887,13 @@ export function SendPaymentPanel({
           onGetPayment={onGetPayment}
           onPaymentSettled={onPaymentSettled}
           onClearError={onClearError}
+          fundingPlan={fundingPlan}
+          onPrepareFunding={prepareFunding}
+          amountLabel={
+            sendMode === "keysend"
+              ? `${keysendAmount.trim()} ${keysendAsset.symbol}`
+              : (parsedInvoice?.amountDisplay ?? null)
+          }
           keysendPayload={
             sendMode === "keysend"
               ? {
