@@ -242,15 +242,17 @@ export function FiberNetworkSettingsSection({
 
         <div className="space-y-4 border-t border-zinc-200 pt-5 dark:border-zinc-800">
           <div>
-            <Label>Receive without a channel</Label>
-            <Description>
+            <h3 className="text-sm/6 font-medium text-zinc-950 dark:text-white">
+              Receive without a channel
+            </h3>
+            <Text className="mt-1">
               Leave this off to pay and receive through your own channels. You
               do not need a liquidity node. If you name one, and it confirms a
               fee, someone can pay a CKB invoice when you have no channel with
               them. That node funds the payment, and you keep about 99 CKB on
               chain for the cell reserve. A node that does not serve
               just-in-time channels leaves your invoices ordinary.
-            </Description>
+            </Text>
           </div>
           <Field>
             <Label>Liquidity node</Label>

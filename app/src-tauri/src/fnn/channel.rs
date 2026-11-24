@@ -36,31 +36,6 @@ pub struct HomeChannel {
     pub channel_version: String,
 }
 
-/// Who funded the channel.
-/// Fiber: `is_acceptor` means the counterparty funded (inbound open).
-pub fn funding_direction_label(is_acceptor: bool) -> &'static str {
-    if is_acceptor {
-        "Inbound"
-    } else {
-        "Outbound"
-    }
-}
-
-/// How payments can move on this channel from our perspective.
-/// Mirrors Fiber `ChannelActorState::{can_be_tlc_sender,can_be_tlc_receiver}`:
-/// - sender when `!is_one_way || !is_acceptor`
-/// - receiver when `!is_one_way || is_acceptor`
-pub fn payment_direction_label(is_acceptor: bool, is_one_way: bool) -> &'static str {
-    let can_send = !is_one_way || !is_acceptor;
-    let can_receive = !is_one_way || is_acceptor;
-    match (can_send, can_receive) {
-        (true, true) => "Two-way",
-        (true, false) => "Send only",
-        (false, true) => "Receive only",
-        (false, false) => "Inactive",
-    }
-}
-
 #[cfg(test)]
 pub fn ckb_to_shannons_hex(ckb: u64) -> String {
     let shannons = (ckb as u128).saturating_mul(SHANNONS_PER_CKB);
@@ -350,14 +325,5 @@ mod tests {
         ];
 
         assert_eq!(count_pending_channels(&channels), 1);
-    }
-
-    #[test]
-    fn payment_direction_labels_cover_one_way_and_two_way() {
-        assert_eq!(funding_direction_label(false), "Outbound");
-        assert_eq!(funding_direction_label(true), "Inbound");
-        assert_eq!(payment_direction_label(false, false), "Two-way");
-        assert_eq!(payment_direction_label(false, true), "Send only");
-        assert_eq!(payment_direction_label(true, true), "Receive only");
     }
 }
