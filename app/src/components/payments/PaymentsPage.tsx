@@ -18,6 +18,7 @@ import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
+import { serviceOpensInbound } from "../../lib/liquidity"
 import { RelayChannelPrompt } from "../channels/RelayChannelPrompt"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
@@ -83,6 +84,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const cwbtcAsset =
     data?.assets.find((asset) => asset.symbol.toUpperCase() === "CWBTC") ?? null
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
+  const inboundIsAutomatic = serviceOpensInbound(data?.network)
   const hasReadyChannel = (data?.inChannelTotals ?? []).some(
     (total) =>
       parseHexU128(total.localBalance) + parseHexU128(total.remoteBalance) > 0n,
@@ -274,7 +276,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           onSelectInvoice={setSelectedInvoice}
           onImport={() => setImportDialogOpen(true)}
           onCreate={() => {
-            if (available && !hasReadyChannel) {
+            if (available && !hasReadyChannel && !inboundIsAutomatic) {
               setAddFundsPromptOpen(true)
             }
             setCreateDialogOpen(true)
@@ -303,6 +305,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         network={data?.network ?? null}
         assets={data?.assets ?? []}
         hasReadyChannel={!available || hasReadyChannel}
+        serviceOpensInbound={inboundIsAutomatic}
         isActing={isActing}
         actionError={actionError}
         onCreateInvoice={createInvoice}

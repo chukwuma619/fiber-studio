@@ -1,0 +1,10 @@
+{
+  "testnet": {
+    "mode": "hub",
+    "relayId": "node1"
+  },
+  "mainnet": {
+    "mode": "hub",
+    "relayId": "node1"
+  }
+}

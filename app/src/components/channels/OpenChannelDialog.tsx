@@ -15,6 +15,11 @@ import type {
   OpenChannelPayload,
   SavedPeerEntry,
 } from "../../lib/fnn/types"
+import { pubkeysEqual } from "../../lib/fnn/relay"
+import {
+  liquidityForNetwork,
+  type LiquidityProvider,
+} from "../../lib/liquidity"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
@@ -35,6 +40,7 @@ import { Text } from "../ui/text"
 type OpenChannelDialogProps = {
   open: boolean
   onClose: () => void
+  network: string | null
   savedPeers: SavedPeerEntry[]
   assets: AssetView[]
   onChainBalances: AssetBalanceView[]
@@ -62,6 +68,34 @@ function peerCompatLabel(peer: SavedPeerEntry): string {
   return " · V2 unknown"
 }
 
+function describeFunding({
+  noSavedPeers,
+  noConnectedPeers,
+  provider,
+  connectedToProvider,
+  symbol,
+}: {
+  noSavedPeers: boolean
+  noConnectedPeers: boolean
+  provider: LiquidityProvider | null
+  connectedToProvider: boolean
+  symbol: string
+}): string {
+  if (noSavedPeers) {
+    return "Connect to a public hub on the Network page first, then add funds."
+  }
+  if (noConnectedPeers) {
+    return "None of your saved peers are connected. Connect a public hub first, then add funds."
+  }
+  if (provider !== null && connectedToProvider && provider.mode === "lsp") {
+    return `Move ${symbol} from your wallet into Fiber so you can send. Incoming payments can open their own channel.`
+  }
+  if (provider !== null && connectedToProvider) {
+    return `Move ${symbol} from your wallet into Fiber. About ${CHANNEL_RESERVE_CKB} CKB stays on chain as the cell reserve, plus a small fee.`
+  }
+  return `Move ${symbol} into Fiber through a public hub. About ${CHANNEL_RESERVE_CKB} CKB stays on chain as the cell reserve, plus a small fee.`
+}
+
 function peerSupportsChannelV2(
   peer: SavedPeerEntry | null,
 ): boolean | null {
@@ -74,6 +108,7 @@ function peerSupportsChannelV2(
 export function OpenChannelDialog({
   open,
   onClose,
+  network,
   savedPeers,
   assets,
   onChainBalances,
@@ -92,6 +127,8 @@ export function OpenChannelDialog({
   const [selectedPubkey, setSelectedPubkey] = useState("")
   const [capacity, setCapacity] = useState("")
   const [validationError, setValidationError] = useState<string | null>(null)
+  const [chooseOtherHub, setChooseOtherHub] = useState(false)
+  const provider = liquidityForNetwork(network)
 
   const selectedAsset =
     findAssetById(catalog, selectedAssetId) ?? defaultAsset(catalog)
@@ -147,6 +184,12 @@ export function OpenChannelDialog({
   const walletBalanceUnavailable = onChainWalletError !== null
   const noSavedPeers = savedPeers.length === 0
   const noConnectedPeers = connectedPeers.length === 0
+  const activeProvider = chooseOtherHub ? null : provider
+  const providerPeer = activeProvider
+    ? (connectedPeers.find((peer) =>
+        pubkeysEqual(peer.pubkey, activeProvider.pubkey),
+      ) ?? null)
+    : null
 
   const submitDisabled =
     isActing ||
@@ -166,10 +209,12 @@ export function OpenChannelDialog({
     setValidationError(null)
     onClearError()
     setSelectedAssetId(CKB_ASSET_ID)
-    const defaultPeer = connectedPeers[0]?.pubkey ?? ""
+    setChooseOtherHub(false)
+    const defaultPeer =
+      providerPeer?.pubkey ?? connectedPeers[0]?.pubkey ?? ""
     setSelectedPubkey(defaultPeer)
     setCapacity(defaultPeer ? String(minFundingCkb) : "")
-  }, [connectedPeers, minFundingCkb, onClearError, open])
+  }, [connectedPeers, minFundingCkb, onClearError, open, providerPeer])
 
   useEffect(() => {
     if (!open) return
@@ -179,8 +224,8 @@ export function OpenChannelDialog({
     ) {
       return
     }
-    setSelectedPubkey(connectedPeers[0]?.pubkey ?? "")
-  }, [connectedPeers, open, selectedPubkey])
+    setSelectedPubkey(providerPeer?.pubkey ?? connectedPeers[0]?.pubkey ?? "")
+  }, [connectedPeers, open, providerPeer, selectedPubkey])
 
   useEffect(() => {
     if (!open || isCkbChannel) return
@@ -249,9 +294,19 @@ export function OpenChannelDialog({
     }
   }
 
-  const capacityLabel = isCkbChannel
-    ? "Channel capacity (CKB)"
-    : `Channel capacity (${selectedAsset.symbol})`
+  const usingProvider = activeProvider !== null && providerPeer !== null
+  const capacityLabel = !isCkbChannel
+    ? `Channel capacity (${selectedAsset.symbol})`
+    : usingProvider
+      ? "Amount (CKB)"
+      : "Channel capacity (CKB)"
+  const fundingDescription = describeFunding({
+    noSavedPeers,
+    noConnectedPeers,
+    provider: activeProvider,
+    connectedToProvider: providerPeer !== null,
+    symbol: selectedAsset.symbol,
+  })
 
   return (
     <Dialog
@@ -260,13 +315,7 @@ export function OpenChannelDialog({
       size="lg"
     >
       <DialogTitle>Add funds</DialogTitle>
-      <DialogDescription>
-        {noSavedPeers
-          ? "Connect to a public hub on the Network page first, then add funds."
-          : noConnectedPeers
-            ? "None of your saved peers are connected. Connect a public hub first, then add funds."
-            : `Move ${selectedAsset.symbol} into Fiber through a public hub. About ${CHANNEL_RESERVE_CKB} CKB stays on chain as the cell reserve, plus a small fee.`}
-      </DialogDescription>
+      <DialogDescription>{fundingDescription}</DialogDescription>
 
       {supportsChannelV2 ? (
         <Text className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
@@ -298,8 +347,26 @@ export function OpenChannelDialog({
           </Field>
 
           <Field>
-            <Label>Connected peer</Label>
-            {noSavedPeers ? (
+            <Label>{usingProvider ? "Connection" : "Connected peer"}</Label>
+            {activeProvider && providerPeer ? (
+              <div className="space-y-2">
+                <Text className="text-sm text-zinc-950 dark:text-white">
+                  {activeProvider.label}
+                </Text>
+                {connectedPeers.some(
+                  (peer) => peer.pubkey !== providerPeer.pubkey,
+                ) ? (
+                  <button
+                    type="button"
+                    className="text-xs font-medium text-zinc-600 underline decoration-zinc-400 underline-offset-2 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-white"
+                    onClick={() => setChooseOtherHub(true)}
+                    disabled={isActing}
+                  >
+                    Use a different hub
+                  </button>
+                ) : null}
+              </div>
+            ) : noSavedPeers ? (
               <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                 No saved peers configured.
               </Text>
@@ -323,7 +390,7 @@ export function OpenChannelDialog({
                 ))}
               </Select>
             )}
-            {selectedPubkey ? (
+            {selectedPubkey && !usingProvider ? (
               <div className="mt-2 flex items-center gap-2">
                 <span
                   className="min-w-0 flex-1 font-mono text-xs break-all text-zinc-600 dark:text-zinc-300"

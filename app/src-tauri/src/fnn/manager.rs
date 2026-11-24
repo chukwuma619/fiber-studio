@@ -12,6 +12,7 @@ use thiserror::Error;
 use crate::state::AppState;
 
 use super::backup;
+use super::liquidity;
 use super::log_store;
 use super::logs::normalize_log_line;
 use super::migration::{self, MigrationDetails};
@@ -62,6 +63,8 @@ pub enum ManagerError {
     },
     #[error("failed to back up data directory: {0}")]
     Backup(String),
+    #[error("failed to apply liquidity config: {0}")]
+    Liquidity(#[from] liquidity::LiquidityError),
 }
 
 pub struct FnnManager {
@@ -387,10 +390,13 @@ impl FnnManager {
             ));
         }
 
+        let liquidity_summary = liquidity::apply_to_data_dir(&data_directory)?;
+
         let config_path = data_directory.join("config.yml");
         let log_path = log_store::log_file_path(&data_directory);
 
         self.clear_session_logs();
+        self.append_log(&liquidity_summary);
         self.append_log("Spawning fnn sidecar…");
 
         let child = spawn::spawn_with_log_file(

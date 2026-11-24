@@ -24,6 +24,8 @@ pub enum ProvisionError {
     Config(#[from] config::ConfigError),
     #[error("failed to write studio metadata: {0}")]
     Studio(#[from] super::studio::StudioError),
+    #[error("failed to apply liquidity config: {0}")]
+    Liquidity(#[from] super::liquidity::LiquidityError),
 }
 
 #[derive(Debug, Clone)]
@@ -118,6 +120,7 @@ pub fn provision_data_directory(request: &ProvisionRequest) -> Result<(), Provis
         saved_peers,
     );
     write_studio_metadata(data_dir, &metadata)?;
+    super::liquidity::apply_to_data_dir(data_dir)?;
 
     Ok(())
 }

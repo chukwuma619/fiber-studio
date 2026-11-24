@@ -344,6 +344,7 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
       <OpenChannelDialog
         open={openDialogOpen}
         onClose={() => setOpenDialogOpen(false)}
+        network={data?.network ?? null}
         savedPeers={data?.savedPeers ?? []}
         assets={data?.assets ?? []}
         onChainBalances={data?.onChainBalances ?? []}

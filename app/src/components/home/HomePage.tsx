@@ -1,4 +1,5 @@
 import { CKB_ASSET_ID } from "../../lib/fnn/assets"
+import { serviceOpensInbound } from "../../lib/liquidity"
 import { formatCkb, parseHexU128 } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { LegacyChannelNudge } from "../channels/LegacyChannelNudge"
@@ -44,6 +45,7 @@ export function HomePage() {
     running && isDashboardLoading && dashboard === null
   const isLoading = isNodeLoading || isDashboardInitialLoad
   const needsFunds = available && (dashboard?.activeChannelCount ?? 0) === 0
+  const inboundIsAutomatic = serviceOpensInbound(dashboard?.network)
   const spendableDisplay = available
     ? `${formatCkb(parseHexU128(dashboard?.totalLocalBalance ?? "0"))} CKB`
     : "—"
@@ -109,8 +111,9 @@ export function HomePage() {
 
       {needsFunds ? (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
-          Add funds to open a channel with a public hub. Payments need that
-          channel.
+          {inboundIsAutomatic
+            ? "You can receive now. Add funds when you want to send."
+            : "Add funds to send and receive. Fiber opens the channel with the public hub."}
           <div className="mt-3">
             <Button href="/channels?action=open" outline className="text-xs">
               Add funds

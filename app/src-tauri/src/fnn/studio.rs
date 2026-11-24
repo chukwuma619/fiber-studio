@@ -173,6 +173,27 @@ impl StudioMetadata {
     pub fn has_saved_peer(&self, pubkey: &str) -> bool {
         self.find_saved_peer(pubkey).is_some()
     }
+
+    pub fn ensure_saved_peer(&mut self, pubkey: &str, multiaddr: &str) -> bool {
+        let pubkey = pubkey.trim();
+        if pubkey.is_empty() {
+            return false;
+        }
+        let multiaddr = multiaddr.trim();
+        if let Some(existing) = self.find_saved_peer_mut(pubkey) {
+            if existing.multiaddr.trim().is_empty() && !multiaddr.is_empty() {
+                existing.multiaddr = multiaddr.to_string();
+                return true;
+            }
+            return false;
+        }
+        self.saved_peers.push(SavedPeer {
+            pubkey: pubkey.to_string(),
+            multiaddr: multiaddr.to_string(),
+        });
+        self.normalize_saved_peers();
+        true
+    }
 }
 
 fn pubkeys_equal(left: &str, right: &str) -> bool {

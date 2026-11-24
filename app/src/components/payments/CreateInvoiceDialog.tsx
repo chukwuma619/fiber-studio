@@ -27,6 +27,7 @@ type CreateInvoiceDialogProps = {
   network: string | null
   assets: AssetView[]
   hasReadyChannel: boolean
+  serviceOpensInbound: boolean
   isActing: boolean
   actionError: string | null
   onCreateInvoice: (
@@ -45,6 +46,7 @@ export function CreateInvoiceDialog({
   network,
   assets,
   hasReadyChannel,
+  serviceOpensInbound,
   isActing,
   actionError,
   onCreateInvoice,
@@ -119,17 +121,24 @@ export function CreateInvoiceDialog({
       <DialogBody>
         <FieldGroup>
           {!hasReadyChannel && !invoiceAddress ? (
-            <Text className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-              You need a channel to receive. Add funds to open one with a public
-              hub.
-              <Button
-                href="/channels?action=open"
-                outline
-                className="mt-2 text-xs"
-              >
-                Add funds
-              </Button>
-            </Text>
+            serviceOpensInbound ? (
+              <Text className="rounded-md bg-zinc-50 px-3 py-2 text-xs text-zinc-600 dark:bg-white/5 dark:text-zinc-300">
+                Incoming payments can open a channel for you. Any service fee
+                is included when someone pays.
+              </Text>
+            ) : (
+              <Text className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                You need a channel to receive. Add funds and Fiber opens one
+                with the public hub.
+                <Button
+                  href="/channels?action=open"
+                  outline
+                  className="mt-2 text-xs"
+                >
+                  Add funds
+                </Button>
+              </Text>
+            )
           ) : null}
           <Field>
             <Label>Asset</Label>

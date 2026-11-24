@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react"
 import type { NodeSettingsResponse } from "../../lib/fnn/types"
+import { liquidityForNetwork } from "../../lib/liquidity"
 import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Switch, SwitchField } from "../ui/switch"
@@ -60,6 +61,14 @@ export function FiberNetworkSettingsSection({
     }
   }
 
+  const liquidity = liquidityForNetwork(settings.network)
+  const paymentsValue =
+    liquidity?.mode === "lsp"
+      ? `${liquidity.label} opens a channel when you receive`
+      : liquidity
+        ? `You fund a channel with ${liquidity.label}`
+        : "—"
+
   const featureValue =
     settings.featureLabels.length > 0
       ? settings.featureLabels.join(", ")
@@ -78,6 +87,7 @@ export function FiberNetworkSettingsSection({
           value={settings.fiberListeningAddr ?? "—"}
           mono
         />
+        <SettingsRow label="Payments" value={paymentsValue} />
         <SettingsRow
           label="Channel protocol"
           value={
