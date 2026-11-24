@@ -534,6 +534,7 @@ pub async fn new_invoice_with_udt(
     description: Option<&str>,
     expiry_seconds: u64,
     udt_type_script: Option<&CkbScript>,
+    allow_trampoline_routing: Option<bool>,
 ) -> Result<NewInvoiceResult, RpcError> {
     let mut params = serde_json::json!({
         "amount": format!("0x{amount:x}"),
@@ -554,6 +555,10 @@ pub async fn new_invoice_with_udt(
         });
     }
 
+    if let Some(allow) = allow_trampoline_routing {
+        params["allow_trampoline_routing"] = serde_json::Value::Bool(allow);
+    }
+
     call_rpc("new_invoice", serde_json::json!([params])).await
 }
 
@@ -568,11 +573,7 @@ pub async fn get_invoice(payment_hash: &str) -> Result<GetInvoiceResult, RpcErro
 
 /// Parses an encoded invoice string via FNN `parse_invoice`.
 pub async fn parse_invoice(invoice: &str) -> Result<ParseInvoiceResult, RpcError> {
-    call_rpc(
-        "parse_invoice",
-        serde_json::json!([{ "invoice": invoice }]),
-    )
-    .await
+    call_rpc("parse_invoice", serde_json::json!([{ "invoice": invoice }])).await
 }
 
 /// Sends or previews a payment via FNN `send_payment`.
@@ -714,7 +715,8 @@ pub async fn open_channel(
         });
     }
 
-    let result: OpenChannelResult = call_rpc("open_channel", serde_json::json!([open_params])).await?;
+    let result: OpenChannelResult =
+        call_rpc("open_channel", serde_json::json!([open_params])).await?;
     Ok(result.temporary_channel_id)
 }
 
@@ -1206,7 +1208,9 @@ mod tests {
 
         assert!(!super::is_listable_channel(&closed));
         assert!(super::is_listable_channel(&opening));
-        assert!(super::is_listable_channel(&serde_json::json!("ChannelReady")));
+        assert!(super::is_listable_channel(&serde_json::json!(
+            "ChannelReady"
+        )));
     }
 
     #[test]

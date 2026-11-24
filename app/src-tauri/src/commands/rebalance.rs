@@ -111,9 +111,13 @@ async fn try_explicit_route(
         return Err("Fiber returned an empty route for these channels.".to_string());
     }
 
-    rpc::send_payment_with_router(router.as_slice(), rebalance::udt_script(&plan.asset), dry_run)
-        .await
-        .map_err(map_rebalance_rpc_error)
+    rpc::send_payment_with_router(
+        router.as_slice(),
+        rebalance::udt_script(&plan.asset),
+        dry_run,
+    )
+    .await
+    .map_err(map_rebalance_rpc_error)
 }
 
 fn parse_strategy(value: Option<&str>) -> Result<RebalanceStrategy, String> {
@@ -178,15 +182,18 @@ async fn execute_rebalance(
 
     let result = try_explicit_route(plan, own_pubkey, dry_run).await?;
     if result.status.eq_ignore_ascii_case("Failed")
-        || result.failed_error.as_ref().is_some_and(|error| !error.trim().is_empty())
+        || result
+            .failed_error
+            .as_ref()
+            .is_some_and(|error| !error.trim().is_empty())
     {
-        return Err(
-            result
-                .failed_error
-                .clone()
-                .filter(|error| !error.trim().is_empty())
-                .unwrap_or_else(|| "Fiber could not build a circular route between these channels.".to_string()),
-        );
+        return Err(result
+            .failed_error
+            .clone()
+            .filter(|error| !error.trim().is_empty())
+            .unwrap_or_else(|| {
+                "Fiber could not build a circular route between these channels.".to_string()
+            }));
     }
     reject_if_fee_exceeds_max(&result, plan, max_fee)?;
     Ok((result, RebalanceStrategy::ExplicitRoute))
@@ -220,10 +227,8 @@ pub async fn rebalance_channel(
     let catalog = assets::build_asset_catalog(&node_info);
 
     let source_probe = rebalance::find_ready_channel(&channels, &payload.source_channel_id)?;
-    let asset = assets::asset_for_channel_funding(
-        &catalog,
-        source_probe.funding_udt_type_script.as_ref(),
-    );
+    let asset =
+        assets::asset_for_channel_funding(&catalog, source_probe.funding_udt_type_script.as_ref());
     let amount_raw = assets::parse_human_amount_str(&payload.amount, asset.decimals)?;
 
     let plan = rebalance::plan_rebalance(
@@ -234,11 +239,7 @@ pub async fn rebalance_channel(
         amount_raw,
     )?;
 
-    let max_fee = resolve_max_fee(
-        &plan,
-        payload.max_fee.as_deref(),
-        payload.max_fee_ckb,
-    )?;
+    let max_fee = resolve_max_fee(&plan, payload.max_fee.as_deref(), payload.max_fee_ckb)?;
 
     let (payment, strategy) = execute_rebalance(
         &plan,

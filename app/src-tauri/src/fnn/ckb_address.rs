@@ -73,8 +73,7 @@ mod tests {
     fn encodes_mainnet_full_address_from_script() {
         // Vector from Nervos CKB Address docs / RFC 0021 / @nervosnetwork/ckb-sdk-utils.
         let script = CkbScript {
-            code_hash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
-                .into(),
+            code_hash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8".into(),
             hash_type: "type".into(),
             args: "0xb39bbc0b3673c7d36450bc14cfcdad2d559c6c64".into(),
         };
@@ -88,8 +87,7 @@ mod tests {
     #[test]
     fn encodes_testnet_address_from_script() {
         let script = CkbScript {
-            code_hash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8"
-                .into(),
+            code_hash: "0x9bd7e06f3ecf4be0f2fcd2188b23f1b9fcc88e5d4b65a8637b17723bbda3cce8".into(),
             hash_type: "type".into(),
             args: "0x628ab87da056a784d5af53d285522844b9f28b37".into(),
         };

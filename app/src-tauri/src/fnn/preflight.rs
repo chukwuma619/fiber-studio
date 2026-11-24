@@ -121,14 +121,18 @@ pub async fn fetch_preflight_snapshot(
 
     let local_official_relay_channel_ready = official_relays.iter().any(|relay| {
         channels.iter().any(|channel| {
-            peer_connect::pubkeys_equal(&channel.pubkey, relay) && rpc::is_channel_ready(&channel.state)
+            peer_connect::pubkeys_equal(&channel.pubkey, relay)
+                && rpc::is_channel_ready(&channel.state)
         })
     });
 
     let graph_node_count = graph_nodes.items.len() as u32;
     let graph_nodes_has_more = graph_nodes.last_cursor.is_some();
 
-    let payee = if let Some(payee) = payee_pubkey.map(str::trim).filter(|value| !value.is_empty()) {
+    let payee = if let Some(payee) = payee_pubkey
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+    {
         Some(
             lookup_payee_graph(
                 payee,

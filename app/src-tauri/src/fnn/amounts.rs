@@ -109,18 +109,14 @@ mod tests {
 
     #[test]
     fn ckb_to_shannons_str_accepts_exactly_8_decimals() {
-        assert_eq!(
-            ckb_to_shannons_str("0.01111111").unwrap(),
-            1_111_111
-        );
+        assert_eq!(ckb_to_shannons_str("0.01111111").unwrap(), 1_111_111);
         assert_eq!(ckb_to_shannons_str("1.00000001").unwrap(), 100_000_001);
         assert_eq!(ckb_to_shannons_str("2.25").unwrap(), 225_000_000);
     }
 
     #[test]
     fn ckb_to_shannons_str_rejects_excess_nonzero_precision() {
-        let err = ckb_to_shannons_str("0.01111111111111111111111111111111111111111")
-            .unwrap_err();
+        let err = ckb_to_shannons_str("0.01111111111111111111111111111111111111111").unwrap_err();
         assert_eq!(err, "Amount supports at most 8 decimal places.");
 
         let err = ckb_to_shannons_str("0.011111111").unwrap_err();
@@ -129,10 +125,7 @@ mod tests {
 
     #[test]
     fn ckb_to_shannons_str_accepts_trailing_zeroes_beyond_8_decimals() {
-        assert_eq!(
-            ckb_to_shannons_str("0.01111111000").unwrap(),
-            1_111_111
-        );
+        assert_eq!(ckb_to_shannons_str("0.01111111000").unwrap(), 1_111_111);
         assert_eq!(ckb_to_shannons_str("1.000000000").unwrap(), 100_000_000);
         assert_eq!(ckb_to_shannons_str("2.2500000000").unwrap(), 225_000_000);
     }

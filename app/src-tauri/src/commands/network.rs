@@ -2,9 +2,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 
 use crate::fnn::bootnodes;
-use crate::fnn::channel::{
-    self, has_active_or_pending_channel_to_peer, min_funding_ckb_for_open,
-};
+use crate::fnn::channel::{self, has_active_or_pending_channel_to_peer, min_funding_ckb_for_open};
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::neighborhood::{self, NeighborhoodResponse};
 use crate::fnn::peer_connect::{self, RelayConnectStatus};
@@ -310,21 +308,25 @@ pub async fn get_network_page(
 
     let connected_peer_count = connected_peers.len() as u32;
 
-    let (on_chain_wallet_ckb, on_chain_wallet_error) =
-        match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
-            Some(network) => match fetch_wallet_balance_for_network(network).await {
-                Ok(balance) => (Some(balance.available_ckb), None),
-                Err(error) => (None, Some(error)),
-            },
-            None => (None, Some("Network is not configured.".to_string())),
-        };
+    let (on_chain_wallet_ckb, on_chain_wallet_error) = match studio_metadata
+        .as_ref()
+        .map(|metadata| metadata.network.as_str())
+    {
+        Some(network) => match fetch_wallet_balance_for_network(network).await {
+            Ok(balance) => (Some(balance.available_ckb), None),
+            Err(error) => (None, Some(error)),
+        },
+        None => (None, Some("Network is not configured.".to_string())),
+    };
 
     let graph_node_count = graph_nodes.len() as u32;
     let graph_ready = graph_node_count > 0;
 
     Ok(NetworkPageResponse {
         available: true,
-        network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
+        network: studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.clone()),
         node_pubkey: Some(node_info.pubkey),
         saved_peers: saved_peer_entries,
         saved_peer_connected_count,
@@ -405,7 +407,10 @@ async fn upsert_and_connect_saved_peer(
 
     if status == peer_connect::RelayConnectStatus::Connected {
         if let Ok(peers) = rpc::fetch_list_peers().await {
-            if let Some(peer) = peers.iter().find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey)) {
+            if let Some(peer) = peers
+                .iter()
+                .find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
+            {
                 let _ = studio::persist_relay_multiaddr(
                     &data_directory,
                     &studio_metadata,
@@ -489,7 +494,9 @@ pub async fn connect_saved_peer(
 
     if status == RelayConnectStatus::Connected {
         if let Ok(peers) = rpc::fetch_list_peers().await {
-            if let Some(peer) = peers.iter().find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
+            if let Some(peer) = peers
+                .iter()
+                .find(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
             {
                 let _ = studio::persist_relay_multiaddr(
                     &data_directory,
@@ -519,7 +526,9 @@ pub async fn remove_saved_peer(
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node before removing a saved peer.".to_string());
+        return Err(
+            "Node is not running. Start your node before removing a saved peer.".to_string(),
+        );
     }
 
     let data_directory = manager
@@ -543,7 +552,9 @@ pub async fn remove_saved_peer(
     }
 
     let before_len = studio_metadata.saved_peers.len();
-    studio_metadata.saved_peers.retain(|peer| !peer_connect::pubkeys_equal(&peer.pubkey, pubkey));
+    studio_metadata
+        .saved_peers
+        .retain(|peer| !peer_connect::pubkeys_equal(&peer.pubkey, pubkey));
     if studio_metadata.saved_peers.len() == before_len {
         return Err("Peer is not in your saved peer list.".to_string());
     }
@@ -573,7 +584,9 @@ pub async fn disconnect_peer(
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node before disconnecting a peer.".to_string());
+        return Err(
+            "Node is not running. Start your node before disconnecting a peer.".to_string(),
+        );
     }
 
     let data_directory = manager

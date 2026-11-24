@@ -43,7 +43,9 @@ pub async fn build_invoice_list_items_with_limit(
         .into_iter()
         .enumerate()
         .map(|(index, record)| {
-            let live = live_statuses.get(index).and_then(|result| result.as_ref().ok());
+            let live = live_statuses
+                .get(index)
+                .and_then(|result| result.as_ref().ok());
             stored_invoice_to_item(record, live, catalog)
         })
         .collect()
@@ -57,7 +59,10 @@ pub async fn build_invoice_list_item(
     stored_invoice_to_item(stored, live.as_ref(), catalog)
 }
 
-pub fn select_incoming_invoices(items: &[InvoiceListItem], paid_limit: usize) -> Vec<InvoiceListItem> {
+pub fn select_incoming_invoices(
+    items: &[InvoiceListItem],
+    paid_limit: usize,
+) -> Vec<InvoiceListItem> {
     let mut incoming: Vec<InvoiceListItem> = items
         .iter()
         .filter(|item| item.status == "Received")
@@ -85,16 +90,14 @@ async fn fetch_live_invoice_statuses(
     let mut handles = Vec::with_capacity(records.len());
     for record in records {
         let payment_hash = record.payment_hash.clone();
-        handles.push(tokio::spawn(async move { rpc::get_invoice(&payment_hash).await }));
+        handles.push(tokio::spawn(async move {
+            rpc::get_invoice(&payment_hash).await
+        }));
     }
 
     let mut results = Vec::with_capacity(handles.len());
     for handle in handles {
-        results.push(
-            handle
-                .await
-                .unwrap_or(Err(rpc::RpcError::MissingResult)),
-        );
+        results.push(handle.await.unwrap_or(Err(rpc::RpcError::MissingResult)));
     }
 
     results
@@ -140,7 +143,10 @@ fn asset_for_stored_invoice(record: &StoredInvoice, catalog: &[AssetView]) -> As
         return assets::asset_for_channel_funding(catalog, Some(script));
     }
     if let Some(name) = record.asset_name.as_deref() {
-        if let Some(asset) = catalog.iter().find(|entry| entry.symbol.eq_ignore_ascii_case(name)) {
+        if let Some(asset) = catalog
+            .iter()
+            .find(|entry| entry.symbol.eq_ignore_ascii_case(name))
+        {
             return asset.clone();
         }
     }

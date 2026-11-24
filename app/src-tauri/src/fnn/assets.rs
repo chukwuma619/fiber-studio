@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 use super::channel::{sum_local_balances_for_asset, sum_remote_balances_for_asset};
-use super::rpc::{self, CkbScript, Channel, NodeInfo, UdtScript};
+use super::rpc::{self, Channel, CkbScript, NodeInfo, UdtScript};
 
 pub const CKB_ASSET_ID: &str = "ckb";
 pub const CKB_DECIMALS: u8 = 8;
@@ -160,9 +160,12 @@ pub fn find_asset_for_udt_script<'a>(
     catalog: &'a [AssetView],
     script: &CkbScript,
 ) -> Option<&'a AssetView> {
-    catalog
-        .iter()
-        .find(|asset| asset.udt_type_script.as_ref().is_some_and(|udt| scripts_equal(udt, script)))
+    catalog.iter().find(|asset| {
+        asset
+            .udt_type_script
+            .as_ref()
+            .is_some_and(|udt| scripts_equal(udt, script))
+    })
 }
 
 pub fn asset_for_channel_funding(
@@ -170,15 +173,15 @@ pub fn asset_for_channel_funding(
     funding_udt: Option<&CkbScript>,
 ) -> AssetView {
     if let Some(script) = funding_udt {
-        find_asset_for_udt_script(catalog, script).cloned().unwrap_or_else(|| {
-            AssetView {
+        find_asset_for_udt_script(catalog, script)
+            .cloned()
+            .unwrap_or_else(|| AssetView {
                 id: asset_id_for_udt(script),
                 name: "UDT".to_string(),
                 symbol: "UDT".to_string(),
                 decimals: 8,
                 udt_type_script: Some(script.clone()),
-            }
-        })
+            })
     } else {
         ckb_asset()
     }
@@ -272,7 +275,10 @@ pub fn asset_for_invoice(catalog: &[AssetView], invoice: &rpc::CkbInvoice) -> As
     }
 }
 
-pub fn build_channel_totals(catalog: &[AssetView], channels: &[Channel]) -> Vec<AssetChannelTotals> {
+pub fn build_channel_totals(
+    catalog: &[AssetView],
+    channels: &[Channel],
+) -> Vec<AssetChannelTotals> {
     let mut totals: Vec<AssetChannelTotals> = Vec::new();
     let mut seen_ids = std::collections::HashSet::new();
 
@@ -333,13 +339,9 @@ pub async fn fetch_wallet_on_chain_snapshot(
     // One scan: spendable plain-CKB capacity (funding-safe) + UDT amounts.
     // Do not use raw lock-script get_cells_capacity for CKB — that overstates
     // available funding by including typed/data cell capacity (issue #8).
-    let scanned =
-        super::ckb_indexer::scan_wallet_cell_balances(rpc_url, lock_script).await?;
+    let scanned = super::ckb_indexer::scan_wallet_cell_balances(rpc_url, lock_script).await?;
 
-    let mut balances = vec![balance_view(
-        &ckb_asset(),
-        scanned.spendable_ckb_shannons,
-    )];
+    let mut balances = vec![balance_view(&ckb_asset(), scanned.spendable_ckb_shannons)];
 
     for asset in catalog {
         if let Some(udt_script) = asset.udt_type_script.as_ref() {
@@ -352,10 +354,12 @@ pub async fn fetch_wallet_on_chain_snapshot(
         if raw == 0 {
             continue;
         }
-        if catalog
-            .iter()
-            .any(|asset| asset.udt_type_script.as_ref().is_some_and(|s| scripts_equal(s, &script)))
-        {
+        if catalog.iter().any(|asset| {
+            asset
+                .udt_type_script
+                .as_ref()
+                .is_some_and(|s| scripts_equal(s, &script))
+        }) {
             continue;
         }
         let asset = asset_for_discovered_udt(&script);
@@ -418,7 +422,8 @@ mod tests {
         let script = super::rpc::CkbScript {
             code_hash: "0x25c29dc317811a6f6f3985a7a9ebc4838bd388d19d0feeecf0bcd60f6c0975bb".into(),
             hash_type: "type".into(),
-            args: "0x9a1086531ed6dc69e0bd44cef5278e03faf3015b31aff60b08fb87663ce8507100000000".into(),
+            args: "0x9a1086531ed6dc69e0bd44cef5278e03faf3015b31aff60b08fb87663ce8507100000000"
+                .into(),
         };
         assert_eq!(symbol_for_udt_script(&script), "cWBTC");
     }

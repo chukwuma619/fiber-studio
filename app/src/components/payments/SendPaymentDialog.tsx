@@ -7,11 +7,8 @@ import {
   paymentErrorSummary,
   sanitizePaymentError,
 } from "../../lib/fnn/format"
-import {
-  buildSendOptions,
-  formatEffectiveMaxFeeLabel,
-} from "../../lib/fnn/maxFee"
-import type { PreflightReport } from "../../lib/fnn/preflight"
+import { buildSendOptions } from "../../lib/fnn/maxFee"
+import { parseDecimalToRaw } from "../../lib/fnn/preflight"
 import type {
   KeysendPaymentPayload,
   PreviewSendPaymentResult,
@@ -32,7 +29,6 @@ import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
-import { PaymentDiagnosticCard } from "./PaymentDiagnosticCard"
 
 type Step = "review" | "inflight" | "success" | "failure"
 
@@ -42,9 +38,11 @@ type SendPaymentDialogProps = {
   mode: "invoice" | "keysend"
   invoice: string
   targetPubkey: string
+  jitLiquidityProvider?: string | null
+  jitOpenFeeShannons?: string | null
+  jitOpenFeeDisplay?: string | null
   keysendPayload?: KeysendPaymentPayload
   preview: PreviewSendPaymentResult | null
-  diagnostic: PreflightReport | null
   isActing: boolean
   actionError: string | null
   onSendPayment: (payload: SendPaymentPayload) => Promise<SendPaymentResult>
@@ -59,14 +57,28 @@ type SendPaymentDialogProps = {
 const PAYMENT_POLL_INTERVAL_MS = 2_000
 const PAYMENT_POLL_TIMEOUT_MS = 120_000
 const DEFAULT_TIMEOUT_SECONDS = 120
+const JIT_PAYMENT_TIMEOUT_SECONDS = 20 * 60
+
+function parseDecimalShannons(value: string | null | undefined): bigint {
+  if (!value) return 0n
+  return BigInt(value)
+}
+
+function suggestedMaxFeeCkb(
+  preview: PreviewSendPaymentResult | null,
+  openFee: bigint,
+): string {
+  if (preview?.feeShannons) {
+    const fee = formatCkb(preview.feeShannons)
+    if (fee !== "0") return fee
+  }
+  if (openFee > 0n) return formatCkb(openFee)
+  return ""
+}
 
 function truncateInvoice(invoice: string): string {
   if (invoice.length <= 48) return invoice
   return `${invoice.slice(0, 24)}…${invoice.slice(-12)}`
-}
-
-function formatRouteHops(hops: string[]): string {
-  return hops.map((pubkey) => truncatePubkey(pubkey)).join(" → ")
 }
 
 function isPendingPaymentStatus(status: string): boolean {
@@ -79,9 +91,11 @@ export function SendPaymentDialog({
   mode,
   invoice,
   targetPubkey,
+  jitLiquidityProvider = null,
+  jitOpenFeeShannons = null,
+  jitOpenFeeDisplay = null,
   keysendPayload,
   preview,
-  diagnostic,
   isActing,
   actionError,
   onSendPayment,
@@ -101,6 +115,8 @@ export function SendPaymentDialog({
     useState<PreviewSendPaymentResult | null>(null)
   const pollStartedAtRef = useRef<number | null>(null)
   const wasOpen = useRef(false)
+  const jitPayment = Boolean(jitLiquidityProvider)
+  const openFeeRaw = parseDecimalShannons(jitOpenFeeShannons)
 
   useEffect(() => {
     const justOpened = open && !wasOpen.current
@@ -109,8 +125,16 @@ export function SendPaymentDialog({
     if (justOpened) {
       setStep("review")
       setResult(null)
-      setMaxFeeCkb("")
-      setTimeoutSeconds(String(DEFAULT_TIMEOUT_SECONDS))
+      setMaxFeeCkb(
+        jitLiquidityProvider ? suggestedMaxFeeCkb(preview, openFeeRaw) : "",
+      )
+      setTimeoutSeconds(
+        String(
+          jitLiquidityProvider
+            ? JIT_PAYMENT_TIMEOUT_SECONDS
+            : DEFAULT_TIMEOUT_SECONDS,
+        ),
+      )
       setLocalError(null)
       pollStartedAtRef.current = null
       setFrozenPreview(preview)
@@ -126,7 +150,7 @@ export function SendPaymentDialog({
       pollStartedAtRef.current = null
       setFrozenPreview(null)
     }
-  }, [open, preview])
+  }, [jitLiquidityProvider, open, openFeeRaw, preview])
 
   const activePreview = frozenPreview ?? preview
 
@@ -156,9 +180,12 @@ export function SendPaymentDialog({
           return
         }
 
+        const requestedTimeoutMs =
+          (Number(timeoutSeconds) || DEFAULT_TIMEOUT_SECONDS) * 1000
         if (
           pollStartedAtRef.current !== null &&
-          Date.now() - pollStartedAtRef.current > PAYMENT_POLL_TIMEOUT_MS
+          Date.now() - pollStartedAtRef.current >
+            Math.max(PAYMENT_POLL_TIMEOUT_MS, requestedTimeoutMs)
         ) {
           setStep("failure")
         }
@@ -175,7 +202,7 @@ export function SendPaymentDialog({
     return () => {
       window.clearInterval(interval)
     }
-  }, [onGetPayment, onPaymentSettled, result?.paymentHash, step])
+  }, [onGetPayment, onPaymentSettled, result?.paymentHash, step, timeoutSeconds])
 
   const handleClose = () => {
     setStep("review")
@@ -243,6 +270,16 @@ export function SendPaymentDialog({
     setLocalError(null)
     onClearError()
     pollStartedAtRef.current = null
+    const openFee = openFeeRaw
+    if (openFee > 0n) {
+      const cap = parseDecimalToRaw(maxFeeCkb, 8)
+      if (cap == null || cap < openFee) {
+        setLocalError(
+          `Max fee must be at least ${formatCkb(openFee)} CKB to cover the channel open fee.`,
+        )
+        return
+      }
+    }
     const sendOptionsResult = buildSendOptions(maxFeeCkb, timeoutSeconds)
     if (!sendOptionsResult.ok) {
       setLocalError(sendOptionsResult.error)
@@ -269,11 +306,6 @@ export function SendPaymentDialog({
     activePreview?.feeShannons != null
       ? `${formatCkb(activePreview.feeShannons)} CKB`
       : (activePreview?.feeDisplay ?? "—")
-  const effectiveMaxFeeLabel = formatEffectiveMaxFeeLabel(maxFeeCkb)
-  const hopCount = activePreview?.routeHops.length ?? result?.routeHops.length ?? 0
-  const displayRoute = hopCount > 0
-    ? formatRouteHops(activePreview?.routeHops ?? result?.routeHops ?? [])
-    : "—"
   const isKeysend = mode === "keysend"
   const displayError = localError ?? (step === "review" ? actionError : null)
 
@@ -287,7 +319,7 @@ export function SendPaymentDialog({
       ? "Payment timed out while waiting for confirmation."
       : isKeysend
         ? "Failed to route keysend. Try a saved peer or a direct channel peer."
-        : "Failed to build route. Open a channel, ensure your peer is connected, and wait for the network graph to sync.")
+        : "Failed to send this payment. Add funds if you do not have a channel yet.")
   const failureDetail =
     rawFailureError &&
     !existingSession &&
@@ -323,10 +355,6 @@ export function SendPaymentDialog({
       <DialogBody>
         {step === "review" ? (
           <div className="space-y-4">
-            {diagnostic ? (
-              <PaymentDiagnosticCard report={diagnostic} compact />
-            ) : null}
-
             <dl className="space-y-4">
               <div className="flex items-center justify-between gap-4">
                 <dt className="text-sm text-zinc-500 dark:text-zinc-400">Amount</dt>
@@ -349,26 +377,23 @@ export function SendPaymentDialog({
                   </dd>
                 </div>
               )}
+              {jitPayment ? (
+                <div className="flex items-start justify-between gap-4">
+                  <dt className="text-sm text-zinc-500 dark:text-zinc-400">
+                    Channel open
+                  </dt>
+                  <dd className="max-w-[70%] text-right text-sm text-zinc-700 dark:text-zinc-300">
+                    {jitOpenFeeDisplay ?? "Included"}
+                    {jitLiquidityProvider
+                      ? ` · ${truncatePubkey(jitLiquidityProvider)}`
+                      : ""}
+                  </dd>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-4">
-                <dt className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Est. route fee
-                </dt>
+                <dt className="text-sm text-zinc-500 dark:text-zinc-400">Fee</dt>
                 <dd className="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
                   {displayFee}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-sm text-zinc-500 dark:text-zinc-400">
-                  Effective max fee
-                </dt>
-                <dd className="text-sm tabular-nums text-zinc-600 dark:text-zinc-400">
-                  {effectiveMaxFeeLabel}
-                </dd>
-              </div>
-              <div className="flex items-start justify-between gap-4">
-                <dt className="text-sm text-zinc-500 dark:text-zinc-400">Route</dt>
-                <dd className="max-w-[70%] text-right font-mono text-xs text-zinc-600 dark:text-zinc-400">
-                  {displayRoute}
                 </dd>
               </div>
             </dl>
@@ -389,8 +414,9 @@ export function SendPaymentDialog({
                     disabled={isActing}
                   />
                   <Description>
-                    Leave empty for the node default fee cap, or enter a
-                    positive maximum in CKB
+                    {openFeeRaw > 0n
+                      ? `Must cover the ${formatCkb(openFeeRaw)} CKB open fee. The rest of the cap pays the route to the liquidity node.`
+                      : "Leave empty for the node default fee cap, or enter a positive maximum in CKB"}
                   </Description>
                 </Field>
                 <Field>
@@ -403,7 +429,9 @@ export function SendPaymentDialog({
                     disabled={isActing}
                   />
                   <Description>
-                    Cancel the payment if not completed in time
+                    {jitPayment
+                      ? "Opening the channel waits for funding confirmations. 20 minutes is a starting point."
+                      : "Cancel the payment if not completed in time"}
                   </Description>
                 </Field>
               </div>
@@ -421,9 +449,11 @@ export function SendPaymentDialog({
 
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
               Off-chain Fiber payments are irreversible once confirmed.
-              {maxFeeCkb.trim() === ""
-                ? " With Max fee empty, FNN applies its own default maximum fee cap (typically around 0.5% of the payment)."
-                : null}
+              {jitPayment
+                ? " The liquidity node may open a private channel before the payment finishes."
+                : maxFeeCkb.trim() === ""
+                  ? " With Max fee empty, FNN applies its own default maximum fee cap (typically around 0.5% of the payment)."
+                  : null}
             </div>
           </div>
         ) : step === "inflight" ? (
@@ -432,13 +462,15 @@ export function SendPaymentDialog({
               <StatusDot tone="warning" />
             </div>
             <Text className="text-sm font-medium text-zinc-950 dark:text-white">
-              Payment is being routed
+              {jitPayment ? "Opening a channel, then routing" : "Payment is being routed"}
             </Text>
             <Text className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
               {displayAmount} · status {result?.status ?? "Inflight"}
             </Text>
             <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-              Waiting for FNN to confirm the payment…
+              {jitPayment
+                ? "The liquidity node is funding a private channel. That can take several minutes while the funding transaction confirms."
+                : "Waiting for FNN to confirm the payment…"}
             </Text>
             {result?.paymentHash ? (
               <Text className="mt-2 font-mono text-xs text-zinc-500 dark:text-zinc-400">
@@ -455,11 +487,6 @@ export function SendPaymentDialog({
               Payment sent successfully
             </Text>
 
-            {result?.routeHops.length ? (
-              <Text className="mt-1 font-mono text-xs text-zinc-500 dark:text-zinc-400">
-                {formatRouteHops(result.routeHops)}
-              </Text>
-            ) : null}
             <div className="mt-3">
               <Badge color="green">
                 <StatusDot tone="running" />
@@ -513,8 +540,8 @@ export function SendPaymentDialog({
               </Badge>
             </div>
             {showOpenChannelsCta ? (
-              <Button href="/channels" outline className="mt-4 text-xs">
-                Open channels
+              <Button href="/channels?action=open" outline className="mt-4 text-xs">
+                Add funds
               </Button>
             ) : null}
           </div>

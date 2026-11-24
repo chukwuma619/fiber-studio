@@ -11,7 +11,12 @@ import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
 import { Input } from "../ui/input"
 import { Select } from "../ui/select"
 import { PageErrorBanner } from "../ui/page-error-banner"
-import type { AssetView, CreateInvoicePayload } from "../../lib/fnn/types"
+import { Text } from "../ui/text"
+import type {
+  AssetView,
+  CreateInvoicePayload,
+  CreateInvoiceResult,
+} from "../../lib/fnn/types"
 import { CKB_ASSET_ID, defaultAsset } from "../../lib/fnn/assets"
 import { invoiceCurrencyLabel, validateHumanAmount } from "../../lib/fnn/format"
 import { InvoiceSharePanel } from "./InvoiceSharePanel"
@@ -21,12 +26,12 @@ type CreateInvoiceDialogProps = {
   onClose: () => void
   network: string | null
   assets: AssetView[]
+  hasReadyChannel: boolean
   isActing: boolean
   actionError: string | null
-  onCreateInvoice: (payload: CreateInvoicePayload) => Promise<{
-    invoiceAddress: string
-    paymentHash: string
-  }>
+  onCreateInvoice: (
+    payload: CreateInvoicePayload,
+  ) => Promise<CreateInvoiceResult>
   onClearError: () => void
 }
 
@@ -34,11 +39,25 @@ function currencyLabel(network: string | null): string {
   return invoiceCurrencyLabel(network)
 }
 
+function invoiceReceiveNote(result: CreateInvoiceResult): string | null {
+  if (result.liquidityProvider) {
+    if (result.jitOpenFeeDisplay) {
+      return `No channel with you is required. The payer covers a ${result.jitOpenFeeDisplay} open fee.`
+    }
+    return "No channel with you is required for this invoice."
+  }
+  if (result.jitUnavailable) {
+    return "This invoice needs a route to you. Add funds if you do not have a channel yet."
+  }
+  return null
+}
+
 export function CreateInvoiceDialog({
   open,
   onClose,
   network,
   assets,
+  hasReadyChannel,
   isActing,
   actionError,
   onCreateInvoice,
@@ -49,6 +68,7 @@ export function CreateInvoiceDialog({
   const [expiryHours, setExpiryHours] = useState("24")
   const [note, setNote] = useState("")
   const [invoiceAddress, setInvoiceAddress] = useState<string | null>(null)
+  const [jitNote, setJitNote] = useState<string | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
 
   const catalog = assets.length > 0 ? assets : [defaultAsset([])]
@@ -62,6 +82,7 @@ export function CreateInvoiceDialog({
       setExpiryHours("24")
       setNote("")
       setInvoiceAddress(null)
+      setJitNote(null)
       setLocalError(null)
       onClearError()
     }
@@ -92,6 +113,7 @@ export function CreateInvoiceDialog({
         udtTypeScript: selectedAsset.udtTypeScript ?? undefined,
       })
       setInvoiceAddress(result.invoiceAddress)
+      setJitNote(invoiceReceiveNote(result))
     } catch {
       // actionError is set by the hook
     }
@@ -106,13 +128,25 @@ export function CreateInvoiceDialog({
 
   return (
     <Dialog open={open} onClose={onClose} size="lg">
-      <DialogTitle>Create invoice</DialogTitle>
+      <DialogTitle>Receive</DialogTitle>
       <DialogDescription>
-        Generate a {currency} invoice to receive {selectedAsset.symbol} over the
-        Fiber network.
+        Create a {currency} invoice for {selectedAsset.symbol}.
       </DialogDescription>
       <DialogBody>
         <FieldGroup>
+          {!hasReadyChannel && !invoiceAddress ? (
+            <Text className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+              You need a channel to receive. Add funds to open one with a public
+              hub.
+              <Button
+                href="/channels?action=open"
+                outline
+                className="mt-2 text-xs"
+              >
+                Add funds
+              </Button>
+            </Text>
+          ) : null}
           <Field>
             <Label>Asset</Label>
             <Select
@@ -179,6 +213,10 @@ export function CreateInvoiceDialog({
               invoiceAddress={invoiceAddress}
               currency={currency}
               assetSymbol={selectedAsset.symbol}
+              subtitle={
+                jitNote ??
+                "Scan the QR code or share the Bech32m string with the payer"
+              }
             />
           ) : null}
         </FieldGroup>

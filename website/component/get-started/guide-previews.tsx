@@ -309,8 +309,8 @@ export function GuideSendPreview() {
 export function GuideReceivePreview() {
   return (
     <DialogShell
-      title="Create invoice"
-      description="Generate a Fibt invoice to receive CKB or a UDT over the Fiber network."
+      title="Receive"
+      description="Create a Fibt invoice for CKB."
       primaryAction="Create invoice"
     >
       <Field label="Asset">

@@ -12,11 +12,14 @@ use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::SHANNONS_PER_CKB;
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
+use crate::fnn::jit;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
 use crate::fnn::preflight;
-use crate::fnn::rpc::{self, CkbScript, CkbInvoice, CkbInvoiceStatus, PaymentKind, SendPaymentRequest};
+use crate::fnn::rpc::{
+    self, CkbInvoice, CkbInvoiceStatus, CkbScript, PaymentKind, SendPaymentRequest,
+};
 use crate::fnn::sent_payments;
 use crate::fnn::studio;
 use crate::state::AppState;
@@ -163,6 +166,13 @@ pub struct ParseInvoicePreview {
     pub network_match: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub network_warning: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidity_provider: Option<String>,
+    /// Decimal shannons. Absent when the invoice has no JIT open-fee attribute.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_shannons: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_display: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -170,6 +180,18 @@ pub struct ParseInvoicePreview {
 pub struct CreateInvoiceResult {
     pub invoice_address: String,
     pub payment_hash: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidity_provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_shannons: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_display: Option<String>,
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub jit_unavailable: bool,
+}
+
+fn is_false(value: &bool) -> bool {
+    !*value
 }
 
 #[derive(Debug, Deserialize)]
@@ -224,6 +246,12 @@ pub struct PreviewSendPaymentResult {
     pub amount_display: String,
     pub asset_symbol: String,
     pub route_hops: Vec<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub liquidity_provider: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_shannons: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_open_fee_display: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -314,10 +342,7 @@ fn extract_invoice_description(attrs: &[serde_json::Value]) -> Option<String> {
                 return Some(description.to_string());
             }
         }
-        if let Some(description) = attr
-            .get("Description")
-            .and_then(|value| value.as_str())
-        {
+        if let Some(description) = attr.get("Description").and_then(|value| value.as_str()) {
             if !description.trim().is_empty() {
                 return Some(description.to_string());
             }
@@ -348,9 +373,8 @@ fn build_parse_invoice_preview(
         .clone()
         .unwrap_or_else(|| "Fibt".to_string());
     let asset = assets::asset_for_invoice(catalog, invoice);
-    let network_match = network.is_none_or(|value| {
-        expected_currency_for_network(value).eq_ignore_ascii_case(&currency)
-    });
+    let network_match = network
+        .is_none_or(|value| expected_currency_for_network(value).eq_ignore_ascii_case(&currency));
     let network_warning = if network_match {
         None
     } else {
@@ -359,6 +383,7 @@ fn build_parse_invoice_preview(
             network.unwrap_or("unknown")
         ))
     };
+    let jit_quote = invoice_jit_quote(invoice);
 
     ParseInvoicePreview {
         amount_display: assets::format_amount_display(amount_shannons, &asset),
@@ -367,13 +392,17 @@ fn build_parse_invoice_preview(
         payment_hash: invoice.data.payment_hash.clone(),
         description: extract_invoice_description(&invoice.data.attrs),
         payee_pubkey: preflight::extract_invoice_payee_pubkey(&invoice.data.attrs),
-        amount_raw: invoice
-            .amount
-            .clone()
-            .unwrap_or_else(|| "0x0".to_string()),
+        amount_raw: invoice.amount.clone().unwrap_or_else(|| "0x0".to_string()),
         network_match,
         network_warning,
+        liquidity_provider: jit_quote.liquidity_provider,
+        jit_open_fee_shannons: jit_quote.open_fee_shannons.map(|fee| fee.to_string()),
+        jit_open_fee_display: jit_quote.open_fee_shannons.map(jit::format_open_fee),
     }
+}
+
+fn invoice_jit_quote(invoice: &CkbInvoice) -> jit::JitInvoiceQuote {
+    jit::quote_from_attrs(&invoice.data.attrs)
 }
 
 fn send_payment_request<'a>(
@@ -412,10 +441,7 @@ fn keysend_payment_request<'a>(
     }
 }
 
-fn build_send_targets(
-    channels: &[rpc::Channel],
-    own_pubkey: &str,
-) -> Vec<PaymentsSendTarget> {
+fn build_send_targets(channels: &[rpc::Channel], own_pubkey: &str) -> Vec<PaymentsSendTarget> {
     let mut targets = Vec::new();
 
     for channel in channels {
@@ -429,12 +455,9 @@ fn build_send_targets(
         if local_balance == 0 {
             continue;
         }
-        if targets
-            .iter()
-            .any(|target: &PaymentsSendTarget| {
-                peer_connect::pubkeys_equal(&target.pubkey, &channel.pubkey)
-            })
-        {
+        if targets.iter().any(|target: &PaymentsSendTarget| {
+            peer_connect::pubkeys_equal(&target.pubkey, &channel.pubkey)
+        }) {
             continue;
         }
         targets.push(PaymentsSendTarget {
@@ -470,7 +493,9 @@ fn map_wallet_payments(
             let stored = stored_sent_payments
                 .iter()
                 .find(|entry| entry.payment_hash == payment.payment_hash);
-            to_payments_payment(payment_display::map_payment_list_item(payment, stored, catalog))
+            to_payments_payment(payment_display::map_payment_list_item(
+                payment, stored, catalog,
+            ))
         })
         .collect();
     payment_display::sort_payments_by_recent_activity(&mut items, |payment| {
@@ -609,14 +634,19 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         .unwrap_or(&[]);
 
     let relay_status = peer_connect::relay_status_for_peers(
-        studio_metadata.as_ref().map(|metadata| metadata.network.as_str()),
+        studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.as_str()),
         &peers,
         saved_peers,
         &manager_relay_status,
     );
 
     let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
-        match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
+        match studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.as_str())
+        {
             Some(network) => {
                 match assets::fetch_wallet_on_chain_snapshot(
                     network,
@@ -631,16 +661,10 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
                             .iter()
                             .find(|balance| balance.asset_id == assets::CKB_ASSET_ID)
                             .and_then(|balance| {
-                                rpc::parse_hex_u128(&balance.raw_amount).map(|raw| {
-                                    (raw / SHANNONS_PER_CKB) as u64
-                                })
+                                rpc::parse_hex_u128(&balance.raw_amount)
+                                    .map(|raw| (raw / SHANNONS_PER_CKB) as u64)
                             });
-                        (
-                            ckb_balance,
-                            None,
-                            snapshot.balances,
-                            catalog.clone(),
-                        )
+                        (ckb_balance, None, snapshot.balances, catalog.clone())
                     }
                     Err(error) => (
                         None,
@@ -662,14 +686,12 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
         .as_ref()
         .map(|path| invoices::read_invoices(path).unwrap_or_default())
         .unwrap_or_default();
-    let invoice_items = invoice_display::build_invoice_list_items_with_catalog(
-        stored_invoices,
-        &catalog,
-    )
-        .await
-        .into_iter()
-        .map(to_payments_invoice)
-        .collect();
+    let invoice_items =
+        invoice_display::build_invoice_list_items_with_catalog(stored_invoices, &catalog)
+            .await
+            .into_iter()
+            .map(to_payments_invoice)
+            .collect();
 
     let stored_sent_payments = data_directory
         .as_ref()
@@ -688,7 +710,9 @@ pub async fn get_payments_page(state: State<'_, AppState>) -> Result<PaymentsPag
 
     Ok(PaymentsPageResponse {
         available: true,
-        network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
+        network: studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.clone()),
         pubkey: Some(node_info.pubkey),
         on_chain_wallet_ckb,
         on_chain_wallet_error,
@@ -742,17 +766,35 @@ pub async fn create_invoice(
     let currency = rpc::currency_for_network(&studio_metadata.network);
     let udt_script = asset.udt_type_script.as_ref();
 
-    let result = rpc::new_invoice_with_udt(
+    let attempted = rpc::new_invoice_with_udt(
         amount_raw,
         currency,
         payload.description.as_deref(),
         expiry_seconds,
         udt_script,
+        None,
     )
-    .await
-    .map_err(|error| error.to_string())?;
+    .await;
+    let (result, jit_unavailable) = match attempted {
+        Ok(result) => (result, false),
+        Err(error) if jit::ordinary_invoice_on_jit_miss(&error.to_string()) => {
+            let ordinary = rpc::new_invoice_with_udt(
+                amount_raw,
+                currency,
+                payload.description.as_deref(),
+                expiry_seconds,
+                udt_script,
+                Some(false),
+            )
+            .await
+            .map_err(|error| jit::friendly_new_invoice_error(error.to_string()))?;
+            (ordinary, true)
+        }
+        Err(error) => return Err(jit::friendly_new_invoice_error(error.to_string())),
+    };
 
     let payment_hash = result.invoice.data.payment_hash.clone();
+    let jit_quote = invoice_jit_quote(&result.invoice);
 
     let stored = invoices::new_stored_invoice(
         payment_hash.clone(),
@@ -773,6 +815,10 @@ pub async fn create_invoice(
     Ok(CreateInvoiceResult {
         invoice_address: result.invoice_address,
         payment_hash,
+        liquidity_provider: jit_quote.liquidity_provider,
+        jit_open_fee_shannons: jit_quote.open_fee_shannons.map(|fee| fee.to_string()),
+        jit_open_fee_display: jit_quote.open_fee_shannons.map(jit::format_open_fee),
+        jit_unavailable,
     })
 }
 
@@ -800,13 +846,11 @@ pub async fn preview_send_payment(
 
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
+    let jit_quote = invoice_jit_quote(&parsed.invoice);
+    let max_fee_amount =
+        jit::fee_cap_for_payment(true, max_fee_amount, jit_quote.open_fee_shannons)?;
 
-    let preview = rpc::send_payment(send_payment_request(
-        invoice,
-        true,
-        max_fee_amount,
-        timeout,
-    ))
+    let preview = rpc::send_payment(send_payment_request(invoice, true, max_fee_amount, timeout))
         .await
         .map_err(|error| error.to_string())?;
 
@@ -819,6 +863,9 @@ pub async fn preview_send_payment(
         amount_display: parse_preview.amount_display,
         asset_symbol: asset.symbol,
         route_hops,
+        liquidity_provider: jit_quote.liquidity_provider,
+        jit_open_fee_shannons: jit_quote.open_fee_shannons.map(|fee| fee.to_string()),
+        jit_open_fee_display: jit_quote.open_fee_shannons.map(jit::format_open_fee),
     })
 }
 
@@ -893,6 +940,9 @@ pub async fn send_payment(
 
     let (max_fee_amount, timeout) =
         resolve_send_limits(payload.max_fee_ckb, payload.timeout_seconds)?;
+    let jit_quote = invoice_jit_quote(&parsed.invoice);
+    let max_fee_amount =
+        jit::fee_cap_for_payment(false, max_fee_amount, jit_quote.open_fee_shannons)?;
 
     let result = rpc::send_payment(send_payment_request(
         invoice,
@@ -900,8 +950,8 @@ pub async fn send_payment(
         max_fee_amount,
         timeout,
     ))
-        .await
-        .map_err(|error| error.to_string())?;
+    .await
+    .map_err(|error| error.to_string())?;
 
     let route_hops = payment_display::route_hops_from_payment(&result);
     persist_sent_payment(
@@ -971,6 +1021,9 @@ pub async fn preview_keysend_payment(
         amount_display: assets::format_amount_display(amount_raw, &asset),
         asset_symbol: asset.symbol,
         route_hops: payment_display::route_hops_from_payment(&preview),
+        liquidity_provider: None,
+        jit_open_fee_shannons: None,
+        jit_open_fee_display: None,
     })
 }
 
@@ -1072,11 +1125,7 @@ pub async fn cancel_invoice(
         .await
         .map_err(|error| error.to_string())?;
 
-    let amount_hex = result
-        .invoice
-        .amount
-        .as_deref()
-        .unwrap_or("0x0");
+    let amount_hex = result.invoice.amount.as_deref().unwrap_or("0x0");
     let raw = rpc::parse_hex_u128(amount_hex).unwrap_or(0);
     let asset = assets::asset_for_invoice(&catalog, &result.invoice);
 
@@ -1118,7 +1167,8 @@ pub async fn load_more_payments(
         .await
         .map_err(|error| error.to_string())?;
 
-    let stored_sent_payments = sent_payments::read_sent_payments(&data_directory).unwrap_or_default();
+    let stored_sent_payments =
+        sent_payments::read_sent_payments(&data_directory).unwrap_or_default();
     let payment_items =
         map_wallet_payments(payments_page.payments, &stored_sent_payments, &catalog);
     let (last_cursor, has_more) = payments_page_meta(
@@ -1183,10 +1233,8 @@ mod tests {
 
     #[test]
     fn create_invoice_amount_string_rejects_excess_precision() {
-        let err = amounts::ckb_to_shannons_str(
-            "0.01111111111111111111111111111111111111111",
-        )
-        .unwrap_err();
+        let err = amounts::ckb_to_shannons_str("0.01111111111111111111111111111111111111111")
+            .unwrap_err();
         assert_eq!(err, "Amount supports at most 8 decimal places.");
     }
 }

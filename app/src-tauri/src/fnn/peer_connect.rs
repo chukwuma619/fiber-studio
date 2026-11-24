@@ -39,9 +39,7 @@ pub fn relay_status_for_peers(
     saved_peers: &[SavedPeer],
     fallback_status: &str,
 ) -> String {
-    let relays = network
-        .map(relays::relays_for_network)
-        .unwrap_or_default();
+    let relays = network.map(relays::relays_for_network).unwrap_or_default();
 
     if relays.is_empty() && saved_peers.is_empty() {
         return "not_configured".to_string();
@@ -73,9 +71,7 @@ pub fn relay_status_for_saved_peers(
 }
 
 fn peer_is_connected(peers: &[PeerInfo], pubkey: &str) -> bool {
-    peers
-        .iter()
-        .any(|peer| pubkeys_equal(&peer.pubkey, pubkey))
+    peers.iter().any(|peer| pubkeys_equal(&peer.pubkey, pubkey))
 }
 
 /// At least one official relay is connected, and none of the official relays has an open or pending channel.
@@ -172,19 +168,22 @@ pub async fn startup_peers_to_dial(
     data_directory: &Path,
     paused_pubkeys: &[String],
 ) -> Result<Vec<DialTarget>, String> {
-    let metadata = studio::read_studio_metadata(data_directory).map_err(|error| error.to_string())?;
+    let metadata =
+        studio::read_studio_metadata(data_directory).map_err(|error| error.to_string())?;
     let connected = rpc::fetch_list_peers()
         .await
         .map_err(|error| error.to_string())?;
-    Ok(startup_dial_targets(&metadata.network, &metadata.saved_peers)
-        .into_iter()
-        .filter(|target| {
-            !paused_pubkeys
-                .iter()
-                .any(|paused| pubkeys_equal(paused, &target.pubkey))
-        })
-        .filter(|target| !peer_is_connected(&connected, &target.pubkey))
-        .collect())
+    Ok(
+        startup_dial_targets(&metadata.network, &metadata.saved_peers)
+            .into_iter()
+            .filter(|target| {
+                !paused_pubkeys
+                    .iter()
+                    .any(|paused| pubkeys_equal(paused, &target.pubkey))
+            })
+            .filter(|target| !peer_is_connected(&connected, &target.pubkey))
+            .collect(),
+    )
 }
 
 /// Dial the given peers together. Returns one result per peer.
@@ -268,12 +267,8 @@ pub async fn ensure_peer_connected(
         return Ok(RelayConnectStatus::Connected);
     }
 
-    for address in resolve_graph_addresses(
-        pubkey,
-        saved_multiaddr,
-        GRAPH_LOOKUP_RETRIES_THOROUGH,
-    )
-    .await
+    for address in
+        resolve_graph_addresses(pubkey, saved_multiaddr, GRAPH_LOOKUP_RETRIES_THOROUGH).await
     {
         try_connect_peer_with_address(pubkey, &address).await;
     }
@@ -294,9 +289,7 @@ async fn wait_and_dial_peer(
     let mut last_dial: Option<std::time::Instant> = None;
 
     while started.elapsed() < timeout {
-        if last_dial
-            .is_none_or(|instant| instant.elapsed() >= CONNECT_REDDIAL_INTERVAL)
-        {
+        if last_dial.is_none_or(|instant| instant.elapsed() >= CONNECT_REDDIAL_INTERVAL) {
             dial_peer_attempts(pubkey, saved_multiaddr).await;
             last_dial = Some(std::time::Instant::now());
         }
@@ -522,8 +515,18 @@ mod tests {
         assert!(!needs_relay_channel(true, &relays, &no_relays, &[]));
         assert!(!needs_relay_channel(false, &relays, &both_relays, &[]));
         assert!(!needs_relay_channel(true, &[], &both_relays, &[]));
-        assert!(!needs_relay_channel(true, &relays, &both_relays, &["02AA".into()]));
-        assert!(needs_relay_channel(true, &relays, &both_relays, &["03cc".into()]));
+        assert!(!needs_relay_channel(
+            true,
+            &relays,
+            &both_relays,
+            &["02AA".into()]
+        ));
+        assert!(needs_relay_channel(
+            true,
+            &relays,
+            &both_relays,
+            &["03cc".into()]
+        ));
     }
 
     #[test]

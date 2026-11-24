@@ -106,8 +106,7 @@ pub(crate) fn launch_peer_autoconnect(app: &AppHandle, data_directory: PathBuf, 
     let app = app.clone();
     tauri::async_runtime::spawn(async move {
         loop {
-            let Some(all_connected) =
-                run_autoconnect_pass(&app, &data_directory, generation).await
+            let Some(all_connected) = run_autoconnect_pass(&app, &data_directory, generation).await
             else {
                 return;
             };
@@ -165,7 +164,8 @@ impl FnnManager {
     /// Resume auto-dialing a peer after the user connects or saves it again.
     pub fn resume_peer_autoconnect(&mut self, pubkey: &str) {
         let normalized = super::peer_connect::normalize_pubkey(pubkey);
-        self.peer_autoconnect_paused.retain(|paused| paused != &normalized);
+        self.peer_autoconnect_paused
+            .retain(|paused| paused != &normalized);
     }
 
     fn mark_peers_connecting(&mut self, targets: &[DialTarget]) {
@@ -379,8 +379,8 @@ impl FnnManager {
         self.data_directory = Some(data_directory.clone());
 
         if allow_migration {
-            let backup_path = backup::backup_data_directory(&data_directory)
-                .map_err(ManagerError::Backup)?;
+            let backup_path =
+                backup::backup_data_directory(&data_directory).map_err(ManagerError::Backup)?;
             self.append_log(&format!(
                 "Backed up data directory to {}",
                 backup_path.display()

@@ -107,10 +107,7 @@ pub fn is_empty_cell_data(hex_data: &str) -> bool {
 }
 
 /// Eligibility rule shared with Fiber/ckb-sdk funding input selection.
-pub fn is_plain_ckb_funding_cell(
-    type_script: Option<&CkbScript>,
-    output_data: &str,
-) -> bool {
+pub fn is_plain_ckb_funding_cell(type_script: Option<&CkbScript>, output_data: &str) -> bool {
     type_script.is_none() && is_empty_cell_data(output_data)
 }
 
@@ -138,9 +135,7 @@ fn get_cells_params(
 
 fn accumulate_wallet_cell(balances: &mut WalletCellBalances, cell: CellObject) {
     let capacity = rpc::parse_hex_u128(&cell.output.capacity).unwrap_or(0);
-    balances.total_capacity_shannons = balances
-        .total_capacity_shannons
-        .saturating_add(capacity);
+    balances.total_capacity_shannons = balances.total_capacity_shannons.saturating_add(capacity);
 
     match cell.output.type_script {
         Some(type_script) => {
@@ -196,10 +191,7 @@ pub async fn scan_wallet_cell_balances(
         }
 
         let next_cursor = result.last_cursor;
-        if next_cursor.is_none()
-            || next_cursor.as_ref().is_some_and(is_end_cursor)
-            || page_empty
-        {
+        if next_cursor.is_none() || next_cursor.as_ref().is_some_and(is_end_cursor) || page_empty {
             break;
         }
         cursor = next_cursor;
@@ -226,8 +218,7 @@ mod tests {
             code_hash: "0x1142755a044bf2ee358cba9f2da187ce928c91cd4dc8692ded0337efa677d21a"
                 .to_string(),
             hash_type: "type".to_string(),
-            args: "0x878fcc6f1f08d48e87bb1c3b3d5083f23f8a39c5d5c764f253b55b998526439b"
-                .to_string(),
+            args: "0x878fcc6f1f08d48e87bb1c3b3d5083f23f8a39c5d5c764f253b55b998526439b".to_string(),
         }
     }
 
@@ -249,9 +240,7 @@ mod tests {
             "params": [lock_script_search_key(&lock_script)],
             "id": 1
         });
-        let search_key = body["params"][0]
-            .as_object()
-            .expect("search key object");
+        let search_key = body["params"][0].as_object().expect("search key object");
 
         assert_eq!(body["method"], "get_cells_capacity");
         assert_eq!(
@@ -312,10 +301,7 @@ mod tests {
         assert!(is_plain_ckb_funding_cell(None, "0x"));
         assert!(is_plain_ckb_funding_cell(None, ""));
         assert!(!is_plain_ckb_funding_cell(None, "0x01"));
-        assert!(!is_plain_ckb_funding_cell(
-            Some(&sample_udt_script()),
-            "0x"
-        ));
+        assert!(!is_plain_ckb_funding_cell(Some(&sample_udt_script()), "0x"));
         assert!(!is_plain_ckb_funding_cell(
             Some(&sample_udt_script()),
             "0x01000000000000000000000000000000"

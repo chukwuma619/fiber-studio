@@ -19,14 +19,18 @@ pub fn parse_outpoint(value: &str) -> Option<CkbOutPoint> {
     }
 
     if trimmed.starts_with('{') {
-        return serde_json::from_str::<CkbOutPoint>(trimmed).ok().and_then(normalize);
+        return serde_json::from_str::<CkbOutPoint>(trimmed)
+            .ok()
+            .and_then(normalize);
     }
 
     parse_packed_hex(trimmed)
 }
 
 fn parse_packed_hex(value: &str) -> Option<CkbOutPoint> {
-    let hex = value.strip_prefix("0x").or_else(|| value.strip_prefix("0X"))?;
+    let hex = value
+        .strip_prefix("0x")
+        .or_else(|| value.strip_prefix("0X"))?;
     if hex.len() < 64 || !hex.chars().all(|c| c.is_ascii_hexdigit()) {
         return None;
     }

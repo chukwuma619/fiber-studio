@@ -1,29 +1,37 @@
+import { CKB_ASSET_ID } from "../../lib/fnn/assets"
+import { formatCkb, parseHexU128 } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
 import { LegacyChannelNudge } from "../channels/LegacyChannelNudge"
-import { RelayChannelPrompt } from "../channels/RelayChannelPrompt"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
-import { ChannelLiquiditySection } from "./ChannelLiquiditySection"
-import { NodeStatusPanel } from "./NodeStatusPanel"
 import { RecentActivitySection } from "./RecentActivitySection"
 import { StatCard } from "./StatCard"
 
-function peerConnectionsSubtext(count: number): string {
-  if (count === 1) {
-    return "1 peer connection"
-  }
-  return `${count} peer connections`
+function onChainCkbDisplay(
+  balances: { assetId: string; amountDisplay: string }[],
+): string {
+  const ckb = balances.find(
+    (balance) => balance.assetId.toLowerCase() === CKB_ASSET_ID,
+  )
+  return ckb?.amountDisplay ?? "0"
+}
+
+function nodeLoadSubtext(
+  available: boolean,
+  running: boolean,
+  ready: string,
+  stopped: string,
+): string {
+  if (available) return ready
+  if (running) return "Loading…"
+  return stopped
 }
 
 export function HomePage() {
-  const {
-    status,
-    isLoading: isNodeLoading,
-    running,
-  } = useNodeControlContext()
+  const { status, isLoading: isNodeLoading, running } = useNodeControlContext()
   const {
     dashboard,
     isLoading: isDashboardLoading,
@@ -32,27 +40,16 @@ export function HomePage() {
   } = useHomeDashboard(running)
 
   const available = dashboard?.available ?? false
-  const nodeInfo = dashboard?.nodeInfo
-  const isDashboardInitialLoad = running && isDashboardLoading && dashboard === null
+  const isDashboardInitialLoad =
+    running && isDashboardLoading && dashboard === null
   const isLoading = isNodeLoading || isDashboardInitialLoad
-
-  const activeChannelCount = dashboard?.activeChannelCount ?? 0
-  const pendingChannelCount = dashboard?.pendingChannelCount ?? 0
-  const peersCountValue = nodeInfo?.peersCount ?? 0
-
-  const activeChannels = available ? String(activeChannelCount) : "—"
-  const peersCount = available ? String(peersCountValue) : "—"
-  const pendingChannels = available ? String(pendingChannelCount) : "—"
-
-  const peersSubtext = available
-    ? peerConnectionsSubtext(peersCountValue)
-    : running
-      ? "Loading…"
-      : "Start node to connect"
-
-  const channelSubtext = available
-    ? `${activeChannelCount} active · ${pendingChannelCount} pending`
-    : "Start node to view channels"
+  const needsFunds = available && (dashboard?.activeChannelCount ?? 0) === 0
+  const spendableDisplay = available
+    ? `${formatCkb(parseHexU128(dashboard?.totalLocalBalance ?? "0"))} CKB`
+    : "—"
+  const onChainDisplay = available
+    ? `${onChainCkbDisplay(dashboard?.onChainBalances ?? [])} CKB`
+    : "—"
 
   return (
     <div className="space-y-8">
@@ -60,14 +57,16 @@ export function HomePage() {
         <div>
           <Heading level={1}>Home</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Node overview, channel liquidity, and recent activity.
+            Your Fiber balance, on-chain CKB, and recent payments.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button href="/assets">View assets</Button>
-          <Button href="/payments?action=send">Send payment</Button>
-          <Button href="/payments?action=create-invoice" outline>
-            Create invoice
+          <Button href="/payments?action=create-invoice">Receive</Button>
+          <Button href="/payments?action=send" outline>
+            Send
+          </Button>
+          <Button href="/channels?action=open" outline>
+            Add funds
           </Button>
         </div>
       </div>
@@ -79,49 +78,46 @@ export function HomePage() {
         />
       ) : null}
 
-      <RelayChannelPrompt dashboard={dashboard} />
-
       <LegacyChannelNudge
         open={Boolean(dashboard?.showLegacyChannelNudge)}
         legacyChannelCount={dashboard?.legacyChannelCount ?? 0}
         onDismissed={() => void refresh()}
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
-          label="Active channels"
-          value={isLoading && running ? "…" : activeChannels}
-          subtext={channelSubtext}
+          label="Spendable"
+          value={isLoading && running ? "…" : spendableDisplay}
+          subtext={nodeLoadSubtext(
+            available,
+            running,
+            "CKB you can send over Fiber",
+            "Start the node to see your balance",
+          )}
         />
         <StatCard
-          label="Connected peers"
-          value={isLoading && running ? "…" : peersCount}
-          subtext={peersSubtext}
-        />
-        <StatCard
-          label="Pending channels"
-          value={isLoading && running ? "…" : pendingChannels}
-          subtext={
-            available && pendingChannelCount > 0
-              ? "Opening in progress"
-              : "No channels opening"
-          }
+          label="On-chain"
+          value={isLoading && running ? "…" : onChainDisplay}
+          subtext={nodeLoadSubtext(
+            available,
+            running,
+            "CKB in this wallet, outside Fiber",
+            "Start the node to see on-chain CKB",
+          )}
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-        <ChannelLiquiditySection
-          channels={dashboard?.channels ?? []}
-          available={available}
-          status={status}
-          isLoading={isDashboardInitialLoad}
-        />
-        <NodeStatusPanel
-          dashboard={dashboard}
-          status={status}
-          isLoading={isNodeLoading || isDashboardInitialLoad}
-        />
-      </div>
+      {needsFunds ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          Add funds to open a channel with a public hub. Payments need that
+          channel.
+          <div className="mt-3">
+            <Button href="/channels?action=open" outline className="text-xs">
+              Add funds
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <RecentActivitySection
         payments={dashboard?.payments ?? []}

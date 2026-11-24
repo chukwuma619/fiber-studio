@@ -2,6 +2,7 @@ import { RefreshCw } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import {
+  parseHexU128,
   sortPaymentsByRecentActivity,
   type InvoiceListFilter,
 } from "../../lib/fnn/format"
@@ -17,6 +18,7 @@ import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
 import { PageErrorBanner } from "../ui/page-error-banner"
 import { Text } from "../ui/text"
+import { RelayChannelPrompt } from "../channels/RelayChannelPrompt"
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog"
 import { ImportInvoiceDialog } from "./ImportInvoiceDialog"
 import { InvoiceDetailDialog } from "./InvoiceDetailDialog"
@@ -60,6 +62,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   } = usePaymentsActions(handleMutationSuccess)
 
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [addFundsPromptOpen, setAddFundsPromptOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [receiveBtcOpen, setReceiveBtcOpen] = useState(false)
   const [invoiceFilter, setInvoiceFilter] = useState<InvoiceListFilter>("active")
@@ -80,6 +83,10 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
   const cwbtcAsset =
     data?.assets.find((asset) => asset.symbol.toUpperCase() === "CWBTC") ?? null
   const receivedInvoiceCount = invoices.filter((item) => item.status === "Received").length
+  const hasReadyChannel = (data?.inChannelTotals ?? []).some(
+    (total) =>
+      parseHexU128(total.localBalance) + parseHexU128(total.remoteBalance) > 0n,
+  )
 
   useEffect(() => {
     if (!running) {
@@ -197,7 +204,7 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         <div className="min-w-0 max-w-2xl">
           <Heading level={1}>Payments</Heading>
           <Text className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-            Send on the left. Receive and track invoices on the right.
+            Send and receive Fiber payments.
           </Text>
         </div>
         <Button
@@ -266,7 +273,12 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
           onInvoiceFilterChange={setInvoiceFilter}
           onSelectInvoice={setSelectedInvoice}
           onImport={() => setImportDialogOpen(true)}
-          onCreate={() => setCreateDialogOpen(true)}
+          onCreate={() => {
+            if (available && !hasReadyChannel) {
+              setAddFundsPromptOpen(true)
+            }
+            setCreateDialogOpen(true)
+          }}
           cchConfigured={cchConfigured}
           onReceiveBtc={() => setReceiveBtcOpen(true)}
         />
@@ -280,11 +292,17 @@ export function PaymentsPage({ initialAction }: PaymentsPageProps) {
         onLoadMore={() => void handleLoadMorePayments()}
       />
 
+      <RelayChannelPrompt
+        open={addFundsPromptOpen}
+        onClose={() => setAddFundsPromptOpen(false)}
+      />
+
       <CreateInvoiceDialog
         open={createDialogOpen}
         onClose={() => setCreateDialogOpen(false)}
         network={data?.network ?? null}
         assets={data?.assets ?? []}
+        hasReadyChannel={!available || hasReadyChannel}
         isActing={isActing}
         actionError={actionError}
         onCreateInvoice={createInvoice}

@@ -42,7 +42,10 @@ mod tests {
         assert!(version_at_least("0.10.0", "0.10.0"));
         assert!(version_at_least("0.10.1", "0.10.0"));
         assert!(!version_less_than("0.10.0", "0.9.1"));
-        assert!(version_at_least("Fiber v0.10.0 (d6868d1 2026-11-13)", "0.10.0"));
+        assert!(version_at_least(
+            "Fiber v0.10.0 (d6868d1 2026-11-13)",
+            "0.10.0"
+        ));
         assert!(version_less_than("fnn Fiber v0.9.1", "0.10.0"));
     }
 }

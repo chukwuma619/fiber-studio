@@ -2,7 +2,7 @@ use serde::Serialize;
 
 use super::assets::{self, AssetView};
 use super::peer_connect;
-use super::rpc::{self, parse_hex_u128, CkbScript, Channel};
+use super::rpc::{self, parse_hex_u128, Channel, CkbScript};
 
 pub const SHANNONS_PER_CKB: u128 = 100_000_000;
 
@@ -111,7 +111,8 @@ pub fn to_home_channel(
         ((local * 100) / total).min(100) as u8
     };
 
-    let asset = assets::asset_for_channel_funding(catalog, channel.funding_udt_type_script.as_ref());
+    let asset =
+        assets::asset_for_channel_funding(catalog, channel.funding_udt_type_script.as_ref());
     let channel_version = if is_legacy {
         "v1".to_string()
     } else if protocol_known {
@@ -150,10 +151,7 @@ pub fn channel_matches_funding_asset(channel: &Channel, funding_udt: Option<&Ckb
     }
 }
 
-pub fn sum_local_balances_for_asset(
-    channels: &[Channel],
-    funding_udt: Option<&CkbScript>,
-) -> u128 {
+pub fn sum_local_balances_for_asset(channels: &[Channel], funding_udt: Option<&CkbScript>) -> u128 {
     channels
         .iter()
         .filter(|channel| rpc::is_channel_ready(&channel.state))

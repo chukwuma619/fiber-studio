@@ -213,13 +213,11 @@ pub async fn get_home_dashboard(
         &catalog,
     )
     .await;
-    let incoming_invoices = invoice_display::select_incoming_invoices(
-        &invoice_items,
-        HOME_INCOMING_PAID_LIMIT,
-    )
-    .into_iter()
-    .map(to_home_incoming)
-    .collect();
+    let incoming_invoices =
+        invoice_display::select_incoming_invoices(&invoice_items, HOME_INCOMING_PAID_LIMIT)
+            .into_iter()
+            .map(to_home_incoming)
+            .collect();
 
     let saved_peers = studio_metadata
         .as_ref()
@@ -255,7 +253,8 @@ pub async fn get_home_dashboard(
             channels
                 .iter()
                 .filter(|channel| {
-                    (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
+                    (rpc::is_channel_ready(&channel.state)
+                        || rpc::is_channel_pending(&channel.state))
                         && metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
                 })
                 .count() as u32
@@ -266,11 +265,7 @@ pub async fn get_home_dashboard(
             .as_ref()
             .is_some_and(|metadata| !metadata.legacy_channel_nudge_dismissed);
 
-    let home_channels = select_home_channels(
-        channels,
-        &catalog,
-        studio_metadata.as_ref(),
-    );
+    let home_channels = select_home_channels(channels, &catalog, studio_metadata.as_ref());
 
     let relay_status = peer_connect::relay_status_for_peers(
         network_str,
@@ -297,9 +292,7 @@ pub async fn get_home_dashboard(
                 .iter()
                 .find(|entry| entry.payment_hash == payment.payment_hash);
             to_home_payment(payment_display::map_payment_list_item(
-                payment,
-                stored,
-                &catalog,
+                payment, stored, &catalog,
             ))
         })
         .collect();

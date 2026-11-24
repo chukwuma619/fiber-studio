@@ -60,7 +60,10 @@ pub fn plan_rebalance<'a>(
     target_channel_id: &str,
     amount_raw: u128,
 ) -> Result<RebalancePlan<'a>, String> {
-    if source_channel_id.trim().eq_ignore_ascii_case(target_channel_id.trim()) {
+    if source_channel_id
+        .trim()
+        .eq_ignore_ascii_case(target_channel_id.trim())
+    {
         return Err("Pick two different channels to move liquidity between.".to_string());
     }
 
@@ -82,8 +85,7 @@ pub fn plan_rebalance<'a>(
         );
     }
 
-    let asset =
-        assets::asset_for_channel_funding(catalog, source.funding_udt_type_script.as_ref());
+    let asset = assets::asset_for_channel_funding(catalog, source.funding_udt_type_script.as_ref());
     let is_ckb = asset.udt_type_script.is_none();
 
     let source_local = rpc::parse_hex_u128(&source.local_balance).unwrap_or(0);
@@ -167,11 +169,7 @@ pub fn receivable_balance(remote: u128, is_ckb: bool) -> u128 {
 ///
 /// Same peer, two channels: peer → this node (via the inbound channel).
 /// Different peers: source peer → target peer → this node (via the inbound channel).
-pub fn circular_hops_info(
-    source: &Channel,
-    target: &Channel,
-    own_pubkey: &str,
-) -> Vec<HopRequire> {
+pub fn circular_hops_info(source: &Channel, target: &Channel, own_pubkey: &str) -> Vec<HopRequire> {
     let source_outpoint = hop_outpoint(source.channel_outpoint.as_deref());
     let target_outpoint = hop_outpoint(target.channel_outpoint.as_deref());
 
@@ -266,8 +264,14 @@ mod tests {
 
     #[test]
     fn reserve_leaves_one_ckb_when_channel_is_large() {
-        assert_eq!(channel_reserve(500 * SHANNONS_PER_CKB, true), SHANNONS_PER_CKB);
-        assert_eq!(spendable_balance(500 * SHANNONS_PER_CKB, true), 499 * SHANNONS_PER_CKB);
+        assert_eq!(
+            channel_reserve(500 * SHANNONS_PER_CKB, true),
+            SHANNONS_PER_CKB
+        );
+        assert_eq!(
+            spendable_balance(500 * SHANNONS_PER_CKB, true),
+            499 * SHANNONS_PER_CKB
+        );
     }
 
     #[test]

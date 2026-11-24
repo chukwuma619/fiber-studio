@@ -69,6 +69,16 @@ export function InvoiceParsePreview({
             </dd>
           </div>
         ) : null}
+        {preview.liquidityProvider ? (
+          <div className="flex justify-between gap-3">
+            <dt className="text-zinc-500 dark:text-zinc-400">Just-in-time</dt>
+            <dd className="max-w-[65%] text-right text-zinc-700 dark:text-zinc-300">
+              {preview.jitOpenFeeDisplay
+                ? `${preview.jitOpenFeeDisplay} open fee`
+                : "Channel opens on payment"}
+            </dd>
+          </div>
+        ) : null}
         {preview.payeePubkey ? (
           <div className="flex justify-between gap-3">
             <dt className="text-zinc-500 dark:text-zinc-400">Payee</dt>

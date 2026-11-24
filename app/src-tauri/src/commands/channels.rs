@@ -6,9 +6,10 @@ use tauri::State;
 use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::{
     self, count_active_channels, count_pending_channels, has_active_or_pending_channel_to_peer,
-    min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances, sum_remote_balances,
-    sum_total_capacity, HomeChannel,
+    min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances,
+    sum_remote_balances, sum_total_capacity, HomeChannel,
 };
+use crate::fnn::config_read;
 use crate::fnn::features;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
@@ -53,6 +54,8 @@ pub struct ChannelsPageResponse {
     pub legacy_channel_count: u32,
     pub show_legacy_channel_nudge: bool,
     pub supports_channel_v2: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jit_lsp_pubkey: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,7 +137,9 @@ pub async fn get_wallet_balance(
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node before checking wallet balance.".to_string());
+        return Err(
+            "Node is not running. Start your node before checking wallet balance.".to_string(),
+        );
     }
 
     let data_directory = manager
@@ -171,6 +176,7 @@ fn channels_page_unavailable() -> ChannelsPageResponse {
         legacy_channel_count: 0,
         show_legacy_channel_nudge: false,
         supports_channel_v2: false,
+        jit_lsp_pubkey: None,
     }
 }
 
@@ -234,9 +240,7 @@ fn build_channels_saved_peer_entry(
 }
 
 /// Walk the network graph once and map pubkey → Channel V2 support for the given peers.
-async fn graph_channel_v2_by_pubkey(
-    pubkeys: &[String],
-) -> HashMap<String, bool> {
+async fn graph_channel_v2_by_pubkey(pubkeys: &[String]) -> HashMap<String, bool> {
     let mut remaining: HashSet<String> = pubkeys
         .iter()
         .map(|pubkey| peer_connect::normalize_pubkey(pubkey))
@@ -260,10 +264,7 @@ async fn graph_channel_v2_by_pubkey(
             }
             found.insert(
                 key,
-                features::graph_node_supports_channel_v2(
-                    &node.features,
-                    node.version.as_deref(),
-                ),
+                features::graph_node_supports_channel_v2(&node.features, node.version.as_deref()),
             );
             if remaining.is_empty() {
                 return found;
@@ -284,9 +285,7 @@ async fn graph_channel_v2_by_pubkey(
 }
 
 #[tauri::command]
-pub async fn get_channels_page(
-    state: State<'_, AppState>,
-) -> Result<ChannelsPageResponse, String> {
+pub async fn get_channels_page(state: State<'_, AppState>) -> Result<ChannelsPageResponse, String> {
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
@@ -347,7 +346,8 @@ pub async fn get_channels_page(
             channels
                 .iter()
                 .filter(|channel| {
-                    (rpc::is_channel_ready(&channel.state) || rpc::is_channel_pending(&channel.state))
+                    (rpc::is_channel_ready(&channel.state)
+                        || rpc::is_channel_pending(&channel.state))
                         && metadata.channel_is_legacy(&channel.channel_id, channel.created_at)
                 })
                 .count() as u32
@@ -426,7 +426,10 @@ pub async fn get_channels_page(
         .collect();
 
     let (on_chain_wallet_ckb, on_chain_wallet_error, on_chain_balances, assets) =
-        match studio_metadata.as_ref().map(|metadata| metadata.network.as_str()) {
+        match studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.as_str())
+        {
             Some(network) => match fetch_wallet_balance_for_network(network).await {
                 Ok(balance) => (
                     Some(balance.available_ckb),
@@ -465,7 +468,9 @@ pub async fn get_channels_page(
         total_remote_balance: total_remote_balance.to_string(),
         on_chain_wallet_ckb,
         on_chain_wallet_error,
-        network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
+        network: studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.clone()),
         default_funding_lock_script: Some(node_info.default_funding_lock_script),
         saved_peers: saved_peer_entries,
         relay_status,
@@ -476,6 +481,11 @@ pub async fn get_channels_page(
         legacy_channel_count,
         show_legacy_channel_nudge,
         supports_channel_v2,
+        jit_lsp_pubkey: data_directory.as_ref().and_then(|path| {
+            config_read::read_node_config(path)
+                .ok()
+                .and_then(|config| config.jit_lsp_pubkey)
+        }),
     })
 }
 
@@ -594,7 +604,9 @@ pub async fn open_channel(
         }
     }
 
-    if wallet_balance.available_ckb < channel::CHANNEL_RESERVE_CKB + channel::CHANNEL_OPEN_FEE_BUFFER_CKB {
+    if wallet_balance.available_ckb
+        < channel::CHANNEL_RESERVE_CKB + channel::CHANNEL_OPEN_FEE_BUFFER_CKB
+    {
         return Err(format!(
             "Insufficient on-chain CKB for channel reserve and fees. Need at least {} CKB but wallet has {} CKB.",
             channel::CHANNEL_RESERVE_CKB + channel::CHANNEL_OPEN_FEE_BUFFER_CKB,
@@ -670,7 +682,9 @@ pub async fn abandon_channel(
     let manager = state.fnn.lock().await;
 
     if !matches!(manager.status(), NodeRuntimeStatus::Running { .. }) {
-        return Err("Node is not running. Start your node before abandoning a channel.".to_string());
+        return Err(
+            "Node is not running. Start your node before abandoning a channel.".to_string(),
+        );
     }
     drop(manager);
 

@@ -86,7 +86,8 @@ impl StudioMetadata {
     pub fn sync_channel_v2_upgrade(&mut self, current_channel_ids: &[String]) -> bool {
         let mut changed = false;
 
-        if version::version_at_least(FNN_VERSION, CHANNEL_V2_SINCE) && !self.legacy_channel_snapshot_done
+        if version::version_at_least(FNN_VERSION, CHANNEL_V2_SINCE)
+            && !self.legacy_channel_snapshot_done
         {
             if version::version_less_than(&self.fnn_version, CHANNEL_V2_SINCE) {
                 self.legacy_channel_ids = current_channel_ids
@@ -197,7 +198,9 @@ pub enum StudioError {
 static STUDIO_IO: Mutex<()> = Mutex::new(());
 
 fn lock_studio_io() -> std::sync::MutexGuard<'static, ()> {
-    STUDIO_IO.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    STUDIO_IO
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// Read-modify-write `studio.json` under one lock so a dismiss cannot drop a snapshot.

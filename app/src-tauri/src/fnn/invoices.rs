@@ -49,10 +49,7 @@ pub fn read_invoices(data_dir: &Path) -> Result<Vec<StoredInvoice>, InvoiceStore
     Ok(store.invoices)
 }
 
-pub fn append_invoice(
-    data_dir: &Path,
-    invoice: StoredInvoice,
-) -> Result<(), InvoiceStoreError> {
+pub fn append_invoice(data_dir: &Path, invoice: StoredInvoice) -> Result<(), InvoiceStoreError> {
     let mut invoices = read_invoices(data_dir)?;
     invoices.retain(|existing| existing.payment_hash != invoice.payment_hash);
     invoices.insert(0, invoice);
@@ -162,7 +159,10 @@ mod tests {
 
         let loaded = read_invoices(&dir).unwrap();
         assert_eq!(loaded.len(), MAX_STORED_INVOICES);
-        assert_eq!(loaded[0].payment_hash, format!("0x{:04x}", MAX_STORED_INVOICES + 4));
+        assert_eq!(
+            loaded[0].payment_hash,
+            format!("0x{:04x}", MAX_STORED_INVOICES + 4)
+        );
         let _ = fs::remove_dir_all(dir);
     }
 }

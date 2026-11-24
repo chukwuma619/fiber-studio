@@ -15,11 +15,12 @@ import {
   invalidatePageCaches,
   PAGE_CACHE_KEYS,
 } from "../../lib/fnn/pageCache"
+import { isLiquidityOpenedChannel } from "../../lib/fnn/jit"
 import { rebalanceDisabledReason } from "../../lib/fnn/liquidityHealth"
+import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import { useChannelActions } from "../../lib/fnn/useChannelActions"
 import { useChannelsPage } from "../../lib/fnn/useChannelsPage"
 import { useRebalanceChannel } from "../../lib/fnn/useRebalanceChannel"
-import { nodeDataEmptyState } from "../../lib/fnn/nodeEmptyState"
 import type { HomeChannel } from "../../lib/fnn/types"
 import { CHANNEL_OPEN_MIN_FUNDING_CKB, truncatePubkey } from "../../lib/public-relays"
 import { HomeEmptyState } from "../home/HomeEmptyState"
@@ -167,7 +168,7 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
             onClick={openOpenDialog}
             disabled={!running || (data?.savedPeers.length ?? 0) === 0}
           >
-            Open channel
+            Add funds
           </Button>
           <Button
             outline
@@ -306,6 +307,9 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
                         {channel.channelVersion === "v2" ? (
                           <Badge color="emerald">V2</Badge>
                         ) : null}
+                        {isLiquidityOpenedChannel(channel, data?.jitLspPubkey) ? (
+                          <Badge color="violet">Just-in-time</Badge>
+                        ) : null}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -361,6 +365,10 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
       <ChannelDetailDialog
         open={selectedChannel !== null}
         channel={selectedChannel}
+        jitInbound={Boolean(
+          selectedChannel &&
+            isLiquidityOpenedChannel(selectedChannel, data?.jitLspPubkey),
+        )}
         onClose={() => setSelectedChannelId(null)}
         isActing={channelActions.isActing}
         actionError={channelActions.actionError}

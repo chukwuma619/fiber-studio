@@ -57,12 +57,14 @@ fn peer_addresses_match(peer_address: &str, bootnode_address: &str) -> bool {
         return true;
     }
 
-    bootnode_p2p_suffix(bootnode_address)
-        .is_some_and(|suffix| peer_address.contains(&suffix))
+    bootnode_p2p_suffix(bootnode_address).is_some_and(|suffix| peer_address.contains(&suffix))
 }
 
 fn bootnode_p2p_suffix(multiaddr: &str) -> Option<String> {
-    multiaddr.rsplit("/p2p/").next().filter(|_| multiaddr.contains("/p2p/"))
+    multiaddr
+        .rsplit("/p2p/")
+        .next()
+        .filter(|_| multiaddr.contains("/p2p/"))
         .map(|peer_id| format!("/p2p/{peer_id}"))
 }
 
@@ -79,8 +81,10 @@ mod tests {
 
     #[test]
     fn matches_list_peers_bootnode_address() {
-        let boot = "/ip4/54.179.226.154/tcp/8228/p2p/Qmes1EBD4yNo9Ywkfe6eRw9tG1nVNGLDmMud1xJMsoYFKy";
-        let peer = "/ip4/54.179.226.154/tcp/8228/p2p/Qmes1EBD4yNo9Ywkfe6eRw9tG1nVNGLDmMud1xJMsoYFKy";
+        let boot =
+            "/ip4/54.179.226.154/tcp/8228/p2p/Qmes1EBD4yNo9Ywkfe6eRw9tG1nVNGLDmMud1xJMsoYFKy";
+        let peer =
+            "/ip4/54.179.226.154/tcp/8228/p2p/Qmes1EBD4yNo9Ywkfe6eRw9tG1nVNGLDmMud1xJMsoYFKy";
         assert!(is_bootnode_peer("testnet", peer));
         assert!(peer_addresses_match(peer, boot));
     }

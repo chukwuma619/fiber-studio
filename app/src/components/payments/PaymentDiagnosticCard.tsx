@@ -16,7 +16,7 @@ export function PaymentDiagnosticCard({
   report,
   isLoading = false,
   compact = false,
-  emptyHint = "Enter payment details to inspect the route",
+  emptyHint = "Enter payment details to check the fee",
 }: PaymentDiagnosticCardProps) {
   const padding = compact ? "px-3 py-2.5" : "px-4 py-3"
 
@@ -72,7 +72,7 @@ export function PaymentDiagnosticCard({
         </p>
       ) : null}
 
-      {hops.length > 0 ? (
+      {hops.length > 0 && report.status !== "ready" ? (
         <p className={`mt-2 break-all font-mono text-xs ${tone.mono}`}>
           {hops.join(" → ")}
         </p>

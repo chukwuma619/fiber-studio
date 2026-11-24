@@ -492,13 +492,13 @@ export function paymentErrorSummary(error: string): string {
     return "Could not complete a circular self-payment. You need at least two ready channels in the same asset and a path through the network."
   }
   if (/no path found/i.test(cleaned)) {
-    return "No route found to the invoice payee. Open a channel with them (or via the same hub), ensure peers are connected, and wait for the network graph to sync."
+    return "No path to this invoice. Add funds if you do not have a channel yet."
   }
   if (/Insufficient balance|max outbound liquidity/i.test(cleaned)) {
-    return "Not enough outbound channel liquidity for this payment. Reconnect peers, wait for the graph to sync, or open/fund a channel with enough local balance."
+    return "Not enough spendable balance on your channels. Add funds or wait for a payment to settle."
   }
   if (/Failed to build route/i.test(cleaned)) {
-    return "Failed to build a payment route. Open a channel, ensure your peer is connected, and wait for the network graph to sync."
+    return "Could not send this payment. Add funds if you do not have a channel yet."
   }
   return cleaned
 }

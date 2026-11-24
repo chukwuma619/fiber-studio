@@ -7,6 +7,7 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react"
+
 export type NavItemId =
   | "home"
   | "assets"
@@ -23,13 +24,20 @@ export type NavItem = {
   icon: LucideIcon
 }
 
-export const NAV_ITEMS: NavItem[] = [
+export const PRIMARY_NAV_ITEMS: NavItem[] = [
   {
     id: "home",
     label: "Home",
     href: "/",
     icon: Home,
-    description: "Overview of your node, balances, and recent activity.",
+    description: "Your Fiber balance, on-chain CKB, and recent payments.",
+  },
+  {
+    id: "payments",
+    label: "Payments",
+    href: "/payments",
+    icon: Banknote,
+    description: "Send payments, create invoices, and view payment history.",
   },
   {
     id: "assets",
@@ -39,12 +47,15 @@ export const NAV_ITEMS: NavItem[] = [
     description: "View CKB and UDT balances on-chain and in Fiber channels.",
   },
   {
-    id: "payments",
-    label: "Payments",
-    href: "/payments",
-    icon: Banknote,
-    description: "Send payments, create invoices, and view payment history.",
+    id: "settings",
+    label: "Settings",
+    href: "/settings",
+    icon: Settings,
+    description: "Manage your node, wallet, and app preferences.",
   },
+]
+
+export const ADVANCED_NAV_ITEMS: NavItem[] = [
   {
     id: "channels",
     label: "Channels",
@@ -59,14 +70,9 @@ export const NAV_ITEMS: NavItem[] = [
     icon: Globe,
     description: "Manage saved peers, connections, and your channel neighborhood.",
   },
-  {
-    id: "settings",
-    label: "Settings",
-    href: "/settings",
-    icon: Settings,
-    description: "Manage your node, wallet, and app preferences.",
-  },
 ]
+
+export const NAV_ITEMS: NavItem[] = [...PRIMARY_NAV_ITEMS, ...ADVANCED_NAV_ITEMS]
 
 export function isNavItemActive(pathname: string, href: string): boolean {
   if (href === "/") {

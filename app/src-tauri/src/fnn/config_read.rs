@@ -33,6 +33,12 @@ struct FiberSection {
     chain: Option<String>,
     #[serde(default)]
     store_sync_writes: Option<bool>,
+    #[serde(default)]
+    jit_lsp_pubkey: Option<String>,
+    #[serde(default)]
+    jit_max_amount: Option<u128>,
+    #[serde(default)]
+    jit_max_open_fee: Option<u128>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -56,6 +62,9 @@ pub struct ParsedNodeConfig {
     pub rpc_listening_addr: Option<String>,
     pub ckb_rpc_url: Option<String>,
     pub store_sync_writes: bool,
+    pub jit_lsp_pubkey: Option<String>,
+    pub jit_max_amount: Option<u128>,
+    pub jit_max_open_fee: Option<u128>,
 }
 
 pub fn read_node_config(data_dir: &Path) -> Result<ParsedNodeConfig, ConfigReadError> {
@@ -81,5 +90,12 @@ pub fn read_node_config(data_dir: &Path) -> Result<ParsedNodeConfig, ConfigReadE
         rpc_listening_addr: parsed.rpc.listening_addr,
         ckb_rpc_url: parsed.ckb.rpc_url,
         store_sync_writes: parsed.fiber.store_sync_writes.unwrap_or(false),
+        jit_lsp_pubkey: parsed
+            .fiber
+            .jit_lsp_pubkey
+            .map(|pubkey| pubkey.trim().to_string())
+            .filter(|pubkey| !pubkey.is_empty()),
+        jit_max_amount: parsed.fiber.jit_max_amount,
+        jit_max_open_fee: parsed.fiber.jit_max_open_fee,
     })
 }

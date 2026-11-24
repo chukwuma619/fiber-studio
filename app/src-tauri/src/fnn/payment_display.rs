@@ -45,13 +45,15 @@ pub fn map_payment_list_item(
         .or_else(|| amount_shannons_from_routers(&payment.routers));
 
     let asset = stored_asset(catalog, stored);
-    let (amount_display, asset_symbol) = amount_shannons.map(|hex| {
-        let raw = rpc::parse_hex_u128(hex).unwrap_or(0);
-        (
-            assets::format_amount_display(raw, &asset),
-            asset.symbol.clone(),
-        )
-    }).unzip();
+    let (amount_display, asset_symbol) = amount_shannons
+        .map(|hex| {
+            let raw = rpc::parse_hex_u128(hex).unwrap_or(0);
+            (
+                assets::format_amount_display(raw, &asset),
+                asset.symbol.clone(),
+            )
+        })
+        .unzip();
 
     let fee_raw = rpc::parse_hex_u128(&payment.fee).unwrap_or(0);
     let fee_asset = assets::ckb_asset();
@@ -77,7 +79,10 @@ pub fn map_payment_list_item(
 fn stored_asset(catalog: &[AssetView], stored: Option<&StoredSentPayment>) -> AssetView {
     if let Some(entry) = stored {
         if let Some(name) = entry.asset_name.as_deref() {
-            if let Some(asset) = catalog.iter().find(|item| item.symbol.eq_ignore_ascii_case(name)) {
+            if let Some(asset) = catalog
+                .iter()
+                .find(|item| item.symbol.eq_ignore_ascii_case(name))
+            {
                 return asset.clone();
             }
         }
@@ -91,13 +96,7 @@ fn stored_asset(catalog: &[AssetView], stored: Option<&StoredSentPayment>) -> As
 pub fn route_hops_from_routers(routers: &[rpc::SessionRoute]) -> Vec<String> {
     routers
         .first()
-        .map(|route| {
-            route
-                .nodes
-                .iter()
-                .map(|node| node.pubkey.clone())
-                .collect()
-        })
+        .map(|route| route.nodes.iter().map(|node| node.pubkey.clone()).collect())
         .unwrap_or_default()
 }
 
@@ -140,12 +139,9 @@ where
 }
 
 fn amount_shannons_from_routers(routers: &[rpc::SessionRoute]) -> Option<&str> {
-    routers.first().and_then(|route| {
-        route
-            .nodes
-            .last()
-            .and_then(|node| node.amount.as_deref())
-    })
+    routers
+        .first()
+        .and_then(|route| route.nodes.last().and_then(|node| node.amount.as_deref()))
 }
 
 #[cfg(test)]
@@ -155,18 +151,9 @@ mod tests {
 
     #[test]
     fn compare_orders_by_last_updated_then_created_then_hash() {
-        assert!(
-            compare_payments_by_recent_activity(200, 100, "0xb", 100, 100, "0xa")
-                .is_lt()
-        );
-        assert!(
-            compare_payments_by_recent_activity(100, 200, "0xb", 100, 100, "0xa")
-                .is_lt()
-        );
-        assert!(
-            compare_payments_by_recent_activity(100, 100, "0xa", 100, 100, "0xb")
-                .is_lt()
-        );
+        assert!(compare_payments_by_recent_activity(200, 100, "0xb", 100, 100, "0xa").is_lt());
+        assert!(compare_payments_by_recent_activity(100, 200, "0xb", 100, 100, "0xa").is_lt());
+        assert!(compare_payments_by_recent_activity(100, 100, "0xa", 100, 100, "0xb").is_lt());
     }
 
     #[test]
@@ -184,10 +171,7 @@ mod tests {
         });
 
         assert_eq!(
-            payments
-                .iter()
-                .map(|payment| payment.2)
-                .collect::<Vec<_>>(),
+            payments.iter().map(|payment| payment.2).collect::<Vec<_>>(),
             vec![
                 "0xalso-newest-earlier-hash",
                 "0xalso-newest-later-created",

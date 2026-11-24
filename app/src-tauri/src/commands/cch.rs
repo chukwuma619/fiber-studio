@@ -244,6 +244,7 @@ pub async fn cch_receive_btc(
         payload.description.as_deref(),
         expiry_seconds,
         Some(udt_script),
+        None,
     )
     .await
     .map_err(|error| format!("Failed to create Fiber invoice: {error}"))?;
@@ -303,7 +304,10 @@ mod tests {
 
     #[test]
     fn order_status_labels() {
-        assert_eq!(CchOrderStatus::OutgoingInFlight.as_str(), "OutgoingInFlight");
+        assert_eq!(
+            CchOrderStatus::OutgoingInFlight.as_str(),
+            "OutgoingInFlight"
+        );
         assert!(CchOrderStatus::Success.is_final());
         assert!(!CchOrderStatus::Pending.is_final());
     }

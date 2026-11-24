@@ -39,7 +39,9 @@ pub enum SentPaymentStoreError {
     Parse(#[from] serde_json::Error),
 }
 
-pub fn read_sent_payments(data_dir: &Path) -> Result<Vec<StoredSentPayment>, SentPaymentStoreError> {
+pub fn read_sent_payments(
+    data_dir: &Path,
+) -> Result<Vec<StoredSentPayment>, SentPaymentStoreError> {
     let path = data_dir.join(SENT_PAYMENTS_FILE);
     if !path.exists() {
         return Ok(Vec::new());

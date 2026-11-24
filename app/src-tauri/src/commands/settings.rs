@@ -5,14 +5,17 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, State};
 use tauri_plugin_opener::OpenerExt;
 
+use crate::fnn::amounts;
 use crate::fnn::assets::{self, AssetView};
 use crate::fnn::ckb_address;
 use crate::fnn::config_read;
 use crate::fnn::config_write;
 use crate::fnn::data_directory;
 use crate::fnn::features;
+use crate::fnn::jit;
 use crate::fnn::keychain;
 use crate::fnn::manager::NodeRuntimeStatus;
+use crate::fnn::peer_connect;
 use crate::fnn::provision::{self, ProvisionRequest};
 use crate::fnn::relays;
 use crate::fnn::rpc;
@@ -31,6 +34,11 @@ pub struct NodeSettingsResponse {
     pub fiber_listening_addr: Option<String>,
     pub fiber_listening_addrs: Vec<String>,
     pub store_sync_writes: bool,
+    pub jit_lsp_pubkey: Option<String>,
+    pub jit_max_amount_ckb: Option<String>,
+    pub jit_max_open_fee_ckb: Option<String>,
+    /// Peers this wallet reconnects to. One of them can be the liquidity node.
+    pub jit_peer_pubkeys: Vec<String>,
     pub ckb_rpc_url: Option<String>,
     pub announced_node_name: Option<String>,
     pub connection_mode: String,
@@ -87,6 +95,14 @@ pub struct UpdateFiberListeningAddrsPayload {
     pub listening_addrs: Vec<String>,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UpdateJitReceiverPayload {
+    pub lsp_pubkey: String,
+    pub max_amount_ckb: String,
+    pub max_open_fee_ckb: String,
+}
+
 #[tauri::command]
 pub fn is_network_provisioned(network: String) -> Result<bool, String> {
     if network != "mainnet" && network != "testnet" {
@@ -94,7 +110,9 @@ pub fn is_network_provisioned(network: String) -> Result<bool, String> {
     }
 
     let data_dir = data_directory::resolve_data_directory_for_network(&network)?;
-    Ok(data_directory::network_data_directory_is_provisioned(&data_dir))
+    Ok(data_directory::network_data_directory_is_provisioned(
+        &data_dir,
+    ))
 }
 
 fn backup_paths() -> Vec<BackupPathEntry> {
@@ -152,59 +170,57 @@ async fn build_node_settings(
     let network = studio_metadata
         .as_ref()
         .map(|metadata| metadata.network.clone())
-        .or_else(|| parsed_config.as_ref().and_then(|config| config.chain.clone()));
+        .or_else(|| {
+            parsed_config
+                .as_ref()
+                .and_then(|config| config.chain.clone())
+        });
 
     let saved_peers = studio_metadata
         .as_ref()
         .map(|metadata| metadata.saved_peers.as_slice())
         .unwrap_or(&[]);
 
-    let (
-        node_pub_key,
-        live_version,
-        funding_script,
-        supported_assets,
-        relay_status,
-        node_features,
-    ) = if matches!(node_status, NodeRuntimeStatus::Running { .. }) {
-        let peers = rpc::fetch_list_peers().await.unwrap_or_default();
-        let computed_relay_status = crate::fnn::peer_connect::relay_status_for_peers(
-            network.as_deref(),
-            &peers,
-            saved_peers,
-            &manager_relay_status,
-        );
-        match rpc::fetch_node_info().await {
-            Ok(info) => {
-                let catalog = assets::build_asset_catalog(&info);
-                (
-                    Some(info.pubkey),
-                    Some(info.version),
-                    Some(info.default_funding_lock_script),
-                    catalog,
+    let (node_pub_key, live_version, funding_script, supported_assets, relay_status, node_features) =
+        if matches!(node_status, NodeRuntimeStatus::Running { .. }) {
+            let peers = rpc::fetch_list_peers().await.unwrap_or_default();
+            let computed_relay_status = crate::fnn::peer_connect::relay_status_for_peers(
+                network.as_deref(),
+                &peers,
+                saved_peers,
+                &manager_relay_status,
+            );
+            match rpc::fetch_node_info().await {
+                Ok(info) => {
+                    let catalog = assets::build_asset_catalog(&info);
+                    (
+                        Some(info.pubkey),
+                        Some(info.version),
+                        Some(info.default_funding_lock_script),
+                        catalog,
+                        computed_relay_status,
+                        info.features,
+                    )
+                }
+                Err(_) => (
+                    None,
+                    None,
+                    None,
+                    Vec::new(),
                     computed_relay_status,
-                    info.features,
-                )
+                    Vec::new(),
+                ),
             }
-            Err(_) => (
+        } else {
+            (
                 None,
                 None,
                 None,
                 Vec::new(),
-                computed_relay_status,
+                manager_relay_status,
                 Vec::new(),
-            ),
-        }
-    } else {
-        (
-            None,
-            None,
-            None,
-            Vec::new(),
-            manager_relay_status,
-            Vec::new(),
-        )
-    };
+            )
+        };
 
     let feature_labels = features::feature_labels(&node_features);
     let supports_channel_v2 = features::supports_channel_v2(&node_features);
@@ -233,7 +249,11 @@ async fn build_node_settings(
         data_directory: data_dir
             .as_ref()
             .map(|path| path.display().to_string())
-            .or_else(|| studio_metadata.as_ref().map(|metadata| metadata.data_directory.clone())),
+            .or_else(|| {
+                studio_metadata
+                    .as_ref()
+                    .map(|metadata| metadata.data_directory.clone())
+            }),
         config_file_path: data_dir
             .as_ref()
             .map(|path| path.join("config.yml").display().to_string()),
@@ -255,6 +275,28 @@ async fn build_node_settings(
             .as_ref()
             .map(|config| config.store_sync_writes)
             .unwrap_or(false),
+        jit_lsp_pubkey: parsed_config
+            .as_ref()
+            .and_then(|config| config.jit_lsp_pubkey.clone()),
+        jit_max_amount_ckb: parsed_config
+            .as_ref()
+            .and_then(|config| config.jit_max_amount)
+            .map(jit::shannons_to_ckb_input),
+        jit_max_open_fee_ckb: parsed_config
+            .as_ref()
+            .and_then(|config| config.jit_max_open_fee)
+            .map(jit::shannons_to_ckb_input),
+        jit_peer_pubkeys: studio_metadata
+            .as_ref()
+            .map(|metadata| {
+                metadata
+                    .saved_peers
+                    .iter()
+                    .map(|peer| peer.pubkey.clone())
+                    .filter(|pubkey| !pubkey.trim().is_empty())
+                    .collect()
+            })
+            .unwrap_or_default(),
         ckb_rpc_url: parsed_config
             .as_ref()
             .and_then(|config| config.ckb_rpc_url.clone()),
@@ -289,11 +331,7 @@ fn connection_mode_labels(
     primary_peer: Option<&SavedPeer>,
 ) -> (String, Option<String>, Option<String>) {
     let Some(peer) = primary_peer else {
-        return (
-            "Not configured".into(),
-            None,
-            None,
-        );
+        return ("Not configured".into(), None, None);
     };
 
     if let Some(network) = network {
@@ -437,9 +475,7 @@ pub async fn switch_network(
         } else if let Some(key) = imported_key {
             ("import".to_string(), Some(key.to_string()))
         } else {
-            return Err(
-                "CKB private key is required to set up this network's data folder.".into(),
-            );
+            return Err("CKB private key is required to set up this network's data folder.".into());
         };
 
         let provision_request = ProvisionRequest {
@@ -471,6 +507,70 @@ pub async fn update_store_sync_writes(
 }
 
 #[tauri::command]
+pub async fn update_jit_receiver(
+    state: State<'_, AppState>,
+    payload: UpdateJitReceiverPayload,
+) -> Result<NodeSettingsResponse, String> {
+    let data_directory = require_node_stopped(&state).await?;
+    let pubkey = payload.lsp_pubkey.trim();
+    if pubkey.is_empty() {
+        config_write::set_jit_receiver(&data_directory, None, 0, 0)
+            .map_err(|error| format!("Failed to update just-in-time receiving: {error}"))?;
+    } else {
+        let normalized = jit::normalize_lsp_pubkey(pubkey)?;
+        if payload.max_amount_ckb.trim().is_empty() {
+            return Err(
+                "Set the largest payment you will accept on a just-in-time channel.".into(),
+            );
+        }
+        let max_amount = amounts::parse_decimal_amount_str(&payload.max_amount_ckb, 8)?;
+        if max_amount == 0 {
+            return Err(
+                "Max receive amount must be greater than zero. Clear the liquidity node to turn just-in-time receiving off."
+                    .into(),
+            );
+        }
+        if payload.max_open_fee_ckb.trim().is_empty() {
+            return Err(
+                "Set the largest open fee you will quote. Use 0 when the liquidity node charges nothing."
+                    .into(),
+            );
+        }
+        let max_open_fee = amounts::parse_decimal_amount_str(&payload.max_open_fee_ckb, 8)?;
+        config_write::set_jit_receiver(
+            &data_directory,
+            Some(&normalized),
+            max_amount,
+            max_open_fee,
+        )
+        .map_err(|error| format!("Failed to update just-in-time receiving: {error}"))?;
+        remember_liquidity_peer(&data_directory, &normalized)?;
+    }
+    build_node_settings(&state, Some(data_directory)).await
+}
+
+/// The wallet dials saved peers on startup. Registration only happens on that connection.
+fn remember_liquidity_peer(data_directory: &Path, pubkey: &str) -> Result<(), String> {
+    studio::update_studio_metadata(data_directory, |metadata| {
+        if metadata
+            .saved_peers
+            .iter()
+            .any(|peer| peer_connect::pubkeys_equal(&peer.pubkey, pubkey))
+        {
+            return false;
+        }
+        metadata.saved_peers.push(SavedPeer {
+            pubkey: pubkey.to_string(),
+            multiaddr: String::new(),
+        });
+        metadata.normalize_saved_peers();
+        true
+    })
+    .map(|_| ())
+    .map_err(|error| format!("Failed to remember the liquidity node: {error}"))
+}
+
+#[tauri::command]
 pub async fn update_fiber_listening_addrs(
     state: State<'_, AppState>,
     payload: UpdateFiberListeningAddrsPayload,
@@ -495,9 +595,7 @@ pub async fn update_fiber_listening_addrs(
 }
 
 #[tauri::command]
-pub async fn dismiss_legacy_channel_nudge(
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub async fn dismiss_legacy_channel_nudge(state: State<'_, AppState>) -> Result<(), String> {
     let manager = state.fnn.lock().await;
     let data_directory = manager
         .data_directory()
@@ -517,9 +615,7 @@ pub async fn dismiss_legacy_channel_nudge(
 }
 
 #[tauri::command]
-pub async fn migrate_legacy_data_directory(
-    network: String,
-) -> Result<String, String> {
+pub async fn migrate_legacy_data_directory(network: String) -> Result<String, String> {
     if network != "mainnet" && network != "testnet" {
         return Err("Network must be mainnet or testnet.".into());
     }

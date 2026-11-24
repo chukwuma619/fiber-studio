@@ -136,16 +136,18 @@ export function SendPaymentPanel({
   const inspectRoute = useCallback(
     async (args: {
       payeePubkey: string | null
+      liquidityProvider?: string | null
       amountRaw: bigint | null
       assetSymbol: string
       preview: PreviewSendPaymentResult | null
       pathFindError: string | null
     }) => {
+      const routePubkey = args.liquidityProvider ?? args.payeePubkey
       let snapshot = EMPTY_PREFLIGHT_SNAPSHOT
       let snapshotError: string | null = null
       try {
         snapshot = await onGetPreflightSnapshot({
-          payeePubkey: args.payeePubkey ?? undefined,
+          payeePubkey: routePubkey ?? undefined,
         })
       } catch (error) {
         snapshotError = getErrorMessage(error)
@@ -153,7 +155,8 @@ export function SendPaymentPanel({
 
       return classifyPreflight({
         ownPubkey: snapshot.ownPubkey,
-        payeePubkey: args.payeePubkey,
+        payeePubkey: routePubkey,
+        jit: Boolean(args.liquidityProvider),
         amountRaw: args.amountRaw,
         assetSymbol: args.assetSymbol,
         routePreview: args.preview,
@@ -175,8 +178,6 @@ export function SendPaymentPanel({
     useState<ExistingPaymentNotice | null>(null)
   const [reviewSnapshot, setReviewSnapshot] =
     useState<PreviewSendPaymentResult | null>(null)
-  const [reviewDiagnostic, setReviewDiagnostic] =
-    useState<PreflightReport | null>(null)
 
   const [cchOrder, setCchOrder] = useState<CchOrderView | null>(null)
   const [cchFiberPreview, setCchFiberPreview] =
@@ -305,6 +306,7 @@ export function SendPaymentPanel({
 
           const report = await inspectRoute({
             payeePubkey: preview.payeePubkey ?? null,
+            liquidityProvider: preview.liquidityProvider,
             amountRaw: parseAmountRaw(preview.amountRaw),
             assetSymbol: preview.assetSymbol,
             preview: route,
@@ -514,12 +516,10 @@ export function SendPaymentPanel({
     if (!canReviewPayment || !routePreview) return
     onClearError()
     setReviewSnapshot(routePreview)
-    setReviewDiagnostic(diagnostic)
     setSendDialogOpen(true)
   }, [
     canReviewPayment,
     cchConfigured,
-    diagnostic,
     lightningInvoice,
     onClearError,
     onCchSendBtc,
@@ -531,7 +531,6 @@ export function SendPaymentPanel({
   const handleCloseSendDialog = useCallback(() => {
     setSendDialogOpen(false)
     setReviewSnapshot(null)
-    setReviewDiagnostic(null)
   }, [])
 
   const handleCloseCchDialog = useCallback(() => {
@@ -765,8 +764,8 @@ export function SendPaymentPanel({
                 compact
                 emptyHint={
                   sendMode === "invoice"
-                    ? "Paste an invoice to inspect the route"
-                    : "Enter a recipient and amount to inspect the route"
+                    ? "Paste an invoice to check the fee"
+                    : "Enter a recipient and amount to check the fee"
                 }
               />
             </div>
@@ -819,8 +818,10 @@ export function SendPaymentPanel({
           mode={sendMode === "keysend" ? "keysend" : "invoice"}
           invoice={invoice.trim()}
           targetPubkey={targetPubkey.trim()}
+          jitLiquidityProvider={parsedInvoice?.liquidityProvider ?? null}
+          jitOpenFeeShannons={parsedInvoice?.jitOpenFeeShannons ?? null}
+          jitOpenFeeDisplay={parsedInvoice?.jitOpenFeeDisplay ?? null}
           preview={reviewSnapshot}
-          diagnostic={reviewDiagnostic}
           isActing={isActing}
           actionError={actionError}
           onSendPayment={onSendPayment}

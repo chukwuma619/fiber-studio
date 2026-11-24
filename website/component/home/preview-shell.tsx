@@ -22,13 +22,21 @@ export type PreviewNavId =
   | 'Network'
   | 'Settings'
 
-const NAV = [
-  { label: 'Home' as const, icon: Home },
-  { label: 'Assets' as const, icon: Wallet },
-  { label: 'Payments' as const, icon: Banknote },
-  { label: 'Channels' as const, icon: ArrowLeftRight },
-  { label: 'Network' as const, icon: Globe },
-  { label: 'Settings' as const, icon: Settings },
+type PreviewNavEntry = {
+  label: PreviewNavId
+  icon: typeof Home
+}
+
+const PRIMARY_NAV: PreviewNavEntry[] = [
+  { label: 'Home', icon: Home },
+  { label: 'Payments', icon: Banknote },
+  { label: 'Assets', icon: Wallet },
+  { label: 'Settings', icon: Settings },
+]
+
+const ADVANCED_NAV: PreviewNavEntry[] = [
+  { label: 'Channels', icon: ArrowLeftRight },
+  { label: 'Network', icon: Globe },
 ]
 
 export function PreviewStatCard({
@@ -56,6 +64,45 @@ export function PreviewStatCard({
   )
 }
 
+function PreviewNavList({
+  items,
+  current,
+}: {
+  items: PreviewNavEntry[]
+  current: PreviewNavId
+}) {
+  return (
+    <>
+      {items.map(({ label, icon: Icon }) => {
+        const isCurrent = label === current
+        return (
+          <div
+            key={label}
+            className={
+              isCurrent
+                ? 'relative flex items-center gap-3 rounded-lg bg-zinc-950/5 px-2 py-2 text-sm/5 font-medium text-zinc-950 dark:bg-white/5 dark:text-white'
+                : 'flex items-center gap-3 rounded-lg px-2 py-2 text-sm/5 font-medium text-zinc-950 dark:text-white'
+            }
+          >
+            {isCurrent ? (
+              <span className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-sky-500 dark:bg-sky-400" />
+            ) : null}
+            <Icon
+              className={
+                isCurrent
+                  ? 'size-5 shrink-0 text-zinc-950 dark:text-white'
+                  : 'size-5 shrink-0 text-zinc-500 dark:text-zinc-400'
+              }
+              aria-hidden
+            />
+            {label}
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
 export function AppPreviewShell({
   current,
   children,
@@ -76,33 +123,16 @@ export function AppPreviewShell({
             <FiberMark className="size-6 text-zinc-950 dark:text-white" />
             <FiberStudioWordmark layout="inline" />
           </div>
-          <nav className="flex flex-1 flex-col gap-0.5 p-4">
-            {NAV.map(({ label, icon: Icon }) => {
-              const isCurrent = label === current
-              return (
-                <div
-                  key={label}
-                  className={
-                    isCurrent
-                      ? 'relative flex items-center gap-3 rounded-lg bg-zinc-950/5 px-2 py-2 text-sm/5 font-medium text-zinc-950 dark:bg-white/5 dark:text-white'
-                      : 'flex items-center gap-3 rounded-lg px-2 py-2 text-sm/5 font-medium text-zinc-950 dark:text-white'
-                  }
-                >
-                  {isCurrent ? (
-                    <span className="absolute inset-y-2 -left-4 w-0.5 rounded-full bg-sky-500 dark:bg-sky-400" />
-                  ) : null}
-                  <Icon
-                    className={
-                      isCurrent
-                        ? 'size-5 shrink-0 text-zinc-950 dark:text-white'
-                        : 'size-5 shrink-0 text-zinc-500 dark:text-zinc-400'
-                    }
-                    aria-hidden
-                  />
-                  {label}
-                </div>
-              )
-            })}
+          <nav className="flex flex-1 flex-col gap-6 p-4">
+            <div className="flex flex-col gap-0.5">
+              <PreviewNavList items={PRIMARY_NAV} current={current} />
+            </div>
+            <div className="flex flex-col gap-0.5">
+              <p className="mb-1 px-2 text-xs/6 font-medium text-zinc-500 dark:text-zinc-400">
+                Advanced
+              </p>
+              <PreviewNavList items={ADVANCED_NAV} current={current} />
+            </div>
           </nav>
         </aside>
 

@@ -13,6 +13,7 @@ import {
   switchNetwork,
   updateCchRpcUrl,
   updateFiberListeningAddrs,
+  updateJitReceiver,
   updateStoreSyncWrites,
   updateWalletPassword,
 } from "./invoke"
@@ -165,6 +166,19 @@ export function useSettingsPage(config: SetupConfig | null) {
     [runMutation],
   )
 
+  const handleUpdateJitReceiver = useCallback(
+    (lspPubkey: string, maxAmountCkb: string, maxOpenFeeCkb: string) =>
+      runMutation(
+        () => updateJitReceiver({ lspPubkey, maxAmountCkb, maxOpenFeeCkb }),
+        {
+          successMessage: lspPubkey.trim()
+            ? "Just-in-time receiving saved. Start the node to apply."
+            : "Just-in-time receiving turned off. Start the node to apply.",
+        },
+      ),
+    [runMutation],
+  )
+
   const handleUpdateListeningAddrs = useCallback(
     (listeningAddrs: string[]) =>
       runMutation(() => updateFiberListeningAddrs({ listeningAddrs }), {
@@ -190,6 +204,7 @@ export function useSettingsPage(config: SetupConfig | null) {
     handleSwitchNetwork,
     handleUpdateCchRpcUrl,
     handleUpdateStoreSyncWrites,
+    handleUpdateJitReceiver,
     handleUpdateListeningAddrs,
   }
 }

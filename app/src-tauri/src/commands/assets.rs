@@ -78,7 +78,9 @@ pub async fn get_assets_page(
 
     Ok(AssetsPageResponse {
         available: true,
-        network: studio_metadata.as_ref().map(|metadata| metadata.network.clone()),
+        network: studio_metadata
+            .as_ref()
+            .map(|metadata| metadata.network.clone()),
         assets,
         on_chain_balances,
         channel_totals,

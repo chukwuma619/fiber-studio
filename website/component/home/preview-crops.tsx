@@ -5,11 +5,6 @@ import { Button } from '@/component/ui/button'
 import { Copy } from 'lucide-react'
 import { CapacityBar } from '@/component/ui/capacity-bar'
 import { StatusDot } from '@/component/ui/status-dot'
-import {
-  DescriptionDetails,
-  DescriptionList,
-  DescriptionTerm,
-} from '@/component/ui/description-list'
 
 /** Card frame that crops an app UI fragment to the part that matters. */
 export function PreviewCrop({ children }: { children: ReactNode }) {
@@ -23,7 +18,7 @@ export function PreviewCrop({ children }: { children: ReactNode }) {
   )
 }
 
-/** Home — node running + local status. */
+/** Home — spendable Fiber balance. */
 export function HomeCrop() {
   return (
     <PreviewCrop>
@@ -38,23 +33,21 @@ export function HomeCrop() {
             </Button>
           </span>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
-          <h3 className="text-sm font-semibold tracking-[-0.28px] text-zinc-950 dark:text-white">
-            Node status
-          </h3>
-          <DescriptionList className="mt-3">
-            <DescriptionTerm>Status</DescriptionTerm>
-            <DescriptionDetails>
-              <span className="inline-flex items-center gap-1.5">
-                <StatusDot tone="running" />
-                Running
-              </span>
-            </DescriptionDetails>
-            <DescriptionTerm>fnn version</DescriptionTerm>
-            <DescriptionDetails>0.10.1</DescriptionDetails>
-            <DescriptionTerm>RPC</DescriptionTerm>
-            <DescriptionDetails className="font-mono text-xs">127.0.0.1:8227</DescriptionDetails>
-          </DescriptionList>
+        <div className="grid min-h-0 flex-1 grid-cols-2 gap-3">
+          <div className="rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">Spendable</p>
+            <p className="mt-2 text-xl font-semibold tabular-nums text-zinc-950 dark:text-white">
+              1,240 CKB
+            </p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Over Fiber</p>
+          </div>
+          <div className="rounded-lg bg-white p-4 shadow-xs ring-1 ring-zinc-950/10 dark:bg-zinc-900 dark:ring-white/10">
+            <p className="text-xs font-medium text-zinc-500 dark:text-zinc-400">On-chain</p>
+            <p className="mt-2 text-xl font-semibold tabular-nums text-zinc-950 dark:text-white">
+              1,240.5 CKB
+            </p>
+            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">Outside Fiber</p>
+          </div>
         </div>
       </div>
     </PreviewCrop>

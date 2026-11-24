@@ -71,8 +71,8 @@ export function PaymentsInvoicesSection({
         <div className="min-w-0">
           <Subheading level={3}>Receive</Subheading>
           <Text className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
-            Fiber invoices for CKB and UDT
-            {cchConfigured ? ", plus BTC via Lightning" : ""}.
+            Create an invoice
+            {cchConfigured ? ", or receive BTC via Lightning" : ""}.
           </Text>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -90,7 +90,7 @@ export function PaymentsInvoicesSection({
             </Button>
           ) : null}
           <Button className="text-xs" onClick={onCreate} disabled={!running}>
-            Create invoice
+            Receive
           </Button>
         </div>
       </div>
@@ -176,7 +176,7 @@ export function PaymentsInvoicesSection({
                 ? "Paid invoices appear here after someone pays you."
                 : `Create a ${invoiceCurrency} invoice to receive assets over Fiber.`
           }
-          actionLabel={invoiceFilter === "paid" ? undefined : "Create invoice"}
+          actionLabel={invoiceFilter === "paid" ? undefined : "Receive"}
           onAction={invoiceFilter === "paid" ? undefined : onCreate}
         />
       ) : (

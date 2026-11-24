@@ -259,13 +259,13 @@ export function OpenChannelDialog({
       onClose={isActing ? () => {} : onClose}
       size="lg"
     >
-      <DialogTitle>Open channel</DialogTitle>
+      <DialogTitle>Add funds</DialogTitle>
       <DialogDescription>
         {noSavedPeers
-          ? "Add at least one saved peer on the Network page before opening a channel."
+          ? "Connect to a public hub on the Network page first, then add funds."
           : noConnectedPeers
-            ? "None of your saved peers are connected. Connect a peer on the Network page first."
-            : `Open a public channel funded with ${selectedAsset.symbol}. CKB is still required for reserve and fees.`}
+            ? "None of your saved peers are connected. Connect a public hub first, then add funds."
+            : `Move ${selectedAsset.symbol} into Fiber through a public hub. About ${CHANNEL_RESERVE_CKB} CKB stays on chain as the cell reserve, plus a small fee.`}
       </DialogDescription>
 
       {supportsChannelV2 ? (
@@ -386,7 +386,8 @@ export function OpenChannelDialog({
             />
             {isCkbChannel ? (
               <Description>
-                Minimum {minFundingCkb} CKB to open a channel.
+                Minimum {minFundingCkb} CKB, including about {CHANNEL_RESERVE_CKB} CKB
+                for the on-chain cell reserve.
               </Description>
             ) : (
               <Description>
@@ -441,7 +442,7 @@ export function OpenChannelDialog({
             onClick={() => void handleSubmit()}
             disabled={submitDisabled}
           >
-            {isActing ? "Opening channel…" : "Open channel"}
+            {isActing ? "Adding funds…" : "Add funds"}
           </Button>
         )}
       </DialogActions>
