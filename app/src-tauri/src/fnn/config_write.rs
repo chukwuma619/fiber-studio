@@ -115,48 +115,6 @@ fn is_listening_addrs_item(line: &str) -> bool {
     strip_yaml_comment(line).starts_with("- ")
 }
 
-fn is_jit_receiver_key(line: &str) -> bool {
-    yaml_key_matches(line, "jit_lsp_pubkey")
-        || yaml_key_matches(line, "jit_max_amount")
-        || yaml_key_matches(line, "jit_max_open_fee")
-}
-
-/// Drop leftover just-in-time receiver keys from the `fiber:` section.
-///
-/// Returns true when the file changed. Missing config is a no-op so node start
-/// can call this before the config exists.
-pub fn clear_jit_receiver(data_dir: &Path) -> Result<bool, ConfigWriteError> {
-    let path = match config_path(data_dir) {
-        Ok(path) => path,
-        Err(ConfigWriteError::NotFound) => return Ok(false),
-        Err(error) => return Err(error),
-    };
-    let content = fs::read_to_string(&path)?;
-    let trailing = ends_with_newline(&content);
-    let lines: Vec<String> = content.lines().map(str::to_string).collect();
-    let Some((section_start, section_end)) = fiber_section_bounds(&lines) else {
-        return Ok(false);
-    };
-
-    let mut kept = Vec::with_capacity(lines.len());
-    let mut removed = false;
-    for (index, line) in lines.into_iter().enumerate() {
-        let in_fiber = index > section_start && index < section_end;
-        if in_fiber && is_jit_receiver_key(&line) {
-            removed = true;
-            continue;
-        }
-        kept.push(line);
-    }
-
-    if !removed {
-        return Ok(false);
-    }
-
-    atomic_write(&path, &join_lines(&kept, trailing))?;
-    Ok(true)
-}
-
 /// Set `fiber.store_sync_writes` while preserving surrounding config comments.
 pub fn set_store_sync_writes(data_dir: &Path, enabled: bool) -> Result<(), ConfigWriteError> {
     let path = config_path(data_dir)?;
@@ -401,24 +359,6 @@ mod tests {
         assert!(matches!(error, ConfigWriteError::InvalidAddr(_)));
         let raw = fs::read_to_string(dir.join("config.yml")).unwrap();
         assert!(!raw.contains("chain: mainnet"));
-        let _ = fs::remove_dir_all(dir);
-    }
-
-    #[test]
-    fn clears_jit_receiver_keys() {
-        let dir = temp_dir();
-        fs::write(
-            dir.join("config.yml"),
-            "fiber:\n  listening_addr: \"/ip4/0.0.0.0/tcp/8228\"\n  jit_lsp_pubkey: \"02aa\"\n  jit_max_amount: 1\n  jit_max_open_fee: 0\n  # jit_lsp_pubkey: \"\"\n  chain: testnet\nrpc:\n  listening_addr: \"127.0.0.1:8227\"\n",
-        )
-        .unwrap();
-
-        assert!(clear_jit_receiver(&dir).unwrap());
-        let raw = fs::read_to_string(dir.join("config.yml")).unwrap();
-        assert!(!raw.contains("jit_"));
-        assert!(raw.contains("chain: testnet"));
-        assert!(raw.contains("listening_addr: \"127.0.0.1:8227\""));
-        assert!(!clear_jit_receiver(&dir).unwrap());
         let _ = fs::remove_dir_all(dir);
     }
 }

@@ -12,7 +12,6 @@ use thiserror::Error;
 use crate::state::AppState;
 
 use super::backup;
-use super::config_write;
 use super::log_store;
 use super::logs::normalize_log_line;
 use super::migration::{self, MigrationDetails};
@@ -392,13 +391,6 @@ impl FnnManager {
         let log_path = log_store::log_file_path(&data_directory);
 
         self.clear_session_logs();
-        match config_write::clear_jit_receiver(&data_directory) {
-            Ok(true) => self.append_log("Removed just-in-time receiving settings from config.yml."),
-            Ok(false) => {}
-            Err(error) => self.append_log(&format!(
-                "Could not remove just-in-time receiving settings from config.yml: {error}"
-            )),
-        }
         self.append_log("Spawning fnn sidecar…");
 
         let child = spawn::spawn_with_log_file(
