@@ -39,6 +39,15 @@ jobs:
         with:
           workspaces: ./app/src-tauri -> target
           prefix-key: v1-rust-test
+      - name: stub fnn sidecar for compile
+        working-directory: app
+        run: |
+          # tauri_build requires bundle.externalBin to exist at compile time.
+          # These tests never execute fnn; the real sidecar is fetched in build-tauri.
+          triple="$(rustc --print host-tuple)"
+          mkdir -p src-tauri/binaries
+          printf '#!/bin/sh\nexit 0\n' > "src-tauri/binaries/fnn-${triple}"
+          chmod +x "src-tauri/binaries/fnn-${triple}"
       - name: test the node library
         working-directory: app
         run: cargo test --manifest-path src-tauri/Cargo.toml --lib
