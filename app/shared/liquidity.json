@@ -1,7 +1,11 @@
 {
   "testnet": {
-    "mode": "hub",
-    "relayId": "node1"
+    "mode": "lsp",
+    "label": "Studio LSP",
+    "pubkey": "0323292c86026e71a3a70d2b1ca5a43dee8f1d6bc3deb990c78799eafa2f71fe1e",
+    "multiaddr": "/ip4/89.167.51.39/tcp/8228/p2p/QmbR399QwPLJTfW8QE3LukD1f5aHZENqw6CkaT2AYhZZZS",
+    "maxAmountShannons": "990000000000",
+    "maxOpenFeeShannons": "1000000000"
   },
   "mainnet": {
     "mode": "hub",

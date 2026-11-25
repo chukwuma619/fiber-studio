@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { liquidityForNetwork } from "../liquidity"
 import { getRelay } from "../public-relays"
 import type { HomeChannel } from "./types"
 import {
@@ -36,10 +37,12 @@ describe("planSendFunding", () => {
       walletCkb: 5_000,
       assetIsCkb: true,
     })
+    const provider = liquidityForNetwork("testnet")
+    expect(provider?.mode).toBe("lsp")
     expect(plan).toMatchObject({
-      providerLabel: "Fiber",
-      providerPubkey: getRelay("testnet", "node1").pubkey,
-      fundingCkb: 1000,
+      providerLabel: provider?.label,
+      providerPubkey: provider?.pubkey,
+      fundingCkb: sendFundingCkb(50n * 100_000_000n, "lsp"),
     })
   })
 

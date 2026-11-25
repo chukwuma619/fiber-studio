@@ -148,7 +148,11 @@ pub fn service_pubkey(network: &str) -> Option<String> {
 /// Apply wallet liquidity to `config.yml`. The returned string is a node log line.
 pub fn apply_to_data_dir(data_dir: &Path) -> Result<String, LiquidityError> {
     let metadata = studio::read_studio_metadata(data_dir)?;
-    match provider_for_network(&metadata.network)? {
+    apply_provider(data_dir, provider_for_network(&metadata.network)?)
+}
+
+fn apply_provider(data_dir: &Path, provider: WalletLiquidity) -> Result<String, LiquidityError> {
+    match provider {
         WalletLiquidity::Lsp {
             label,
             pubkey,
@@ -182,17 +186,33 @@ mod tests {
     use std::fs;
 
     #[test]
-    fn shipped_config_uses_the_official_hub() {
+    fn shipped_testnet_is_an_lsp_and_mainnet_stays_on_the_hub() {
+        let WalletLiquidity::Lsp {
+            pubkey,
+            multiaddr,
+            max_amount,
+            max_open_fee,
+            ..
+        } = provider_for_network("testnet").unwrap()
+        else {
+            panic!("shipped testnet liquidity is an LSP");
+        };
+        assert_eq!(pubkey.len(), 66);
+        assert!(multiaddr.starts_with('/'));
+        assert!(max_amount > 0);
+        assert!(max_open_fee > 0);
+        assert!(!relays::is_official_relay_pubkey("testnet", &pubkey));
+
         let WalletLiquidity::Hub {
             label,
             pubkey,
             multiaddr,
-        } = provider_for_network("testnet").unwrap()
+        } = provider_for_network("mainnet").unwrap()
         else {
-            panic!("shipped testnet liquidity is a hub");
+            panic!("shipped mainnet liquidity is a hub");
         };
         assert_eq!(label, "Fiber");
-        assert!(relays::is_official_relay_pubkey("testnet", &pubkey));
+        assert!(relays::is_official_relay_pubkey("mainnet", &pubkey));
         assert!(multiaddr.contains("/p2p/"));
         assert!(provider_for_network("devnet").is_err());
     }
@@ -248,7 +268,7 @@ mod tests {
         )
         .unwrap();
         let metadata =
-            studio::StudioMetadata::new("testnet".into(), dir.display().to_string(), vec![]);
+            studio::StudioMetadata::new("mainnet".into(), dir.display().to_string(), vec![]);
         studio::write_studio_metadata(&dir, &metadata).unwrap();
 
         let summary = apply_to_data_dir(&dir).unwrap();
@@ -257,6 +277,52 @@ mod tests {
         assert!(!raw.contains("jit_lsp_pubkey"));
         assert!(!raw.contains("jit_max_amount"));
         assert!(raw.contains("jit_service_enabled: true"));
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn lsp_mode_writes_receiver_keys_for_the_given_service() {
+        let dir = std::env::temp_dir().join(format!(
+            "fiber-studio-liquidity-lsp-{}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(
+            dir.join("config.yml"),
+            "fiber:\n  listening_addr: \"/ip4/0.0.0.0/tcp/8228\"\n",
+        )
+        .unwrap();
+        let metadata =
+            studio::StudioMetadata::new("testnet".into(), dir.display().to_string(), vec![]);
+        studio::write_studio_metadata(&dir, &metadata).unwrap();
+
+        let pubkey = format!("02{}", "ab".repeat(32));
+        let multiaddr = "/dns4/lsp.example/tcp/8119".to_string();
+        let summary = apply_provider(
+            &dir,
+            WalletLiquidity::Lsp {
+                label: "Example LSP".into(),
+                pubkey: pubkey.clone(),
+                multiaddr: multiaddr.clone(),
+                max_amount: 10,
+                max_open_fee: 1,
+            },
+        )
+        .unwrap();
+        assert!(summary.contains("Example LSP"));
+        let raw = fs::read_to_string(dir.join("config.yml")).unwrap();
+        assert!(raw.contains(&format!("jit_lsp_pubkey: \"{pubkey}\"")));
+        assert!(raw.contains("jit_max_amount: 10"));
+        assert!(raw.contains("jit_max_open_fee: 1"));
+        assert!(!raw.contains("jit_service_enabled"));
+        let saved = studio::read_studio_metadata(&dir).unwrap();
+        assert!(saved
+            .saved_peers
+            .iter()
+            .any(|peer| peer.pubkey == pubkey && peer.multiaddr == multiaddr));
         let _ = fs::remove_dir_all(dir);
     }
 }
