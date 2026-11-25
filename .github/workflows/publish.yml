@@ -46,7 +46,8 @@ jobs:
             args: --target aarch64-apple-darwin
             fnn_triple: aarch64-apple-darwin
             rust_target: aarch64-apple-darwin
-          - platform: macos-latest
+          # Intel macOS so the JIT fnn build is native. macos-latest is arm64.
+          - platform: macos-15-intel
             args: --target x86_64-apple-darwin
             fnn_triple: x86_64-apple-darwin
             rust_target: x86_64-apple-darwin
@@ -68,12 +69,28 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Read JIT fnn pin
+        id: fnn
+        shell: bash
+        working-directory: .
+        run: |
+          source app/scripts/fnn-source.env
+          echo "repo=$FNN_GIT_REPO" >> "$GITHUB_OUTPUT"
+          echo "sha=$FNN_GIT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout JIT fiber
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ steps.fnn.outputs.repo }}
+          ref: ${{ steps.fnn.outputs.sha }}
+          path: fiber-src
+
       - uses: oven-sh/setup-bun@v2
 
       - name: install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ startsWith(matrix.platform, 'macos') && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Add Rust cross-compilation target
         if: matrix.rust_target != ''
@@ -87,6 +104,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
+            clang \
+            libclang-dev \
+            cmake \
             pkg-config \
             libssl-dev \
             libgtk-3-dev \
@@ -99,17 +119,40 @@ jobs:
             file \
             xdg-utils
 
+      - name: Install Fiber Rust toolchain
+        working-directory: fiber-src
+        run: rustup show
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: ./app/src-tauri -> target
-          prefix-key: v1-rust-${{ matrix.fnn_triple }}
+          workspaces: |
+            ./app/src-tauri -> target
+            ./fiber-src -> target
+          prefix-key: v1-rust-jit-${{ matrix.fnn_triple }}
 
       - name: install frontend dependencies
         run: bun install --frozen-lockfile
 
-      - name: Fetch fnn sidecar binary
-        run: bun run fetch-fnn -- --triple ${{ matrix.fnn_triple }}
+      - name: Build JIT fnn sidecar
+        if: matrix.fnn_triple != 'x86_64-pc-windows-msvc'
+        shell: bash
+        working-directory: .
+        run: bash app/scripts/build-fnn-sidecar.sh
+        env:
+          FIBER_SRC: ${{ github.workspace }}/fiber-src
+          STUDIO_APP: ${{ github.workspace }}/app
+          FNN_TRIPLE: ${{ matrix.fnn_triple }}
+
+      - name: Build JIT fnn sidecar (windows)
+        if: matrix.fnn_triple == 'x86_64-pc-windows-msvc'
+        shell: pwsh
+        working-directory: .
+        run: ./app/scripts/build-fnn-sidecar.ps1
+        env:
+          FIBER_SRC: ${{ github.workspace }}/fiber-src
+          STUDIO_APP: ${{ github.workspace }}/app
+          FNN_TRIPLE: ${{ matrix.fnn_triple }}
 
       - name: Verify updater signing secret
         shell: bash
@@ -123,7 +166,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
 
       - name: Verify Apple signing secrets (macOS)
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos')
         shell: bash
         working-directory: .
         run: |
@@ -143,7 +186,7 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Import Apple Developer certificate (macOS)
-        if: matrix.platform == 'macos-latest'
+        if: startsWith(matrix.platform, 'macos')
         working-directory: .
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}

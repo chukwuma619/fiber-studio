@@ -5,6 +5,6 @@ Tauri desktop app for Fiber Studio. Setup, downloads, and releases are in the [r
 ```bash
 cd app
 bun install
-bun run fetch-fnn
+bun run build-fnn
 bun run tauri dev
 ```

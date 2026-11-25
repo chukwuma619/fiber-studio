@@ -54,11 +54,13 @@ After install, updates are in **Settings → Updates**.
 git clone https://github.com/chukwuma619/fiber-studio.git
 cd fiber-studio/app
 bun install
-bun run fetch-fnn    # bundled fnn sidecar (currently v0.10.1); required once
+bun run build-fnn    # JIT fnn from the sibling fiber repo; required once
 bun run tauri dev
 ```
 
-`fetch-fnn` downloads official `fnn` into `app/src-tauri/binaries/` (gitignored). Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
+`build-fnn` compiles the sibling `fiber` checkout (`feat/jit-channel`) and installs `fnn` into `app/src-tauri/binaries/` (gitignored). Releases use the commit in `app/scripts/fnn-source.env`. Targets: `aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-pc-windows-msvc`.
+
+`bun run fetch-fnn` downloads official `fnn` v0.10.1, which does not include JIT.
 
 From `app/`:
 

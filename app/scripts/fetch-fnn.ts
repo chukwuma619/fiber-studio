@@ -1,5 +1,6 @@
 /**
- * Download fnn release binaries for Tauri sidecar bundling.
+ * Download official fnn release binaries for Tauri sidecar bundling.
+ * Releases use `bun run build-fnn` until JIT is in an official Fiber release.
  *
  * Usage:
  *   bun run fetch-fnn           # current host only
@@ -20,8 +21,9 @@ import {
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { pipeline } from "node:stream/promises"
+import { readFnnSource } from "./fnn-source"
 
-const FNN_VERSION = "0.10.1"
+const FNN_VERSION = readFnnSource().version
 const RELEASE_BASE = `https://github.com/nervosnetwork/fiber/releases/download/v${FNN_VERSION}`
 const BINARIES_DIR = join(import.meta.dirname, "..", "src-tauri", "binaries")
 

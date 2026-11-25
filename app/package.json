@@ -13,6 +13,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "fetch-fnn": "bun run scripts/fetch-fnn.ts",
+    "build-fnn": "bun run scripts/build-fnn.ts",
     "version:bump": "bun run scripts/version-bump.ts",
     "generate-icons": "rsvg-convert -w 1024 -h 1024 app-icon.svg -o app-icon.png && tauri icon app-icon.png -o src-tauri/icons"
   },

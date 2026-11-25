@@ -40,7 +40,7 @@ pub fn sidecar_path() -> Result<PathBuf, String> {
 
     if !command_path.exists() {
         return Err(format!(
-            "fnn sidecar not found at {}. Run `bun run fetch-fnn`, then restart Fiber Studio.",
+            "fnn sidecar not found at {}. Run `bun run build-fnn`, then restart Fiber Studio.",
             command_path.display()
         ));
     }
