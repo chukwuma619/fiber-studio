@@ -207,7 +207,7 @@ export function FaqPage() {
         <FaqItem question="How much CKB do I need to open a channel?">
           <p>
             Capacity is at least <Ui>1,000 CKB</Ui>. For a 1,000 CKB open, plan on about{' '}
-            <Ui>1,109 CKB</Ui> available on-chain (capacity + reserve + fee buffer). Fund
+            <Ui>1,110 CKB</Ui> available on-chain (capacity + reserve + fee buffer). Fund
             the on-chain wallet shown on <Ui>Channels</Ui> before you open.
           </p>
         </FaqItem>

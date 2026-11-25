@@ -325,7 +325,7 @@ describe("rpc errors", () => {
 
 describe("requiredWalletCkbForOpen", () => {
   it("adds the channel reserve and the open fee buffer", () => {
-    expect(requiredWalletCkbForOpen(1000)).toBe(1109)
-    expect(requiredWalletCkbForOpen(0)).toBe(109)
+    expect(requiredWalletCkbForOpen(1000)).toBe(1110)
+    expect(requiredWalletCkbForOpen(0)).toBe(110)
   })
 })

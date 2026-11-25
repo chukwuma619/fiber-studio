@@ -19,11 +19,17 @@ const MANIFEST = relaysManifest as RelaysManifest
 
 export const PUBLIC_RELAYS: Record<FiberNetwork, PublicRelayNode[]> = MANIFEST
 
-export const FIBER_MIN_CHANNEL_FUNDING_CKB = 100
+/** Fiber locks this much in the funding cell: 99 CKB occupied plus 1 CKB for shutdown. */
+export const CHANNEL_RESERVE_CKB = 100
+
+/** Smallest spendable side an LSP will auto-accept. */
+export const LSP_SPENDABLE_MIN_CKB = 100
+
+/** Total funding for that open. Fiber compares the amount left after the reserve. */
+export const FIBER_MIN_CHANNEL_FUNDING_CKB =
+  LSP_SPENDABLE_MIN_CKB + CHANNEL_RESERVE_CKB
 
 export const CHANNEL_OPEN_MIN_FUNDING_CKB = 1000
-
-export const CHANNEL_RESERVE_CKB = 99
 
 /** Example third-party public nodes — placeholders for custom mode only. */
 export const EXAMPLE_CUSTOM_PUBLIC_NODES: Record<FiberNetwork, string> = {

@@ -43,9 +43,10 @@ describe("planSendFunding", () => {
     })
   })
 
-  it("sizes an LSP channel to the payment and the cell reserve", () => {
-    expect(sendFundingCkb(50n * 100_000_000n, "lsp")).toBe(149)
-    expect(sendFundingCkb(1n * 100_000_000n, "lsp")).toBe(100)
+  it("sizes an LSP channel to the payment plus the reserve, and at least 200 CKB", () => {
+    expect(sendFundingCkb(50n * 100_000_000n, "lsp")).toBe(200)
+    expect(sendFundingCkb(1n * 100_000_000n, "lsp")).toBe(200)
+    expect(sendFundingCkb(150n * 100_000_000n, "lsp")).toBe(250)
     expect(sendFundingCkb(50n * 100_000_000n, "hub")).toBe(1000)
   })
 

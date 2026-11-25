@@ -44,9 +44,11 @@ pub fn ckb_to_shannons_hex(ckb: u64) -> String {
 
 pub const CHANNEL_OPEN_MIN_FUNDING_CKB: u64 = 1000;
 
+/// Spendable CKB an LSP compares with its auto-accept minimum.
 pub const LSP_CHANNEL_OPEN_MIN_FUNDING_CKB: u64 = 100;
 
-pub const CHANNEL_RESERVE_CKB: u64 = 99;
+/// Fiber locks this in the funding cell: 99 CKB occupied plus 1 CKB for shutdown.
+pub const CHANNEL_RESERVE_CKB: u64 = 100;
 
 pub const CHANNEL_OPEN_FEE_BUFFER_CKB: u64 = 10;
 
@@ -61,13 +63,16 @@ pub fn shannons_hex_to_ckb(hex: &str) -> Option<u64> {
 }
 
 pub fn min_funding_ckb_for_peer(node_min_funding_shannons_hex: &str, lsp_peer: bool) -> u64 {
-    let floor = if lsp_peer {
-        LSP_CHANNEL_OPEN_MIN_FUNDING_CKB
-    } else {
-        CHANNEL_OPEN_MIN_FUNDING_CKB
-    };
     let node_min = shannons_hex_to_ckb(node_min_funding_shannons_hex).unwrap_or(0);
-    floor.max(node_min)
+    if lsp_peer {
+        // The node announces the spendable minimum. The funding amount the wallet
+        // submits includes the cell reserve, which Fiber subtracts before comparing.
+        LSP_CHANNEL_OPEN_MIN_FUNDING_CKB
+            .max(node_min)
+            .saturating_add(CHANNEL_RESERVE_CKB)
+    } else {
+        CHANNEL_OPEN_MIN_FUNDING_CKB.max(node_min)
+    }
 }
 
 /// Studio floor (1000 CKB) or the node's protocol minimum, whichever is higher.
@@ -236,7 +241,7 @@ mod tests {
 
     #[test]
     fn required_wallet_ckb_for_open_includes_reserve_and_fee_buffer() {
-        assert_eq!(required_wallet_ckb_for_open(1000), 1109);
+        assert_eq!(required_wallet_ckb_for_open(1000), 1110);
     }
 
     #[test]
@@ -251,9 +256,9 @@ mod tests {
 
     #[test]
     fn lsp_minimum_follows_the_service_floor() {
-        assert_eq!(min_funding_ckb_for_peer("0x2540be400", true), 100);
-        assert_eq!(min_funding_ckb_for_peer("0x0", true), 100);
-        assert_eq!(min_funding_ckb_for_peer("0xe8d4a51000", true), 10000);
+        assert_eq!(min_funding_ckb_for_peer("0x2540be400", true), 200);
+        assert_eq!(min_funding_ckb_for_peer("0x0", true), 200);
+        assert_eq!(min_funding_ckb_for_peer("0xe8d4a51000", true), 10100);
     }
 
     #[test]

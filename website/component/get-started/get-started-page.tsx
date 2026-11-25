@@ -126,7 +126,7 @@ export function GetStartedPage() {
             <span className="mt-2.5 size-1.5 shrink-0 rounded-full bg-zinc-400 dark:bg-zinc-500" aria-hidden />
             <span>
               Enough testnet CKB on-chain to open a channel. A <Ui>1,000 CKB</Ui> channel
-              needs about <Ui>1,109 CKB</Ui> available (capacity + reserve + fee buffer).
+              needs about <Ui>1,110 CKB</Ui> available (capacity + reserve + fee buffer).
             </span>
           </li>
         </ul>

@@ -30,6 +30,6 @@ describe("public relays", () => {
 
   it("keeps the funding floor above the reserve", () => {
     expect(CHANNEL_OPEN_MIN_FUNDING_CKB).toBeGreaterThan(CHANNEL_RESERVE_CKB)
-    expect(CHANNEL_RESERVE_CKB).toBe(99)
+    expect(CHANNEL_RESERVE_CKB).toBe(100)
   })
 })
