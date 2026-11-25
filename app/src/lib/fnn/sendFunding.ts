@@ -1,5 +1,9 @@
-import { liquidityForNetwork } from "../liquidity"
-import { CHANNEL_OPEN_MIN_FUNDING_CKB, CHANNEL_RESERVE_CKB } from "../public-relays"
+import { liquidityForNetwork, type LiquidityMode } from "../liquidity"
+import {
+  CHANNEL_OPEN_MIN_FUNDING_CKB,
+  CHANNEL_RESERVE_CKB,
+  FIBER_MIN_CHANNEL_FUNDING_CKB,
+} from "../public-relays"
 import { parseHexU128 } from "./ckbAmount"
 import { requiredWalletCkbForOpen } from "./format"
 import { pubkeysEqual } from "./relay"
@@ -12,6 +16,14 @@ export type SendFundingPlan = {
   providerPubkey: string
   fundingCkb: number
   amountRaw: bigint
+}
+
+export function sendFundingCkb(amountRaw: bigint, mode: LiquidityMode): number {
+  const floor =
+    mode === "lsp" ? FIBER_MIN_CHANNEL_FUNDING_CKB : CHANNEL_OPEN_MIN_FUNDING_CKB
+  const needed = amountRaw + BigInt(CHANNEL_RESERVE_CKB) * SHANNONS_PER_CKB
+  const roundedUp = (needed + SHANNONS_PER_CKB - 1n) / SHANNONS_PER_CKB
+  return Math.max(floor, Number(roundedUp))
 }
 
 export function planSendFunding(input: {
@@ -27,10 +39,7 @@ export function planSendFunding(input: {
   if (!provider) return null
   if (input.walletCkb === null) return null
 
-  const needed =
-    input.amountRaw + BigInt(CHANNEL_RESERVE_CKB) * SHANNONS_PER_CKB
-  const roundedUp = (needed + SHANNONS_PER_CKB - 1n) / SHANNONS_PER_CKB
-  const fundingCkb = Math.max(CHANNEL_OPEN_MIN_FUNDING_CKB, Number(roundedUp))
+  const fundingCkb = sendFundingCkb(input.amountRaw, provider.mode)
   if (input.walletCkb < requiredWalletCkbForOpen(fundingCkb)) return null
 
   return {

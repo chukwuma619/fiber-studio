@@ -20,7 +20,10 @@ import {
   liquidityForNetwork,
   type LiquidityProvider,
 } from "../../lib/liquidity"
-import { truncatePubkey } from "../../lib/public-relays"
+import {
+  FIBER_MIN_CHANNEL_FUNDING_CKB,
+  truncatePubkey,
+} from "../../lib/public-relays"
 import { Badge } from "../ui/badge"
 import { Button } from "../ui/button"
 import { CopyButton } from "../ui/copy-button"
@@ -87,8 +90,8 @@ function describeFunding({
   if (noConnectedPeers) {
     return "None of your saved peers are connected. Connect a public hub first, then add funds."
   }
-  if (provider !== null && connectedToProvider && provider.mode === "lsp") {
-    return `Move ${symbol} from your wallet into Fiber so you can send. Incoming payments can open their own channel.`
+  if (provider !== null && provider.mode === "lsp") {
+    return `Fiber connects to ${provider.label} automatically. This moves ${symbol} from your wallet so you can send. ${provider.label} funds a channel when you receive.`
   }
   if (provider !== null && connectedToProvider) {
     return `Move ${symbol} from your wallet into Fiber. About ${CHANNEL_RESERVE_CKB} CKB stays on chain as the cell reserve, plus a small fee.`
@@ -165,11 +168,6 @@ export function OpenChannelDialog({
     return parsed
   }, [capacity, isCkbChannel])
 
-  const belowMinimum =
-    isCkbChannel &&
-    parsedCapacity !== null &&
-    parsedCapacity < minFundingCkb
-
   const requiredWalletCkb =
     isCkbChannel && parsedCapacity !== null
       ? requiredWalletCkbForOpen(parsedCapacity)
@@ -185,17 +183,23 @@ export function OpenChannelDialog({
   const noSavedPeers = savedPeers.length === 0
   const noConnectedPeers = connectedPeers.length === 0
   const activeProvider = chooseOtherHub ? null : provider
+  const lspMode = activeProvider?.mode === "lsp"
   const providerPeer = activeProvider
     ? (connectedPeers.find((peer) =>
         pubkeysEqual(peer.pubkey, activeProvider.pubkey),
       ) ?? null)
     : null
+  const effectiveMinFundingCkb =
+    lspMode && isCkbChannel ? FIBER_MIN_CHANNEL_FUNDING_CKB : minFundingCkb
+  const belowMinimum =
+    isCkbChannel &&
+    parsedCapacity !== null &&
+    parsedCapacity < effectiveMinFundingCkb
 
   const submitDisabled =
     isActing ||
     !selectedPubkey ||
-    noConnectedPeers ||
-    noSavedPeers ||
+    (!lspMode && (noConnectedPeers || noSavedPeers)) ||
     walletBalanceUnavailable ||
     belowMinimum === true ||
     insufficientWalletBalance === true
@@ -211,13 +215,37 @@ export function OpenChannelDialog({
     setSelectedAssetId(CKB_ASSET_ID)
     setChooseOtherHub(false)
     const defaultPeer =
-      providerPeer?.pubkey ?? connectedPeers[0]?.pubkey ?? ""
+      provider?.mode === "lsp"
+        ? provider.pubkey
+        : (providerPeer?.pubkey ?? connectedPeers[0]?.pubkey ?? "")
     setSelectedPubkey(defaultPeer)
-    setCapacity(defaultPeer ? String(minFundingCkb) : "")
-  }, [connectedPeers, minFundingCkb, onClearError, open, providerPeer])
+    setCapacity(
+      defaultPeer
+        ? String(
+            provider?.mode === "lsp" && isCkbChannel
+              ? FIBER_MIN_CHANNEL_FUNDING_CKB
+              : minFundingCkb,
+          )
+        : "",
+    )
+  }, [
+    connectedPeers,
+    isCkbChannel,
+    minFundingCkb,
+    onClearError,
+    open,
+    provider,
+    providerPeer,
+  ])
 
   useEffect(() => {
     if (!open) return
+    if (lspMode && activeProvider) {
+      if (selectedPubkey !== activeProvider.pubkey) {
+        setSelectedPubkey(activeProvider.pubkey)
+      }
+      return
+    }
     if (
       selectedPubkey &&
       connectedPeers.some((peer) => peer.pubkey === selectedPubkey)
@@ -225,7 +253,14 @@ export function OpenChannelDialog({
       return
     }
     setSelectedPubkey(providerPeer?.pubkey ?? connectedPeers[0]?.pubkey ?? "")
-  }, [connectedPeers, open, providerPeer, selectedPubkey])
+  }, [
+    activeProvider,
+    connectedPeers,
+    lspMode,
+    open,
+    providerPeer,
+    selectedPubkey,
+  ])
 
   useEffect(() => {
     if (!open || isCkbChannel) return
@@ -248,7 +283,7 @@ export function OpenChannelDialog({
     if (parsedCapacity === null) {
       setValidationError(
         isCkbChannel
-          ? `Enter a whole number of at least ${minFundingCkb} CKB.`
+          ? `Enter a whole number of at least ${effectiveMinFundingCkb} CKB.`
           : `Enter a valid ${selectedAsset.symbol} amount greater than zero.`,
       )
       return
@@ -294,7 +329,7 @@ export function OpenChannelDialog({
     }
   }
 
-  const usingProvider = activeProvider !== null && providerPeer !== null
+  const usingProvider = lspMode || (activeProvider !== null && providerPeer !== null)
   const capacityLabel = !isCkbChannel
     ? `Channel capacity (${selectedAsset.symbol})`
     : usingProvider
@@ -348,7 +383,16 @@ export function OpenChannelDialog({
 
           <Field>
             <Label>{usingProvider ? "Connection" : "Connected peer"}</Label>
-            {activeProvider && providerPeer ? (
+            {lspMode && activeProvider ? (
+              <div className="space-y-1">
+                <Text className="text-sm text-zinc-950 dark:text-white">
+                  {activeProvider.label}
+                </Text>
+                <Description>
+                  Fiber keeps this connection up. You do not pick a peer.
+                </Description>
+              </div>
+            ) : activeProvider && providerPeer ? (
               <div className="space-y-2">
                 <Text className="text-sm text-zinc-950 dark:text-white">
                   {activeProvider.label}
@@ -448,12 +492,12 @@ export function OpenChannelDialog({
               value={capacity}
               onChange={(event) => setCapacity(event.target.value)}
               inputMode={isCkbChannel ? "numeric" : "decimal"}
-              placeholder={isCkbChannel ? String(minFundingCkb) : "0.00"}
+              placeholder={isCkbChannel ? String(effectiveMinFundingCkb) : "0.00"}
               disabled={!selectedPubkey}
             />
             {isCkbChannel ? (
               <Description>
-                Minimum {minFundingCkb} CKB, including about {CHANNEL_RESERVE_CKB} CKB
+                Minimum {effectiveMinFundingCkb} CKB, including about {CHANNEL_RESERVE_CKB} CKB
                 for the on-chain cell reserve.
               </Description>
             ) : (
@@ -478,7 +522,7 @@ export function OpenChannelDialog({
         ) : null}
         {belowMinimum ? (
           <Text className="mt-4 text-sm text-amber-700 dark:text-amber-300">
-            {minFundingCkb} CKB is the minimum channel capacity.
+            {effectiveMinFundingCkb} CKB is the minimum channel capacity.
           </Text>
         ) : null}
         {validationError ? (

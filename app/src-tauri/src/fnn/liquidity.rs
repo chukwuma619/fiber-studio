@@ -138,6 +138,13 @@ fn resolve_entry(network: &str, entry: LiquidityEntry) -> Result<WalletLiquidity
     }
 }
 
+pub fn service_pubkey(network: &str) -> Option<String> {
+    match provider_for_network(network) {
+        Ok(WalletLiquidity::Lsp { pubkey, .. }) => Some(pubkey),
+        _ => None,
+    }
+}
+
 /// Apply wallet liquidity to `config.yml`. The returned string is a node log line.
 pub fn apply_to_data_dir(data_dir: &Path) -> Result<String, LiquidityError> {
     let metadata = studio::read_studio_metadata(data_dir)?;

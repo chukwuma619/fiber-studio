@@ -36,6 +36,7 @@ import {
   parseDecimalToRaw,
   type PreflightReport,
 } from "../../lib/fnn/preflight"
+import { serviceOpensInbound } from "../../lib/liquidity"
 import { truncatePubkey } from "../../lib/public-relays"
 import { Button } from "../ui/button"
 import { Description, Field, FieldGroup, Label } from "../ui/fieldset"
@@ -172,9 +173,10 @@ export function SendPaymentPanel({
         pathFindError: args.pathFindError,
         snapshot,
         snapshotError,
+        serviceOpensInbound: serviceOpensInbound(network),
       })
     },
-    [onGetPreflightSnapshot],
+    [network, onGetPreflightSnapshot],
   )
 
   const [routePreview, setRoutePreview] = useState<PreviewSendPaymentResult | null>(

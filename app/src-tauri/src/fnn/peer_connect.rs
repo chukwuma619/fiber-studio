@@ -122,8 +122,31 @@ pub struct PeerDial {
     pub status: RelayConnectStatus,
 }
 
-/// Official relays for the network first, then saved peers that are not relays.
+/// The liquidity service when one is configured, otherwise official relays then other saved peers.
 pub fn startup_dial_targets(network: &str, saved_peers: &[SavedPeer]) -> Vec<DialTarget> {
+    if let Ok(super::liquidity::WalletLiquidity::Lsp {
+        pubkey, multiaddr, ..
+    }) = super::liquidity::provider_for_network(network)
+    {
+        return vec![lsp_dial_target(&pubkey, &multiaddr, saved_peers)];
+    }
+    hub_dial_targets(network, saved_peers)
+}
+
+fn lsp_dial_target(pubkey: &str, configured: &str, saved_peers: &[SavedPeer]) -> DialTarget {
+    let saved = saved_peers
+        .iter()
+        .find(|saved| pubkeys_equal(&saved.pubkey, pubkey))
+        .map(|saved| saved.multiaddr.trim().to_string())
+        .filter(|addr| !addr.is_empty());
+    DialTarget {
+        pubkey: pubkey.to_string(),
+        multiaddr: saved.unwrap_or_else(|| configured.trim().to_string()),
+        kind: DialKind::SavedPeer,
+    }
+}
+
+fn hub_dial_targets(network: &str, saved_peers: &[SavedPeer]) -> Vec<DialTarget> {
     let mut targets: Vec<DialTarget> = Vec::new();
 
     for relay in relays::relays_for_network(network) {
@@ -532,6 +555,28 @@ mod tests {
             &both_relays,
             &["03cc".into()]
         ));
+    }
+
+    #[test]
+    fn lsp_dial_uses_the_service_even_when_relays_are_saved() {
+        let relays = relays::relays_for_network("testnet");
+        assert!(!relays.is_empty());
+        let saved = vec![
+            SavedPeer {
+                pubkey: relays[0].pubkey.clone(),
+                multiaddr: relays[0].multiaddr.clone().unwrap_or_default(),
+            },
+            SavedPeer {
+                pubkey: "02aa".into(),
+                multiaddr: "/dns4/saved.example/tcp/8228".into(),
+            },
+        ];
+        let target = lsp_dial_target("02aa", "/dns4/policy.example/tcp/8228", &saved);
+        assert_eq!(target.pubkey, "02aa");
+        assert_eq!(target.multiaddr, "/dns4/saved.example/tcp/8228");
+        assert_eq!(target.kind, DialKind::SavedPeer);
+        let fallback = lsp_dial_target("02bb", "/dns4/policy.example/tcp/8228", &saved);
+        assert_eq!(fallback.multiaddr, "/dns4/policy.example/tcp/8228");
     }
 
     #[test]

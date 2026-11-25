@@ -66,6 +66,7 @@ export type PreflightInput = {
   snapshot: PreflightSnapshot
   /** Set when the snapshot RPC failed; do not infer graph/channel blockers from an empty snapshot. */
   snapshotError?: string | null
+  serviceOpensInbound?: boolean
 }
 
 const THIN_HEADROOM_CKB_SHANNONS = 1_000_000_000n // 10 CKB
@@ -117,7 +118,18 @@ export function parseDecimalToRaw(
   }
 }
 
+function bindFinding(serviceOpensInbound: boolean) {
+  return (
+    code: PreflightFindingCode,
+    summary?: PreflightSummary,
+    payeePubkey?: string | null,
+    detail?: FindingDetail,
+  ) =>
+    findingForCode(code, summary, payeePubkey, detail, serviceOpensInbound)
+}
+
 export function classifyPreflight(input: PreflightInput): PreflightReport {
+  const finding = bindFinding(input.serviceOpensInbound === true)
   const pathFindError = input.pathFindError
     ? sanitizeRpcError(input.pathFindError)
     : null
@@ -133,8 +145,8 @@ export function classifyPreflight(input: PreflightInput): PreflightReport {
 
   if (pathFindFailed) {
     if (input.snapshotError) {
-      findings.push(findingForCode("path_not_found"))
-      findings.push(findingForCode("snapshot_unavailable"))
+      findings.push(finding("path_not_found"))
+      findings.push(finding("snapshot_unavailable"))
     } else {
       findings.push(...classifyFailure(input, pathFindError ?? ""))
     }
@@ -146,18 +158,22 @@ export function classifyPreflight(input: PreflightInput): PreflightReport {
       findings.push(thinHeadroom)
     }
     if (input.snapshotError) {
-      findings.push(findingForCode("snapshot_unavailable"))
+      findings.push(finding("snapshot_unavailable"))
     }
   }
 
   if (pathFound || findings.length === 0) {
     findings.unshift(
-      findingForCode("route_ready", summary, input.payeePubkey),
+      finding("route_ready", summary, input.payeePubkey),
     )
   }
 
   const status = reportStatus(findings)
-  const primary = selectPrimaryFinding(findings, pathFound)
+  const primary = selectPrimaryFinding(
+    findings,
+    pathFound,
+    input.serviceOpensInbound === true,
+  )
 
   return {
     status,
@@ -171,6 +187,7 @@ function classifyFailure(
   input: PreflightInput,
   pathFindError: string,
 ): PreflightFinding[] {
+  const finding = bindFinding(input.serviceOpensInbound === true)
   const findings: PreflightFinding[] = []
   const payee = input.payeePubkey
   const channels = input.snapshot.channels
@@ -207,7 +224,7 @@ function classifyFailure(
 
   if (payeeChannels.length > 0 && payeeReady.length === 0) {
     findings.push(
-      findingForCode(
+      finding(
         "channel_not_ready",
         undefined,
         payee,
@@ -217,11 +234,11 @@ function classifyFailure(
   }
 
   if (payeeReady.length > 0 && !payeeConnected) {
-    findings.push(findingForCode("direct_peer_offline", undefined, payee))
+    findings.push(finding("direct_peer_offline", undefined, payee))
   }
 
   if (readyChannels.length === 0 && payeeReady.length === 0) {
-    findings.push(findingForCode("no_ready_channels", undefined, payee))
+    findings.push(finding("no_ready_channels", undefined, payee))
   }
 
   if (
@@ -230,13 +247,13 @@ function classifyFailure(
     maxOutbound < amount
   ) {
     findings.push(
-      findingForCode("insufficient_local_liquidity", undefined, payee, {
+      finding("insufficient_local_liquidity", undefined, payee, {
         needed: formatAssetAmount(amount, input.assetSymbol),
         available: formatAssetAmount(maxOutbound, input.assetSymbol),
       }),
     )
   } else if (isLiquidityPathError(pathFindError)) {
-    findings.push(findingForCode("insufficient_hop_liquidity"))
+    findings.push(finding("insufficient_hop_liquidity"))
   }
 
   if (
@@ -244,17 +261,17 @@ function classifyFailure(
     input.snapshot.graphNodeCount === 0 &&
     !isDirectChannelPeer
   ) {
-    findings.push(findingForCode("empty_gossip_graph"))
+    findings.push(finding("empty_gossip_graph"))
   }
 
   if (payee && !isDirectChannelPeer) {
     if (isKnownPayeeMismatch(graph, payee, input.snapshot)) {
       findings.push(
-        findingForCode("invoice_payee_mismatch", undefined, payee),
+        finding("invoice_payee_mismatch", undefined, payee),
       )
     } else if (graph?.lookupComplete && graph.inGraph && graph.neighborCount === 0) {
       findings.push(
-        findingForCode("payee_no_inbound_path", undefined, payee),
+        finding("payee_no_inbound_path", undefined, payee),
       )
     } else if (
       graph?.lookupComplete &&
@@ -263,19 +280,19 @@ function classifyFailure(
       input.snapshot.channels.length === 0
     ) {
       findings.push(
-        findingForCode("payee_no_inbound_path", undefined, payee),
+        finding("payee_no_inbound_path", undefined, payee),
       )
     }
 
     if (lacksCommonRelay(input.snapshot, graph, isDirectChannelPeer)) {
       findings.push(
-        findingForCode("payee_no_common_relays", undefined, payee),
+        finding("payee_no_common_relays", undefined, payee),
       )
     }
   }
 
   if (findings.length === 0) {
-    findings.push(findingForCode("path_not_found", undefined, payee))
+    findings.push(finding("path_not_found", undefined, payee))
   }
 
   return findings
@@ -285,6 +302,7 @@ function classifyThinHeadroom(
   input: PreflightInput,
   summary: PreflightSummary,
 ): PreflightFinding | null {
+  const finding = bindFinding(input.serviceOpensInbound === true)
   const amount = input.amountRaw ?? 0n
   if (amount <= 0n) {
     return null
@@ -307,7 +325,7 @@ function classifyThinHeadroom(
       : 0n
   const headroom = local - amount - fee
   if (headroom < 0n) {
-    return findingForCode("insufficient_local_liquidity", summary, input.payeePubkey, {
+    return finding("insufficient_local_liquidity", summary, input.payeePubkey, {
       needed: formatAssetAmount(amount + fee, input.assetSymbol),
       available: formatAssetAmount(local, input.assetSymbol),
     })
@@ -325,7 +343,7 @@ function classifyThinHeadroom(
     return null
   }
 
-  return findingForCode("thin_liquidity_headroom", summary, input.payeePubkey)
+  return finding("thin_liquidity_headroom", summary, input.payeePubkey)
 }
 
 function buildSummary(input: PreflightInput): PreflightSummary {
@@ -482,7 +500,9 @@ function reportStatus(findings: PreflightFinding[]): PreflightStatus {
 function selectPrimaryFinding(
   findings: PreflightFinding[],
   pathFound: boolean,
+  serviceOpensInbound: boolean,
 ): PreflightFinding {
+  const finding = bindFinding(serviceOpensInbound)
   const blockers = findings.filter((finding) => finding.severity === "blocker")
   if (blockers[0]) return blockers[0]
 
@@ -493,10 +513,10 @@ function selectPrimaryFinding(
   if (ready) return ready
 
   if (pathFound) {
-    return findingForCode("route_ready")
+    return finding("route_ready")
   }
 
-  return findings[0] ?? findingForCode("path_not_found")
+  return findings[0] ?? finding("path_not_found")
 }
 
 function formatAssetAmount(raw: bigint, symbol: string): string {
@@ -517,6 +537,7 @@ function findingForCode(
   summary?: PreflightSummary,
   payeePubkey?: string | null,
   detail?: FindingDetail,
+  serviceOpensInbound = false,
 ): PreflightFinding {
   switch (code) {
     case "route_ready": {
@@ -544,8 +565,9 @@ function findingForCode(
         title: "Network graph is empty",
         reason:
           "Your node has not synced public Fiber gossip yet, so it cannot discover multi-hop routes.",
-        recommendation:
-          "Connect to a public hub, then wait until the network graph appears.",
+        recommendation: serviceOpensInbound
+          ? "Wait until Fiber finishes connecting to the liquidity service and the network graph appears."
+          : "Connect to a public hub, then wait until the network graph appears.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     case "no_ready_channels":
@@ -555,8 +577,9 @@ function findingForCode(
         title: "No spendable balance",
         reason:
           "There is no ready channel with spendable CKB to start this payment.",
-        recommendation:
-          "Add funds to open a channel with a public hub, then wait until it is ready.",
+        recommendation: serviceOpensInbound
+          ? "Add funds to open a channel with the liquidity service. Fiber connects automatically, then wait until the channel is ready."
+          : "Add funds to open a channel with a public hub, then wait until it is ready.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     case "channel_not_ready":
@@ -611,8 +634,9 @@ function findingForCode(
         reason: payeePubkey
           ? "This invoice was issued by a node you do not have a channel with, and it is not in the local gossip graph."
           : "The invoice payee pubkey does not match a node you have channeled with.",
-        recommendation:
-          "Ask the recipient for an invoice from a node you already have a channel with, or add funds with a shared hub.",
+        recommendation: serviceOpensInbound
+          ? "Add funds so this wallet has CKB to send through the liquidity service."
+          : "Ask the recipient for an invoice from a node you already have a channel with, or add funds with a shared hub.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     case "payee_no_common_relays":
@@ -622,8 +646,9 @@ function findingForCode(
         title: "No shared public relay",
         reason:
           "Your node and the recipient are not connected through a common public hub, so there is no multi-hop path.",
-        recommendation:
-          "Connect both sides to the same official relay or community hub, then open channels to that hub.",
+        recommendation: serviceOpensInbound
+          ? "Both wallets need to be online with the liquidity service. A receive opens its channel when the payment arrives."
+          : "Connect both sides to the same official relay or community hub, then open channels to that hub.",
         action: { label: "Open Network", href: "/network" },
       }
     case "payee_no_inbound_path":
@@ -633,8 +658,9 @@ function findingForCode(
         title: "Receiver has no inbound path",
         reason:
           "The payee does not appear to have a public channel that can accept this payment.",
-        recommendation:
-          "They need to open a channel to a public hub (or to you) and keep that peer online.",
+        recommendation: serviceOpensInbound
+          ? "Their wallet needs to be online. The liquidity service opens their channel when you pay."
+          : "They need to open a channel to a public hub (or to you) and keep that peer online.",
         action: { label: "Open Network", href: "/network" },
       }
     case "thin_liquidity_headroom":
@@ -667,7 +693,9 @@ function findingForCode(
         title: "No route found",
         reason:
           "Fiber could not build a path to the recipient from your local channels and gossip graph.",
-        recommendation: "Add funds with a public hub, then try again.",
+        recommendation: serviceOpensInbound
+          ? "Add funds so your wallet has CKB to send, then try again."
+          : "Add funds with a public hub, then try again.",
         action: { label: "Add funds", href: "/channels?action=open" },
       }
     default: {

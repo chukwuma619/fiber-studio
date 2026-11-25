@@ -6,10 +6,11 @@ use tauri::State;
 use crate::fnn::assets::{self, AssetView};
 use crate::fnn::channel::{
     self, count_active_channels, count_pending_channels, has_active_or_pending_channel_to_peer,
-    min_funding_ckb_for_open, required_wallet_ckb_for_open, sum_local_balances,
-    sum_remote_balances, sum_total_capacity, HomeChannel,
+    min_funding_ckb_for_open, min_funding_ckb_for_peer, required_wallet_ckb_for_open,
+    sum_local_balances, sum_remote_balances, sum_total_capacity, HomeChannel,
 };
 use crate::fnn::features;
+use crate::fnn::liquidity;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::peer_connect;
 use crate::fnn::relays;
@@ -506,7 +507,16 @@ pub async fn open_channel(
     }
 
     let is_official_relay = relays::is_official_relay_pubkey(&studio_metadata.network, pubkey);
-    if !studio_metadata.has_saved_peer(pubkey) && !is_official_relay {
+    let service_multiaddr = match liquidity::provider_for_network(&studio_metadata.network) {
+        Ok(liquidity::WalletLiquidity::Lsp {
+            pubkey: service,
+            multiaddr,
+            ..
+        }) if peer_connect::pubkeys_equal(pubkey, &service) => Some(multiaddr),
+        _ => None,
+    };
+    let lsp_peer = service_multiaddr.is_some();
+    if !studio_metadata.has_saved_peer(pubkey) && !is_official_relay && !lsp_peer {
         return Err("Channel opens are limited to official relays and saved peers.".to_string());
     }
 
@@ -514,8 +524,10 @@ pub async fn open_channel(
         .await
         .map_err(|error| error.to_string())?;
     let catalog = assets::build_asset_catalog(&node_info);
-    let min_funding_ckb =
-        min_funding_ckb_for_open(&node_info.open_channel_auto_accept_min_ckb_funding_amount);
+    let min_funding_ckb = min_funding_ckb_for_peer(
+        &node_info.open_channel_auto_accept_min_ckb_funding_amount,
+        lsp_peer,
+    );
 
     let asset = if let Some(script) = payload.udt_type_script.as_ref() {
         assets::find_asset_for_udt_script(&catalog, script)
@@ -552,6 +564,7 @@ pub async fn open_channel(
             relays::find_relay_by_pubkey(&studio_metadata.network, pubkey)
                 .and_then(|relay| relay.multiaddr)
         })
+        .or(service_multiaddr)
         .unwrap_or_default();
 
     let connect_status = peer_connect::ensure_peer_connected(pubkey, &saved_multiaddr)
@@ -619,7 +632,7 @@ pub async fn open_channel(
     // stale warning after the open has succeeded. The dialog shows the graph hint.
     let funding_amount = format!("0x{funding_raw:x}");
     let udt_script = asset.udt_type_script.as_ref();
-    let channel_id = rpc::open_channel(pubkey, &funding_amount, true, udt_script)
+    let channel_id = rpc::open_channel(pubkey, &funding_amount, !lsp_peer, udt_script)
         .await
         .map_err(|error| map_open_channel_error(error.to_string()))?;
 

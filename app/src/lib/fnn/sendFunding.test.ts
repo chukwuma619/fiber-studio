@@ -3,6 +3,7 @@ import { getRelay } from "../public-relays"
 import type { HomeChannel } from "./types"
 import {
   planSendFunding,
+  sendFundingCkb,
   waitForSpendableChannel,
 } from "./sendFunding"
 
@@ -40,6 +41,12 @@ describe("planSendFunding", () => {
       providerPubkey: getRelay("testnet", "node1").pubkey,
       fundingCkb: 1000,
     })
+  })
+
+  it("sizes an LSP channel to the payment and the cell reserve", () => {
+    expect(sendFundingCkb(50n * 100_000_000n, "lsp")).toBe(149)
+    expect(sendFundingCkb(1n * 100_000_000n, "lsp")).toBe(100)
+    expect(sendFundingCkb(50n * 100_000_000n, "hub")).toBe(1000)
   })
 
   it("skips the open when the channel can already spend the amount", () => {

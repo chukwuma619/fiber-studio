@@ -6,6 +6,7 @@ use crate::fnn::channel::{self, HomeChannel};
 use crate::fnn::features;
 use crate::fnn::invoice_display::{self, InvoiceListItem};
 use crate::fnn::invoices;
+use crate::fnn::liquidity;
 use crate::fnn::manager::NodeRuntimeStatus;
 use crate::fnn::payment_display::{self, PaymentListItem};
 use crate::fnn::peer_connect;
@@ -236,12 +237,14 @@ pub async fn get_home_dashboard(
         .into_iter()
         .map(|relay| relay.pubkey)
         .collect();
-    let needs_relay_channel = peer_connect::needs_relay_channel(
-        peer_autoconnect_settled,
-        &relay_pubkeys,
-        &peers,
-        &open_channel_pubkeys,
-    );
+    let service_opens_inbound = network_str.and_then(liquidity::service_pubkey).is_some();
+    let needs_relay_channel = !service_opens_inbound
+        && peer_connect::needs_relay_channel(
+            peer_autoconnect_settled,
+            &relay_pubkeys,
+            &peers,
+            &open_channel_pubkeys,
+        );
 
     let active_channel_count = channel::count_active_channels(&channels);
     let pending_channel_count = channel::count_pending_channels(&channels);

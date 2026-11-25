@@ -44,6 +44,8 @@ pub fn ckb_to_shannons_hex(ckb: u64) -> String {
 
 pub const CHANNEL_OPEN_MIN_FUNDING_CKB: u64 = 1000;
 
+pub const LSP_CHANNEL_OPEN_MIN_FUNDING_CKB: u64 = 100;
+
 pub const CHANNEL_RESERVE_CKB: u64 = 99;
 
 pub const CHANNEL_OPEN_FEE_BUFFER_CKB: u64 = 10;
@@ -58,10 +60,19 @@ pub fn shannons_hex_to_ckb(hex: &str) -> Option<u64> {
     parse_hex_u128(hex).map(|shannons| (shannons / SHANNONS_PER_CKB) as u64)
 }
 
-/// Effective minimum funding: studio floor (1000 CKB) or the node's protocol minimum, whichever is higher.
-pub fn min_funding_ckb_for_open(node_min_funding_shannons_hex: &str) -> u64 {
+pub fn min_funding_ckb_for_peer(node_min_funding_shannons_hex: &str, lsp_peer: bool) -> u64 {
+    let floor = if lsp_peer {
+        LSP_CHANNEL_OPEN_MIN_FUNDING_CKB
+    } else {
+        CHANNEL_OPEN_MIN_FUNDING_CKB
+    };
     let node_min = shannons_hex_to_ckb(node_min_funding_shannons_hex).unwrap_or(0);
-    CHANNEL_OPEN_MIN_FUNDING_CKB.max(node_min)
+    floor.max(node_min)
+}
+
+/// Studio floor (1000 CKB) or the node's protocol minimum, whichever is higher.
+pub fn min_funding_ckb_for_open(node_min_funding_shannons_hex: &str) -> u64 {
+    min_funding_ckb_for_peer(node_min_funding_shannons_hex, false)
 }
 
 pub fn has_active_or_pending_channel_to_peer(channels: &[Channel], pubkey: &str) -> bool {
@@ -236,6 +247,13 @@ mod tests {
     #[test]
     fn min_funding_ckb_for_open_uses_node_min_when_higher_than_studio_floor() {
         assert_eq!(min_funding_ckb_for_open("0xe8d4a51000"), 10000);
+    }
+
+    #[test]
+    fn lsp_minimum_follows_the_service_floor() {
+        assert_eq!(min_funding_ckb_for_peer("0x2540be400", true), 100);
+        assert_eq!(min_funding_ckb_for_peer("0x0", true), 100);
+        assert_eq!(min_funding_ckb_for_peer("0xe8d4a51000", true), 10000);
     }
 
     #[test]
