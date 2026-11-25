@@ -79,7 +79,7 @@ export function FiberNetworkSettingsSection({
   return (
     <SettingsSection
       title="Fiber network"
-      subtitle="P2P listen addresses, durability, and Channel V2."
+      subtitle="P2P listen addresses and durability."
     >
       <SettingsRows>
         <SettingsRow
@@ -92,9 +92,7 @@ export function FiberNetworkSettingsSection({
           label="Channel protocol"
           value={
             settings.nodeStatus.state === "running"
-              ? settings.supportsChannelV2
-                ? "V2 (new opens)"
-                : "V1 only"
+              ? "Channel V2"
               : "—"
           }
         />

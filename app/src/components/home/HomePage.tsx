@@ -2,7 +2,6 @@ import { CKB_ASSET_ID } from "../../lib/fnn/assets"
 import { serviceOpensInbound } from "../../lib/liquidity"
 import { formatCkb, parseHexU128 } from "../../lib/fnn/format"
 import { useHomeDashboard } from "../../lib/fnn/useHomeDashboard"
-import { LegacyChannelNudge } from "../channels/LegacyChannelNudge"
 import { useNodeControlContext } from "../layout/NodeControlProvider"
 import { Button } from "../ui/button"
 import { Heading } from "../ui/heading"
@@ -79,12 +78,6 @@ export function HomePage() {
           onRetry={() => void refresh()}
         />
       ) : null}
-
-      <LegacyChannelNudge
-        open={Boolean(dashboard?.showLegacyChannelNudge)}
-        legacyChannelCount={dashboard?.legacyChannelCount ?? 0}
-        onDismissed={() => void refresh()}
-      />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard

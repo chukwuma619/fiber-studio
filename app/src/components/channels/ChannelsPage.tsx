@@ -39,7 +39,6 @@ import {
   TableRow,
 } from "../ui/table"
 import { ChannelDetailDialog } from "./ChannelDetailDialog"
-import { LegacyChannelNudge } from "./LegacyChannelNudge"
 import { LiquidityHealthIndicator } from "./LiquidityHealthIndicator"
 import { OpenChannelDialog } from "./OpenChannelDialog"
 import { RebalanceChannelDialog } from "./RebalanceChannelDialog"
@@ -190,12 +189,6 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
         />
       ) : null}
 
-      <LegacyChannelNudge
-        open={Boolean(data?.showLegacyChannelNudge)}
-        legacyChannelCount={data?.legacyChannelCount ?? 0}
-        onDismissed={() => void refresh()}
-      />
-
       <div className="grid gap-4 sm:grid-cols-2">
         <StatCard
           label="Channels"
@@ -298,13 +291,6 @@ export function ChannelsPage({ initialChannelId, initialAction }: ChannelsPagePr
                               channel.isOneWay,
                             )}
                           </Badge>
-                        ) : null}
-                        {channel.channelVersion === "v1" ||
-                        channel.isLegacy ? (
-                          <Badge color="amber">V1</Badge>
-                        ) : null}
-                        {channel.channelVersion === "v2" ? (
-                          <Badge color="emerald">V2</Badge>
                         ) : null}
                       </div>
                     </TableCell>

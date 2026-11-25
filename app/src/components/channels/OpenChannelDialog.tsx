@@ -66,9 +66,8 @@ function peerChannelLabel(peer: SavedPeerEntry): string {
 }
 
 function peerCompatLabel(peer: SavedPeerEntry): string {
-  if (peer.supportsChannelV2 === true) return " · Channel V2"
   if (peer.supportsChannelV2 === false) return " · older Fiber"
-  return " · V2 unknown"
+  return ""
 }
 
 function describeFunding({
@@ -352,12 +351,6 @@ export function OpenChannelDialog({
       <DialogTitle>Add funds</DialogTitle>
       <DialogDescription>{fundingDescription}</DialogDescription>
 
-      {supportsChannelV2 ? (
-        <Text className="mt-2 text-xs text-zinc-600 dark:text-zinc-400">
-          New channels use Channel V2. Both peers must run Fiber 0.10 or newer.
-        </Text>
-      ) : null}
-
       <DialogBody>
         <FieldGroup>
           <Field>
@@ -459,14 +452,8 @@ export function OpenChannelDialog({
                       : `${selectedPeer.channelCount} channels`}
                   </Badge>
                 ) : null}
-                {supportsChannelV2 && selectedPeerV2 === true ? (
-                  <Badge color="emerald">Channel V2</Badge>
-                ) : null}
                 {supportsChannelV2 && selectedPeerV2 === false ? (
                   <Badge color="amber">Older Fiber</Badge>
-                ) : null}
-                {supportsChannelV2 && selectedPeerV2 === null ? (
-                  <Badge color="zinc">V2 unknown</Badge>
                 ) : null}
               </div>
               {peerGraphLacksV2 ? (

@@ -255,19 +255,7 @@ export function ChannelDetailDialog({
                   <Badge color={channel.isPublic ? "blue" : "zinc"}>
                     {channel.isPublic ? "Public" : "Private"}
                   </Badge>
-                  {channel.channelVersion === "v1" || channel.isLegacy ? (
-                    <Badge color="amber">V1 legacy</Badge>
-                  ) : null}
-                  {channel.channelVersion === "v2" ? (
-                    <Badge color="emerald">V2</Badge>
-                  ) : null}
                 </div>
-                {channel.channelVersion === "v1" || channel.isLegacy ? (
-                  <Text className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                    Opened before Fiber 0.10. Still works; close and reopen when
-                    you can so both sides use Channel V2.
-                  </Text>
-                ) : null}
               </DescriptionDetails>
 
               <DescriptionTerm>
