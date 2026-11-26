@@ -176,11 +176,17 @@ mod tests {
         let config = fs::read_to_string(dir.join("config.yml")).unwrap();
         assert!(config.contains("chain: testnet"));
         let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
-        assert_eq!(metadata.saved_peers.len(), 2);
-        assert!(metadata
-            .saved_peers
-            .iter()
-            .all(|peer| relays::is_official_relay_pubkey("testnet", &peer.pubkey)));
+        let lsp = crate::fnn::liquidity::service_pubkey("testnet").expect("testnet lsp");
+        assert_eq!(metadata.saved_peers.len(), 3);
+        assert!(metadata.saved_peers.iter().any(|peer| peer.pubkey == lsp));
+        assert_eq!(
+            metadata
+                .saved_peers
+                .iter()
+                .filter(|peer| relays::is_official_relay_pubkey("testnet", &peer.pubkey))
+                .count(),
+            2
+        );
         let _ = fs::remove_dir_all(dir);
     }
 
@@ -194,14 +200,14 @@ mod tests {
             .pubkey;
         provision_data_directory(&request(&dir, Some("cd"), &official)).unwrap();
         let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
-        assert_eq!(metadata.saved_peers.len(), 2);
+        assert_eq!(metadata.saved_peers.len(), 3);
         let _ = fs::remove_dir_all(&dir);
 
         let dir = temp_dir();
         let custom = "02".to_string() + &"aa".repeat(32);
         provision_data_directory(&request(&dir, Some("cd"), &custom)).unwrap();
         let metadata = crate::fnn::studio::read_studio_metadata(&dir).unwrap();
-        assert_eq!(metadata.saved_peers.len(), 3);
+        assert_eq!(metadata.saved_peers.len(), 4);
         assert!(metadata
             .saved_peers
             .iter()

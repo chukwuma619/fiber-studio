@@ -580,17 +580,28 @@ mod tests {
     }
 
     #[test]
-    fn startup_targets_include_official_relays_even_when_not_saved() {
-        let relays = relays::relays_for_network("testnet");
-        assert!(!relays.is_empty());
+    fn startup_on_testnet_dials_the_lsp_and_mainnet_dials_official_relays() {
+        let lsp = crate::fnn::liquidity::service_pubkey("testnet").expect("testnet lsp");
         let targets = startup_dial_targets("testnet", &[]);
+        assert_eq!(targets.len(), 1);
+        assert_eq!(targets[0].pubkey, lsp);
+        assert_eq!(targets[0].kind, DialKind::SavedPeer);
+        let extra = vec![SavedPeer {
+            pubkey: "03cc".into(),
+            multiaddr: "/ip4/5.6.7.8/tcp/8228".into(),
+        }];
+        assert_eq!(startup_dial_targets("testnet", &extra).len(), 1);
+
+        let relays = relays::relays_for_network("mainnet");
+        assert!(!relays.is_empty());
+        let targets = startup_dial_targets("mainnet", &[]);
         assert_eq!(targets.len(), relays.len());
         assert!(targets.iter().all(|target| target.kind == DialKind::Relay));
     }
 
     #[test]
-    fn startup_targets_include_relays_then_non_relay_saved_peers() {
-        let relays = relays::relays_for_network("testnet");
+    fn startup_on_mainnet_dials_relays_then_non_relay_saved_peers() {
+        let relays = relays::relays_for_network("mainnet");
         assert!(!relays.is_empty());
         let saved = vec![
             SavedPeer {
@@ -603,7 +614,7 @@ mod tests {
             },
         ];
 
-        let targets = startup_dial_targets("testnet", &saved);
+        let targets = startup_dial_targets("mainnet", &saved);
 
         assert_eq!(targets.len(), relays.len() + 1);
         assert!(targets[..relays.len()]
