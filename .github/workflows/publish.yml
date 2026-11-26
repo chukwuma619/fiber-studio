@@ -251,9 +251,9 @@ jobs:
         uses: msys2/setup-msys2@v2
         id: msys2
         with:
-          msystem: MINGW64
+          msystem: UCRT64
           update: false
-          install: mingw-w64-x86_64-osslsigncode mingw-w64-x86_64-libp11
+          install: mingw-w64-ucrt-x86_64-osslsigncode mingw-w64-ucrt-x86_64-libp11
           path-type: minimal
 
       - name: Install ssign-pkcs11 (Windows Certum signing)
@@ -272,9 +272,9 @@ jobs:
           $dll = Get-ChildItem -Path $dest -Recurse -Filter ssign_pkcs11.dll | Select-Object -First 1
           if (-not $dll) { throw "ssign_pkcs11.dll not found after extracting $pkcsUrl" }
 
-          $mingw = Join-Path "${{ steps.msys2.outputs.msys2-location }}" "mingw64"
-          $ossl = Join-Path $mingw "bin\osslsigncode.exe"
-          $provider = Join-Path $mingw "lib\ossl-modules\pkcs11prov.dll"
+          $ucrt = Join-Path "${{ steps.msys2.outputs.msys2-location }}" "ucrt64"
+          $ossl = Join-Path $ucrt "bin\osslsigncode.exe"
+          $provider = Join-Path $ucrt "lib\ossl-modules\pkcs11prov.dll"
           if (-not (Test-Path -LiteralPath $ossl)) { throw "missing $ossl" }
           if (-not (Test-Path -LiteralPath $provider)) { throw "missing $provider" }
 
@@ -282,8 +282,8 @@ jobs:
           Copy-Item -Force "app/scripts/ssign-tauri.ps1" (Join-Path $dest "ssign-tauri.ps1")
           Copy-Item -Force "app/scripts/ssign-tauri.cmd" (Join-Path $dest "ssign-tauri.cmd")
 
-          # mingw bin provides libcrypto/libssl for osslsigncode.exe
-          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $mingw "bin")
+          # ucrt64 bin provides libcrypto/libssl for osslsigncode.exe
+          Add-Content -Path $env:GITHUB_PATH -Value (Join-Path $ucrt "bin")
           Add-Content -Path $env:GITHUB_PATH -Value $dest
           Add-Content -Path $env:GITHUB_ENV -Value "SSIGN_PKCS11_MODULE=$($dll.FullName)"
           Add-Content -Path $env:GITHUB_ENV -Value "OSSLSIGNCODE=$ossl"

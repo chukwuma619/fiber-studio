@@ -66,11 +66,13 @@ $module = Resolve-Tool -EnvName 'SSIGN_PKCS11_MODULE' -Label 'ssign_pkcs11.dll' 
 
 $ossl = Resolve-Tool -EnvName 'OSSLSIGNCODE' -Label 'osslsigncode.exe' -Candidates @(
   (Join-Path $stateDir 'ssign\osslsigncode.exe'),
+  'C:\msys64\ucrt64\bin\osslsigncode.exe',
   'C:\msys64\mingw64\bin\osslsigncode.exe'
 )
 
 $provider = Resolve-Tool -EnvName 'OPENSSL_PKCS11_PROVIDER' -Label 'pkcs11prov.dll' -Candidates @(
   (Join-Path $stateDir 'ssign\pkcs11prov.dll'),
+  'C:\msys64\ucrt64\lib\ossl-modules\pkcs11prov.dll',
   'C:\msys64\mingw64\lib\ossl-modules\pkcs11prov.dll'
 )
 
