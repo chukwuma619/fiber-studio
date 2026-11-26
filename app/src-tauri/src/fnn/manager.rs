@@ -65,6 +65,8 @@ pub enum ManagerError {
     },
     #[error("failed to back up data directory: {0}")]
     Backup(String),
+    #[error("failed to update studio metadata: {0}")]
+    Studio(String),
     #[error("failed to apply liquidity config: {0}")]
     Liquidity(#[from] liquidity::LiquidityError),
 }
@@ -413,12 +415,16 @@ impl FnnManager {
                 );
             }
 
-            let _ = studio::update_studio_metadata(&data_directory, |metadata| {
+            if let Err(err) = studio::update_studio_metadata(&data_directory, |metadata| {
                 metadata.legacy_channel_ids.clear();
                 metadata.legacy_channel_snapshot_done = true;
                 metadata.legacy_channel_nudge_dismissed = true;
                 true
-            });
+            }) {
+                let message = err.to_string();
+                self.append_log(&format!("failed to update studio metadata: {message}"));
+                return Err(self.stop_with(ManagerError::Studio(message)));
+            }
         }
 
         let liquidity_summary = match liquidity::apply_to_data_dir(&data_directory) {
