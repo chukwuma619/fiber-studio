@@ -14,6 +14,8 @@ pub struct StartNodePayload {
     pub data_directory: String,
     #[serde(default)]
     pub allow_migration: bool,
+    #[serde(default)]
+    pub reset_legacy_store: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -72,6 +74,7 @@ pub async fn start_node(
         PathBuf::from(&payload.data_directory),
         &password,
         payload.allow_migration,
+        payload.reset_legacy_store,
     )
     .await?;
 

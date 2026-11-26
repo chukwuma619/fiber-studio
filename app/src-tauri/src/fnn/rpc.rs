@@ -279,6 +279,8 @@ pub enum RpcError {
     Timeout(u64),
     #[error("Fiber node RPC response was empty")]
     MissingResult,
+    #[error("{0}")]
+    Other(String),
 }
 
 async fn call_rpc<T: DeserializeOwned>(

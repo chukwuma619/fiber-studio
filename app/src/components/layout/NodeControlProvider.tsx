@@ -16,7 +16,9 @@ export function NodeControlProvider({ children }: { children: ReactNode }) {
         open={value.migrationDialog != null}
         message={value.migrationDialog?.message ?? ""}
         hasBreakingChange={value.migrationDialog?.hasBreakingChange ?? false}
+        isLegacyChannelBlock={value.migrationDialog?.isLegacyChannelBlock ?? false}
         isActing={value.isActing}
+        error={value.migrationDialog ? value.actionError : null}
         onClose={value.closeMigrationDialog}
         onConfirm={() => {
           void value.handleConfirmMigration()

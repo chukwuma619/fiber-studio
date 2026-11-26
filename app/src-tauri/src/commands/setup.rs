@@ -63,6 +63,7 @@ pub async fn complete_setup(
         PathBuf::from(payload.data_directory),
         &payload.password,
         false,
+        false,
     )
     .await?;
 
@@ -79,17 +80,25 @@ pub async fn start_fnn(
     data_directory: PathBuf,
     password: &str,
     allow_migration: bool,
+    reset_legacy_store: bool,
 ) -> Result<NodeInfo, String> {
     let mut manager = state.fnn.lock().await;
 
     match manager
-        .start(app, data_directory, password, allow_migration)
+        .start(
+            app,
+            data_directory,
+            password,
+            allow_migration,
+            reset_legacy_store,
+        )
         .await
     {
         Ok(info) => Ok(info),
         Err(ManagerError::MigrationRequired {
             message,
             has_breaking_change,
+            is_legacy_channel_block,
         }) => {
             manager.stop().await.ok();
             Err(migration::format_migration_required_error(
@@ -97,6 +106,7 @@ pub async fn start_fnn(
                     message,
                     has_breaking_change,
                     cancelled: true,
+                    is_legacy_channel_block,
                 },
             ))
         }

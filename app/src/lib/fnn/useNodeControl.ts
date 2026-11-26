@@ -10,6 +10,7 @@ import type { NodeStatusResponse, NodeStatusState } from "./types"
 type MigrationDialogState = {
   message: string
   hasBreakingChange: boolean
+  isLegacyChannelBlock: boolean
   dataDirectory: string
 }
 
@@ -78,6 +79,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
         setMigrationDialog({
           message: migration.message,
           hasBreakingChange: migration.hasBreakingChange,
+          isLegacyChannelBlock: migration.isLegacyChannelBlock,
           dataDirectory,
         })
         setActionError(null)
@@ -91,7 +93,23 @@ export function useNodeControl(pollIntervalMs = 5000) {
 
   const closeMigrationDialog = useCallback(() => {
     setMigrationDialog(null)
+    setActionError(null)
   }, [])
+
+  const openUpgradeHelper = useCallback(async () => {
+    const dataDirectory = await resolveConfiguredDataDirectory(config?.network)
+    if (!dataDirectory) {
+      setActionError("Data directory is not configured.")
+      return
+    }
+    setMigrationDialog({
+      message:
+        "Database migration required for Fiber 0.10.1. Channel V2 channels stay open.",
+      hasBreakingChange: true,
+      isLegacyChannelBlock: false,
+      dataDirectory,
+    })
+  }, [config?.network])
 
   const handleConfirmMigration = useCallback(async () => {
     if (!migrationDialog) {
@@ -104,6 +122,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
       const status = await startNode({
         dataDirectory: migrationDialog.dataDirectory,
         allowMigration: true,
+        resetLegacyStore: migrationDialog.isLegacyChannelBlock,
       })
       setNodeStatus(status)
       setMigrationDialog(null)
@@ -113,12 +132,12 @@ export function useNodeControl(pollIntervalMs = 5000) {
         setMigrationDialog({
           message: migration.message,
           hasBreakingChange: migration.hasBreakingChange,
+          isLegacyChannelBlock: migration.isLegacyChannelBlock,
           dataDirectory: migrationDialog.dataDirectory,
         })
         setActionError(null)
       } else {
         setActionError(getErrorMessage(error))
-        setMigrationDialog(null)
       }
     } finally {
       setIsActing(false)
@@ -176,6 +195,7 @@ export function useNodeControl(pollIntervalMs = 5000) {
     refreshStatus,
     handleStartNode,
     handleStopNode,
+    openUpgradeHelper,
     migrationDialog,
     closeMigrationDialog,
     handleConfirmMigration,

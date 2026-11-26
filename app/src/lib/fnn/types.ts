@@ -32,6 +32,7 @@ export type CompleteSetupPayload = {
 export type StartNodePayload = {
   dataDirectory: string
   allowMigration?: boolean
+  resetLegacyStore?: boolean
 }
 
 export type HomeNodeInfo = {

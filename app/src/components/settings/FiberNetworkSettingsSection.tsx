@@ -14,6 +14,7 @@ type FiberNetworkSettingsSectionProps = {
   isActing: boolean
   onUpdateStoreSyncWrites: (enabled: boolean) => Promise<unknown>
   onUpdateListeningAddrs: (listeningAddrs: string[]) => Promise<unknown>
+  onOpenUpgradeHelper?: () => void
 }
 
 export function FiberNetworkSettingsSection({
@@ -22,6 +23,7 @@ export function FiberNetworkSettingsSection({
   isActing,
   onUpdateStoreSyncWrites,
   onUpdateListeningAddrs,
+  onOpenUpgradeHelper,
 }: FiberNetworkSettingsSectionProps) {
   const [addrsText, setAddrsText] = useState(
     settings.fiberListeningAddrs.join("\n"),
@@ -94,6 +96,19 @@ export function FiberNetworkSettingsSection({
             settings.nodeStatus.state === "running"
               ? "Channel V2"
               : "—"
+          }
+        />
+        <SettingsRow
+          label="Upgrade helper"
+          value={
+            <Button
+              plain
+              className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              disabled={isActing}
+              onClick={onOpenUpgradeHelper}
+            >
+              Upgrade database…
+            </Button>
           }
         />
         <SettingsRow label="Node features" value={featureValue} />

@@ -18,6 +18,7 @@ describe("parseMigrationRequiredError", () => {
     ).toEqual({
       message: "Database migration required",
       hasBreakingChange: true,
+      isLegacyChannelBlock: false,
     })
     expect(
       parseMigrationRequiredError(
@@ -26,6 +27,16 @@ describe("parseMigrationRequiredError", () => {
     ).toEqual({
       message: "Backup recommended",
       hasBreakingChange: false,
+      isLegacyChannelBlock: false,
+    })
+    expect(
+      parseMigrationRequiredError(
+        "MIGRATION_REQUIRED:Found 29 V1 records|breaking_change=true|legacy_channel_block=true",
+      ),
+    ).toEqual({
+      message: "Found 29 V1 records",
+      hasBreakingChange: true,
+      isLegacyChannelBlock: true,
     })
   })
 

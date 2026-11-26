@@ -32,7 +32,7 @@ function SettingsSkeleton() {
 }
 
 export function SettingsPage() {
-  const { config, status } = useNodeControlContext()
+  const { config, status, openUpgradeHelper } = useNodeControlContext()
   const {
     settings,
     isLoading,
@@ -99,6 +99,7 @@ export function SettingsPage() {
             isActing={isActing}
             onUpdateStoreSyncWrites={handleUpdateStoreSyncWrites}
             onUpdateListeningAddrs={handleUpdateListeningAddrs}
+            onOpenUpgradeHelper={openUpgradeHelper}
           />
           <CrossChainSettingsSection
             settings={settings}

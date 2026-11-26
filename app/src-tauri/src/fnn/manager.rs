@@ -19,6 +19,7 @@ use super::migration::{self, MigrationDetails};
 use super::peer_connect::{DialKind, DialTarget, PeerDial};
 use super::rpc::{self, NodeInfo, RpcError};
 use super::spawn;
+use super::studio;
 
 pub const MAX_LOG_LINES: usize = 500;
 const AUTOCONNECT_RETRY_AFTER_FAILURE: Duration = Duration::from_secs(30);
@@ -60,6 +61,7 @@ pub enum ManagerError {
     MigrationRequired {
         message: String,
         has_breaking_change: bool,
+        is_legacy_channel_block: bool,
     },
     #[error("failed to back up data directory: {0}")]
     Backup(String),
@@ -360,20 +362,23 @@ impl FnnManager {
         data_directory: PathBuf,
         password: &str,
         allow_migration: bool,
+        reset_legacy_store: bool,
     ) -> Result<NodeInfo, ManagerError> {
         self.sync_health(Some(data_directory.clone())).await;
 
-        if self.child.is_some() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-            return Err(ManagerError::AlreadyRunning);
-        }
+        if !reset_legacy_store {
+            if self.child.is_some() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+                return Err(ManagerError::AlreadyRunning);
+            }
 
-        if self.child.is_none() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
-            self.data_directory = Some(data_directory.clone());
-            self.restore_logs_from_disk();
-            self.start_log_tail();
-            let node_info = rpc::fetch_node_info().await.map_err(ManagerError::Rpc)?;
-            self.queue_peer_autoconnect(app);
-            return Ok(node_info);
+            if self.child.is_none() && matches!(self.status, NodeRuntimeStatus::Running { .. }) {
+                self.data_directory = Some(data_directory.clone());
+                self.restore_logs_from_disk();
+                self.start_log_tail();
+                let node_info = rpc::fetch_node_info().await.map_err(ManagerError::Rpc)?;
+                self.queue_peer_autoconnect(app);
+                return Ok(node_info);
+            }
         }
 
         self.stop_log_tail();
@@ -381,32 +386,66 @@ impl FnnManager {
         self.status = NodeRuntimeStatus::Starting;
         self.data_directory = Some(data_directory.clone());
 
-        if allow_migration {
-            let backup_path =
-                backup::backup_data_directory(&data_directory).map_err(ManagerError::Backup)?;
-            self.append_log(&format!(
+        let mut prelude_logs = Vec::new();
+
+        if reset_legacy_store || allow_migration {
+            let backup_path = match backup::backup_data_directory(&data_directory) {
+                Ok(path) => path,
+                Err(err) => return Err(self.stop_with(ManagerError::Backup(err))),
+            };
+            prelude_logs.push(format!(
                 "Backed up data directory to {}",
                 backup_path.display()
             ));
         }
 
-        let liquidity_summary = liquidity::apply_to_data_dir(&data_directory)?;
+        if reset_legacy_store {
+            let store_path = data_directory.join("fiber").join("store");
+            if store_path.exists() {
+                if let Err(err) = std::fs::remove_dir_all(&store_path) {
+                    return Err(self.stop_with(ManagerError::Backup(format!(
+                        "failed to reset legacy store: {err}"
+                    ))));
+                }
+                prelude_logs.push(
+                    "Set aside the previous channel database so Fiber 0.10.1 can start."
+                        .to_string(),
+                );
+            }
+
+            let _ = studio::update_studio_metadata(&data_directory, |metadata| {
+                metadata.legacy_channel_ids.clear();
+                metadata.legacy_channel_snapshot_done = true;
+                metadata.legacy_channel_nudge_dismissed = true;
+                true
+            });
+        }
+
+        let liquidity_summary = match liquidity::apply_to_data_dir(&data_directory) {
+            Ok(summary) => summary,
+            Err(err) => return Err(self.stop_with(ManagerError::Liquidity(err))),
+        };
 
         let config_path = data_directory.join("config.yml");
         let log_path = log_store::log_file_path(&data_directory);
 
         self.clear_session_logs();
+        for line in &prelude_logs {
+            self.append_log(line);
+        }
         self.append_log(&liquidity_summary);
         self.append_log("Spawning fnn sidecar…");
 
-        let child = spawn::spawn_with_log_file(
+        let child = match spawn::spawn_with_log_file(
             &config_path,
             &data_directory,
             &log_path,
             password,
             allow_migration,
-        )
-        .map_err(ManagerError::Spawn)?;
+        ) {
+            Ok(child) => child,
+            Err(err) => return Err(self.stop_with(ManagerError::Spawn(err))),
+        };
 
         let child = Arc::new(child);
         self.child = Some(Arc::clone(&child));
@@ -450,38 +489,33 @@ impl FnnManager {
         let poll = Duration::from_millis(500);
 
         loop {
+            let child_exited = self
+                .child
+                .as_ref()
+                .and_then(|child| child.try_wait().ok().flatten())
+                .is_some();
+
+            if child_exited {
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+
             if let Some(details) = self.migration_details_from_logs() {
-                if details.cancelled || self.child.is_none() {
-                    self.stop_managed().ok();
-                    self.status = NodeRuntimeStatus::Stopped;
-                    return Err(ManagerError::MigrationRequired {
-                        message: details.message,
-                        has_breaking_change: details.has_breaking_change,
-                    });
+                if details.cancelled || self.child.is_none() || child_exited {
+                    return Err(self.refuse_migration(details));
                 }
             }
 
             match rpc::fetch_node_info().await {
                 Ok(info) => return Ok(info),
-                Err(RpcError::Timeout(_)) if started.elapsed() >= timeout => {
+                Err(_) if started.elapsed() >= timeout || child_exited => {
                     if let Some(details) = self.migration_details_from_logs() {
-                        self.stop_managed().ok();
-                        self.status = NodeRuntimeStatus::Stopped;
-                        return Err(ManagerError::MigrationRequired {
-                            message: details.message,
-                            has_breaking_change: details.has_breaking_change,
-                        });
+                        return Err(self.refuse_migration(details));
                     }
-                    return Err(ManagerError::Rpc(RpcError::Timeout(timeout.as_secs())));
-                }
-                Err(_) if started.elapsed() >= timeout => {
-                    if let Some(details) = self.migration_details_from_logs() {
-                        self.stop_managed().ok();
-                        self.status = NodeRuntimeStatus::Stopped;
-                        return Err(ManagerError::MigrationRequired {
-                            message: details.message,
-                            has_breaking_change: details.has_breaking_change,
-                        });
+                    if child_exited {
+                        let last_log = self.recent_logs(5).join("\n");
+                        return Err(ManagerError::Rpc(RpcError::Other(format!(
+                            "Node process exited unexpectedly: {last_log}"
+                        ))));
                     }
                     return Err(ManagerError::Rpc(RpcError::Timeout(timeout.as_secs())));
                 }
@@ -489,6 +523,21 @@ impl FnnManager {
                     tokio::time::sleep(poll).await;
                 }
             }
+        }
+    }
+
+    fn stop_with(&mut self, error: ManagerError) -> ManagerError {
+        self.status = NodeRuntimeStatus::Stopped;
+        error
+    }
+
+    fn refuse_migration(&mut self, details: MigrationDetails) -> ManagerError {
+        self.stop_managed().ok();
+        self.status = NodeRuntimeStatus::Stopped;
+        ManagerError::MigrationRequired {
+            message: details.message,
+            has_breaking_change: details.has_breaking_change,
+            is_legacy_channel_block: details.is_legacy_channel_block,
         }
     }
 

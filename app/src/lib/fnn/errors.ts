@@ -5,6 +5,7 @@ const MIGRATION_REQUIRED_PREFIX = "MIGRATION_REQUIRED:"
 export type MigrationRequiredDetails = {
   message: string
   hasBreakingChange: boolean
+  isLegacyChannelBlock: boolean
 }
 
 /** Extract a user-facing message from a thrown Tauri / FNN error. */
@@ -35,9 +36,13 @@ export function parseMigrationRequiredError(
   const payload = raw.slice(MIGRATION_REQUIRED_PREFIX.length)
   const [message, ...flags] = payload.split("|")
   const hasBreakingChange = flags.some((flag) => flag === "breaking_change=true")
+  const isLegacyChannelBlock = flags.some(
+    (flag) => flag === "legacy_channel_block=true",
+  )
 
   return {
     message: message.trim(),
     hasBreakingChange,
+    isLegacyChannelBlock,
   }
 }
